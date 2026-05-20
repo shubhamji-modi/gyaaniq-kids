@@ -12,13 +12,13 @@ class ApiService extends GetxService {
 
   late Dio _dio;
 
-  static String baseUrl = 'https://api.showcaseai.app/api/';
+  ///BASE URL
+  static String baseUrl = 'https://api.example.app/api/';
 
   ///End points
   static const String LOGIN = 'auth/login';
   static const String FORGOT_PASSWORD = "/auth/forgot-password";
   static const String LOGIN_GOOGLE = 'auth/google-login';
-
 
   @override
   void onInit() {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/data/user_profile_provider.dart';
+import '../../../../core/theme/appcolors.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
 import '../../daily_quiz/views/start_quiz_views.dart';
@@ -18,7 +19,7 @@ class DashboardTabbarViewsScreen extends StatelessWidget {
     final controller = Get.put(DashboardTabbarController());
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FD),
+      backgroundColor: AppColors.scaffoldBackground,
       body: Obx(
         () => IndexedStack(
           index: controller.currentTabIndex.value,
@@ -47,11 +48,11 @@ class _BottomNavBar extends GetView<DashboardTabbarController> {
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF5561E9).withValues(alpha: 0.18),
+              color: AppColors.primaryShadow.withValues(alpha: 0.18),
               blurRadius: 24,
               offset: const Offset(0, 10),
             ),
@@ -72,8 +73,8 @@ class _BottomNavBar extends GetView<DashboardTabbarController> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF5A5FEF)
-                          : Colors.transparent,
+                          ? AppColors.primaryBright
+                          : AppColors.transparent,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -82,8 +83,8 @@ class _BottomNavBar extends GetView<DashboardTabbarController> {
                         Icon(
                           item.icon,
                           color: isSelected
-                              ? Colors.white
-                              : const Color(0xFF4B4B62),
+                              ? AppColors.white
+                              : AppColors.navUnselected,
                           size: 22,
                         ),
                         const SizedBox(height: 3),
@@ -91,8 +92,8 @@ class _BottomNavBar extends GetView<DashboardTabbarController> {
                           item.label,
                           style: TextStyle(
                             color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF4B4B62),
+                                ? AppColors.white
+                                : AppColors.navUnselected,
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                           ),
@@ -143,8 +144,8 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE0E5F2))),
+        color: AppColors.white,
+        border: Border(bottom: BorderSide(color: AppColors.headerBorder)),
       ),
       child: Row(
         children: [
@@ -157,14 +158,17 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF123F96), Color(0xFF081B42)],
+                    colors: [
+                      AppColors.avatarGradientStart,
+                      AppColors.avatarGradientEnd,
+                    ],
                   ),
-                  border: Border.all(color: const Color(0xFF0B4CC4), width: 2),
+                  border: Border.all(color: AppColors.avatarBorder, width: 2),
                 ),
                 child: const Center(
                   child: Icon(
                     Icons.person_rounded,
-                    color: Colors.white,
+                    color: AppColors.white,
                     size: 28,
                   ),
                 ),
@@ -174,10 +178,10 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                 bottom: -1,
                 child: CircleAvatar(
                   radius: 9,
-                  backgroundColor: Colors.white,
+                  backgroundColor: AppColors.white,
                   child: CircleAvatar(
                     radius: 7,
-                    backgroundColor: Color(0xFF22C55E),
+                    backgroundColor: AppColors.success,
                   ),
                 ),
               ),
@@ -191,7 +195,7 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                 Text(
                   'Hi, ${profile?.name ?? 'Student'}👋',
                   style: const TextStyle(
-                    color: Color(0xFF18233D),
+                    color: AppColors.textPrimaryDeep,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -200,7 +204,7 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                 Text(
                   'CLASS ${profile?.userClass ?? '-'} • ${profile?.educationBoard ?? '-'} BOARD',
                   style: const TextStyle(
-                    color: Color(0xFF6E7B95),
+                    color: AppColors.textMuted2,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -211,22 +215,22 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFBF1),
+              color: AppColors.streakBackground,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Color(0xFFF6D27D)),
+              border: Border.all(color: AppColors.chipBorder),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.local_fire_department_outlined,
-                  color: Color(0xFFF59E0B),
+                  color: AppColors.streakIcon,
                   size: 15,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   controller.streakText,
                   style: const TextStyle(
-                    color: Color(0xFFC46609),
+                    color: AppColors.streakText,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
@@ -237,7 +241,7 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
           const SizedBox(width: 12),
           const Icon(
             Icons.notifications_none_rounded,
-            color: Color(0xFF515A70),
+            color: AppColors.iconMuted,
             size: 20,
           ),
         ],
@@ -258,7 +262,7 @@ class _HomeTab extends StatelessWidget {
           const Text(
             'Your Learning Journey',
             style: TextStyle(
-              color: Color(0xFF0F378C),
+              color: AppColors.textBlue,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
@@ -267,7 +271,7 @@ class _HomeTab extends StatelessWidget {
           const Text(
             'Master your goals with interactive quests.',
             style: TextStyle(
-              color: Color(0xFF62708D),
+              color: AppColors.textMuted,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -290,7 +294,7 @@ class _HomeTab extends StatelessWidget {
               Text(
                 'Live Classes',
                 style: TextStyle(
-                  color: Color(0xFF1A2540),
+                  color: AppColors.textPrimaryNavy,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -299,7 +303,7 @@ class _HomeTab extends StatelessWidget {
               Text(
                 '● LIVE NOW',
                 style: TextStyle(
-                  color: Color(0xFFEF4444),
+                  color: AppColors.live,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -336,7 +340,7 @@ class _LearnTab extends GetView<DashboardTabbarController> {
           const Text(
             'My Subjects',
             style: TextStyle(
-              color: Color(0xFF1F2637),
+              color: AppColors.textHeadingAlt,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -361,7 +365,7 @@ class _LearnTab extends GetView<DashboardTabbarController> {
           const Text(
             'Study Tools',
             style: TextStyle(
-              color: Color(0xFF1F2637),
+              color: AppColors.textHeadingAlt,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -411,7 +415,7 @@ class _LiveTab extends GetView<DashboardTabbarController> {
           const Text(
             'Live Class',
             style: TextStyle(
-              color: Color(0xFF1F2637),
+              color: AppColors.textHeadingAlt,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -442,7 +446,7 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.auto_awesome,
-                  iconColor: Color(0xFF7C2BD9),
+                  iconColor: AppColors.purpleDark2,
                   title: '2,450',
                   subtitle: 'Total XP',
                 ),
@@ -451,7 +455,7 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
               Expanded(
                 child: _StatCard(
                   icon: Icons.local_fire_department,
-                  iconColor: Color(0xFF996300),
+                  iconColor: AppColors.warningText,
                   title: '12 Days',
                   subtitle: 'Streak',
                 ),
@@ -461,11 +465,11 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
           const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(26),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFCBD4ED).withValues(alpha: 0.32),
+                  color: AppColors.cardShadow.withValues(alpha: 0.32),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -481,7 +485,7 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
           Text(
             controller.appBuild,
             style: const TextStyle(
-              color: Color(0xFFB2B7C8),
+              color: AppColors.textMuted8,
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -513,12 +517,12 @@ class _JourneyCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFFE1E0FF),
+                color: AppColors.primarySoft,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.import_contacts_rounded,
-                color: Color(0xFF4A4FD9),
+                color: AppColors.primary,
                 size: 25,
               ),
             ),
@@ -526,7 +530,7 @@ class _JourneyCard extends StatelessWidget {
             const Text(
               'Learning',
               style: TextStyle(
-                color: Color(0xFF1C2233),
+                color: AppColors.textPrimaryAlt,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -535,7 +539,7 @@ class _JourneyCard extends StatelessWidget {
             const Text(
               '42 Active Chapters',
               style: TextStyle(
-                color: Color(0xFF2F3750),
+                color: AppColors.neutralText2,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -546,7 +550,7 @@ class _JourneyCard extends StatelessWidget {
                 Text(
                   'Overall Progress',
                   style: TextStyle(
-                    color: Color(0xFF666D84),
+                    color: AppColors.textMuted3,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -555,7 +559,7 @@ class _JourneyCard extends StatelessWidget {
                 Text(
                   '68%',
                   style: TextStyle(
-                    color: Color(0xFF4A4FD9),
+                    color: AppColors.primary,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -568,8 +572,8 @@ class _JourneyCard extends StatelessWidget {
               child: const LinearProgressIndicator(
                 value: 0.68,
                 minHeight: 10,
-                backgroundColor: Color(0xFFE7EAF1),
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A4FD9)),
+                backgroundColor: AppColors.neutralSurface3,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
           ],
@@ -591,7 +595,7 @@ class _DailyQuizMiniCard extends StatelessWidget {
         height: 200,
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF163B98),
+          color: AppColors.primaryDark,
           borderRadius: BorderRadius.circular(28),
         ),
         child: Stack(
@@ -605,13 +609,13 @@ class _DailyQuizMiniCard extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFC61B),
+                  color: AppColors.warning,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
                   'BONUS +50 XP',
                   style: TextStyle(
-                    color: Color(0xFF062C7F),
+                    color: AppColors.textBlueDark,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
@@ -624,7 +628,7 @@ class _DailyQuizMiniCard extends StatelessWidget {
               child: Text(
                 'Daily\nQuiz',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   height: 1.1,
@@ -640,13 +644,13 @@ class _DailyQuizMiniCard extends StatelessWidget {
                   vertical: 9,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.20),
+                  color: AppColors.white.withValues(alpha: 0.20),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   'Start Now',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -659,7 +663,7 @@ class _DailyQuizMiniCard extends StatelessWidget {
               child: Icon(
                 Icons.quiz_outlined,
                 size: 62,
-                color: Colors.white.withValues(alpha: 0.12),
+                color: AppColors.white.withValues(alpha: 0.12),
               ),
             ),
           ],
@@ -678,8 +682,8 @@ class _AiTutorCard extends StatelessWidget {
       height: 200,
       padding: const EdgeInsets.all(18),
       decoration: _cardDecoration().copyWith(
-        color: const Color(0xFFF8F9FD),
-        border: Border.all(color: const Color(0xFFE2E6F1)),
+        color: AppColors.neutralSurface,
+        border: Border.all(color: AppColors.lightBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,12 +692,12 @@ class _AiTutorCard extends StatelessWidget {
             width: 35,
             height: 35,
             decoration: BoxDecoration(
-              color: const Color(0xFFF3E8FF),
+              color: AppColors.purpleSoft,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.lock_outline_rounded,
-              color: Color(0xFFA176F5),
+              color: AppColors.purple,
               size: 20,
             ),
           ),
@@ -701,7 +705,7 @@ class _AiTutorCard extends StatelessWidget {
           const Text(
             'AI Tutor',
             style: TextStyle(
-              color: Color(0xFF30384A),
+              color: AppColors.neutralText,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
@@ -710,7 +714,7 @@ class _AiTutorCard extends StatelessWidget {
           const Text(
             'Ask any doubt\ninstant solutions.',
             style: TextStyle(
-              color: Color(0xFF9AA4BA),
+              color: AppColors.textMuted7,
               fontSize: 12,
               fontWeight: FontWeight.w500,
               height: 1.5,
@@ -722,8 +726,8 @@ class _AiTutorCard extends StatelessWidget {
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F6FB),
-              border: Border.all(color: const Color(0xFFD9DFEC)),
+              color: AppColors.neutralSurface2,
+              border: Border.all(color: AppColors.softBorder),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Row(
@@ -731,14 +735,14 @@ class _AiTutorCard extends StatelessWidget {
               children: [
                 Icon(
                   Icons.lock_outline_rounded,
-                  color: Color(0xFF9AA4BA),
+                  color: AppColors.textMuted7,
                   size: 14,
                 ),
                 SizedBox(width: 6),
                 Text(
                   'Locked',
                   style: TextStyle(
-                    color: Color(0xFF9AA4BA),
+                    color: AppColors.textMuted7,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
@@ -772,14 +776,14 @@ class _LeaderboardStripCard extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.emoji_events_outlined,
-                      color: Color(0xFFFFB200),
+                      color: AppColors.warning2,
                       size: 20,
                     ),
                     SizedBox(width: 8),
                     Text(
                       'Leaderboard',
                       style: TextStyle(
-                        color: Color(0xFF1B2436),
+                        color: AppColors.textPrimaryNavy,
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
@@ -797,7 +801,7 @@ class _LeaderboardStripCard extends StatelessWidget {
               const Text(
                 'Global Rank: #1,240',
                 style: TextStyle(
-                  color: Color(0xFFA0A7BD),
+                  color: AppColors.textMuted6,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
@@ -812,13 +816,13 @@ class _LeaderboardStripCard extends StatelessWidget {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF143B98),
+                    color: AppColors.primaryDeeper,
                     borderRadius: BorderRadius.circular(26),
                   ),
                   child: const Text(
                     'View Ranking',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -849,7 +853,7 @@ class _LiveHeroCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF41210D), Color(0xFF17110D)],
+                colors: [AppColors.liveHeroStart, AppColors.liveHeroEnd],
               ),
             ),
             child: Stack(
@@ -859,7 +863,7 @@ class _LiveHeroCard extends StatelessWidget {
                   top: 16,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Color(0xFFEF4444),
+                      color: AppColors.live,
                       borderRadius: BorderRadius.all(Radius.circular(20)),
                     ),
                     child: Padding(
@@ -867,7 +871,7 @@ class _LiveHeroCard extends StatelessWidget {
                       child: Text(
                         'LIVE',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.white,
                           fontWeight: FontWeight.w700,
                           fontSize: 10,
                         ),
@@ -878,10 +882,10 @@ class _LiveHeroCard extends StatelessWidget {
                 const Center(
                   child: CircleAvatar(
                     radius: 64,
-                    backgroundColor: Color(0xFF195C76),
+                    backgroundColor: AppColors.liveHeroCircle,
                     child: Icon(
                       Icons.public_rounded,
-                      color: Color(0xFFE8BD77),
+                      color: AppColors.liveHeroIcon,
                       size: 84,
                     ),
                   ),
@@ -896,8 +900,8 @@ class _LiveHeroCard extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withValues(alpha: 0),
-                          Colors.black.withValues(alpha: 0.65),
+                          AppColors.black.withValues(alpha: 0),
+                          AppColors.black.withValues(alpha: 0.65),
                         ],
                       ),
                     ),
@@ -907,7 +911,7 @@ class _LiveHeroCard extends StatelessWidget {
                         Text(
                           'Integration & Calculus Mastery',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                           ),
@@ -915,7 +919,10 @@ class _LiveHeroCard extends StatelessWidget {
                         SizedBox(height: 4),
                         Text(
                           'Dr. Aris Thorne • 1.2k watching',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(
+                            color: AppColors.white70,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -928,12 +935,15 @@ class _LiveHeroCard extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
-                const Icon(Icons.schedule_outlined, color: Color(0xFF8B98B5)),
+                const Icon(
+                  Icons.schedule_outlined,
+                  color: AppColors.liveIconMuted,
+                ),
                 const SizedBox(width: 10),
                 const Text(
                   'Ends in 25 mins',
                   style: TextStyle(
-                    color: Color(0xFF67748E),
+                    color: AppColors.liveTextMuted,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -945,13 +955,13 @@ class _LiveHeroCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF163B98),
+                    color: AppColors.primaryDark,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Text(
                     'Join Class',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                     ),
@@ -974,8 +984,8 @@ class _SpokenEnglishCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: _cardDecoration().copyWith(
-        color: const Color(0xFFF8F9FD),
-        border: Border.all(color: const Color(0xFFE2E6F1)),
+        color: AppColors.neutralSurface,
+        border: Border.all(color: AppColors.lightBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -984,12 +994,12 @@ class _SpokenEnglishCard extends StatelessWidget {
             width: 35,
             height: 35,
             decoration: BoxDecoration(
-              color: const Color(0xFFF3E8FF),
+              color: AppColors.purpleSoft,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.lock_outline_rounded,
-              color: Color(0xFFA176F5),
+              color: AppColors.purple,
               size: 20,
             ),
           ),
@@ -997,7 +1007,7 @@ class _SpokenEnglishCard extends StatelessWidget {
           const Text(
             'Spoken English',
             style: TextStyle(
-              color: Color(0xFF30384A),
+              color: AppColors.neutralText,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
@@ -1006,7 +1016,7 @@ class _SpokenEnglishCard extends StatelessWidget {
           const Text(
             'Practice with AI Tutor',
             style: TextStyle(
-              color: Color(0xFF9AA4BA),
+              color: AppColors.textMuted7,
               fontSize: 12,
               fontWeight: FontWeight.w500,
               height: 1.5,
@@ -1018,8 +1028,8 @@ class _SpokenEnglishCard extends StatelessWidget {
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F6FB),
-              border: Border.all(color: const Color(0xFFD9DFEC)),
+              color: AppColors.neutralSurface2,
+              border: Border.all(color: AppColors.softBorder),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Row(
@@ -1027,14 +1037,14 @@ class _SpokenEnglishCard extends StatelessWidget {
               children: [
                 Icon(
                   Icons.lock_outline_rounded,
-                  color: Color(0xFF9AA4BA),
+                  color: AppColors.textMuted7,
                   size: 14,
                 ),
                 SizedBox(width: 6),
                 Text(
                   'Locked',
                   style: TextStyle(
-                    color: Color(0xFF9AA4BA),
+                    color: AppColors.textMuted7,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1062,12 +1072,12 @@ class _ExploreClassesCard extends StatelessWidget {
             width: 45,
             height: 45,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0DEFF),
+              color: AppColors.purpleSoft2,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.travel_explore,
-              color: Color(0xFF7E2AD9),
+              color: AppColors.purpleDark,
               size: 25,
             ),
           ),
@@ -1079,7 +1089,7 @@ class _ExploreClassesCard extends StatelessWidget {
                 Text(
                   'Explore Classes',
                   style: TextStyle(
-                    color: Color(0xFF1C2233),
+                    color: AppColors.textPrimaryAlt,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1088,7 +1098,7 @@ class _ExploreClassesCard extends StatelessWidget {
                 Text(
                   'Explore your learning path.',
                   style: TextStyle(
-                    color: Color(0xFF4B4F61),
+                    color: AppColors.textSecondary,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1098,7 +1108,7 @@ class _ExploreClassesCard extends StatelessWidget {
           ),
           const Icon(
             Icons.chevron_right_rounded,
-            color: Color(0xFF747B8E),
+            color: AppColors.textMuted4,
             size: 28,
           ),
         ],
@@ -1198,7 +1208,7 @@ class _SubjectCard extends StatelessWidget {
             Text(
               subject.title,
               style: const TextStyle(
-                color: Color(0xFF1D2231),
+                color: AppColors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
@@ -1212,7 +1222,7 @@ class _SubjectCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: value,
                       minHeight: 8,
-                      backgroundColor: const Color(0xFFE4E7EE),
+                      backgroundColor: AppColors.neutralSurface5,
                       valueColor: AlwaysStoppedAnimation<Color>(subject.accent),
                     ),
                   ),
@@ -1221,7 +1231,7 @@ class _SubjectCard extends StatelessWidget {
                 Text(
                   subject.progressLabel,
                   style: TextStyle(
-                    color: const Color(0xFF4B4F61).withValues(alpha: 0.92),
+                    color: AppColors.textSecondary.withValues(alpha: 0.92),
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1280,7 +1290,7 @@ class _StudyToolCard extends StatelessWidget {
                     Text(
                       tool.title,
                       style: const TextStyle(
-                        color: Color(0xFF1D2231),
+                        color: AppColors.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1289,7 +1299,7 @@ class _StudyToolCard extends StatelessWidget {
                     Text(
                       tool.subtitle,
                       style: const TextStyle(
-                        color: Color(0xFF4E5366),
+                        color: AppColors.neutralText5,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1299,7 +1309,7 @@ class _StudyToolCard extends StatelessWidget {
               ),
               const Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFF767D90),
+                color: AppColors.neutralText6,
                 size: 30,
               ),
             ],
@@ -1319,11 +1329,11 @@ class _QuizChallengeCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF4A4FD9),
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4A4FD9).withValues(alpha: 0.26),
+            color: AppColors.primary.withValues(alpha: 0.26),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1337,7 +1347,7 @@ class _QuizChallengeCard extends StatelessWidget {
             child: Icon(
               Icons.quiz_outlined,
               size: 102,
-              color: Colors.white.withValues(alpha: 0.14),
+              color: AppColors.white.withValues(alpha: 0.14),
             ),
           ),
           Column(
@@ -1346,7 +1356,7 @@ class _QuizChallengeCard extends StatelessWidget {
               Text(
                 '⚡ DAILY CHALLENGE',
                 style: TextStyle(
-                  color: Color(0xFFE9E9FF),
+                  color: AppColors.primaryPale,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.0,
@@ -1356,7 +1366,7 @@ class _QuizChallengeCard extends StatelessWidget {
               Text(
                 'Daily Quiz',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1365,7 +1375,7 @@ class _QuizChallengeCard extends StatelessWidget {
               Text(
                 'Test your knowledge with 5 quick \nquestions andearn a 2x XP multiplier!',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   height: 1.55,
@@ -1405,19 +1415,19 @@ class _QuizPracticeCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0DEFF),
+                    color: AppColors.purpleSoft2,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.menu_book_rounded,
-                    color: Color(0xFF7E2AD9),
+                    color: AppColors.purpleDark,
                     size: 25,
                   ),
                 ),
                 const Spacer(),
                 const Icon(
                   Icons.arrow_forward_rounded,
-                  color: Color(0xFFC4BCD7),
+                  color: AppColors.streakBorder,
                   size: 28,
                 ),
               ],
@@ -1426,7 +1436,7 @@ class _QuizPracticeCard extends StatelessWidget {
             const Text(
               'Practice Quiz',
               style: TextStyle(
-                color: Color(0xFF1F2430),
+                color: AppColors.textHeading,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
@@ -1435,7 +1445,7 @@ class _QuizPracticeCard extends StatelessWidget {
             const Text(
               'Chapter-wise focused practice\nsessions.',
               style: TextStyle(
-                color: Color(0xFF4B5161),
+                color: AppColors.textSecondaryAlt,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 height: 1.5,
@@ -1476,12 +1486,12 @@ class _MockTestCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE2BA),
+              color: AppColors.warningSoft,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.alarm_rounded,
-              color: Color(0xFF5E3B00),
+              color: AppColors.warningTextDark,
               size: 25,
             ),
           ),
@@ -1489,7 +1499,7 @@ class _MockTestCard extends StatelessWidget {
           const Text(
             'Mock Test',
             style: TextStyle(
-              color: Color(0xFF1F2430),
+              color: AppColors.textHeading,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -1498,7 +1508,7 @@ class _MockTestCard extends StatelessWidget {
           const Text(
             'Real exam simulation with timers.',
             style: TextStyle(
-              color: Color(0xFF4B5161),
+              color: AppColors.textSecondaryAlt,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -1507,21 +1517,21 @@ class _MockTestCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFE3E7EE),
+              color: AppColors.neutralSurface4,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Row(
               children: [
                 Icon(
                   Icons.event_note_rounded,
-                  color: Color(0xFF5A5FEF),
+                  color: AppColors.primaryBright,
                   size: 15,
                 ),
                 SizedBox(width: 8),
                 Text(
                   'Next: Sunday, 10 AM',
                   style: TextStyle(
-                    color: Color(0xFF41485A),
+                    color: AppColors.neutralText4,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1542,12 +1552,12 @@ class _AnalyticsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     const heights = [52.0, 72.0, 60.0, 96.0, 86.0, 108.0];
     const colors = [
-      Color(0xFFD8D9FB),
-      Color(0xFFB9BAEF),
-      Color(0xFF8E8FE2),
-      Color(0xFF676AE0),
-      Color(0xFF4447D8),
-      Color(0xFFFFAA18),
+      AppColors.primaryTint,
+      AppColors.primaryTint2,
+      AppColors.primaryTint3,
+      AppColors.primaryTint4,
+      AppColors.primaryTint5,
+      AppColors.analyticsHighlight,
     ];
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -1562,7 +1572,7 @@ class _AnalyticsCard extends StatelessWidget {
               Text(
                 'Test Analytics',
                 style: TextStyle(
-                  color: Color(0xFF1F2430),
+                  color: AppColors.textHeading,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1593,7 +1603,7 @@ class _AnalyticsCard extends StatelessWidget {
                     Text(
                       labels[index],
                       style: const TextStyle(
-                        color: Color(0xFF6E7488),
+                        color: AppColors.analyticsLabel,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1609,7 +1619,7 @@ class _AnalyticsCard extends StatelessWidget {
               'Your accuracy increased by 12% this\nweek!',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF31384A),
+                color: AppColors.neutralText3,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 height: 1.45,
@@ -1639,7 +1649,7 @@ class _PreviousResultsCard extends StatelessWidget {
               const Text(
                 'Previous Results',
                 style: TextStyle(
-                  color: Color(0xFF1F2430),
+                  color: AppColors.textHeading,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1650,7 +1660,7 @@ class _PreviousResultsCard extends StatelessWidget {
                 child: const Text(
                   'View All',
                   style: TextStyle(
-                    color: Color(0xFF4A4FD9),
+                    color: AppColors.primary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1681,7 +1691,7 @@ class _PreviousResultsCard extends StatelessWidget {
                         Text(
                           result.title,
                           style: const TextStyle(
-                            color: Color(0xFF202534),
+                            color: AppColors.textDark,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
@@ -1690,7 +1700,7 @@ class _PreviousResultsCard extends StatelessWidget {
                         Text(
                           result.meta,
                           style: const TextStyle(
-                            color: Color(0xFF7A8093),
+                            color: AppColors.resultMeta,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1704,7 +1714,7 @@ class _PreviousResultsCard extends StatelessWidget {
                       Text(
                         result.scoreText,
                         style: const TextStyle(
-                          color: Color(0xFF3345FF),
+                          color: AppColors.primaryScore,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                         ),
@@ -1712,7 +1722,7 @@ class _PreviousResultsCard extends StatelessWidget {
                       const Text(
                         'SCORE',
                         style: TextStyle(
-                          color: Color(0xFF747B8E),
+                          color: AppColors.textMuted4,
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1737,10 +1747,10 @@ class _RecentBadgesCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-          color: const Color(0xFFC8D0E6),
+          color: AppColors.softBorder2,
           style: BorderStyle.solid,
         ),
       ),
@@ -1750,7 +1760,7 @@ class _RecentBadgesCard extends StatelessWidget {
           Text(
             'Recent Badges',
             style: TextStyle(
-              color: Color(0xFF1F2430),
+              color: AppColors.textHeading,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -1761,19 +1771,19 @@ class _RecentBadgesCard extends StatelessWidget {
             children: [
               _BadgeItem(
                 label: 'Quiz Master',
-                color: Color(0xFFC98609),
+                color: AppColors.badgeGold,
                 icon: Icons.workspace_premium_rounded,
               ),
               _BadgeItem(
                 label: 'Fastest Finisher',
-                color: Color(0xFF4A4FD9),
+                color: AppColors.primary,
                 icon: Icons.speed_rounded,
               ),
               _BadgeItem(
                 label: '7 Day Streak',
-                color: Color(0xFFD9DCE4),
+                color: AppColors.badgeLocked,
                 icon: Icons.lock_outline_rounded,
-                textColor: Color(0xFF9BA1AF),
+                textColor: AppColors.badgeLockedText,
               ),
             ],
           ),
@@ -1792,10 +1802,10 @@ class _LiveFeaturedCard extends StatelessWidget {
       height: 180,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: const Color(0xFFC8D0E6)),
+        border: Border.all(color: AppColors.softBorder2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFCBD4ED).withValues(alpha: 0.24),
+            color: AppColors.cardShadow.withValues(alpha: 0.24),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1811,7 +1821,7 @@ class _LiveFeaturedCard extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFFDBEEF7), Color(0xFF8E9C96)],
+                  colors: [AppColors.blueGrayLight, AppColors.grayBlue],
                 ),
               ),
             ),
@@ -1822,8 +1832,8 @@ class _LiveFeaturedCard extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.04),
-                      Colors.black.withValues(alpha: 0.42),
+                      AppColors.black.withValues(alpha: 0.04),
+                      AppColors.black.withValues(alpha: 0.42),
                     ],
                   ),
                 ),
@@ -1834,7 +1844,7 @@ class _LiveFeaturedCard extends StatelessWidget {
               top: 24,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Color(0xFF5A5FEF),
+                  color: AppColors.primaryBright,
                   borderRadius: BorderRadius.all(Radius.circular(24)),
                 ),
                 child: Padding(
@@ -1842,7 +1852,7 @@ class _LiveFeaturedCard extends StatelessWidget {
                   child: Text(
                     'Mathematics',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1860,7 +1870,7 @@ class _LiveFeaturedCard extends StatelessWidget {
                     child: Text(
                       'Algebra Foundations\nwith Dr. Sarah Miller',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         height: 1.35,
@@ -1909,7 +1919,7 @@ class _LiveScheduleCard extends StatelessWidget {
             Container(
               width: 1,
               height: 110,
-              color: const Color(0xFFD5DAEA),
+              color: AppColors.divider,
               margin: const EdgeInsets.symmetric(horizontal: 18),
             ),
             Expanded(
@@ -1928,7 +1938,7 @@ class _LiveScheduleCard extends StatelessWidget {
                     child: Text(
                       item.subject,
                       style: const TextStyle(
-                        color: Color(0xFF3B136B),
+                        color: AppColors.purpleLabel,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1938,7 +1948,7 @@ class _LiveScheduleCard extends StatelessWidget {
                   Text(
                     item.title,
                     style: const TextStyle(
-                      color: Color(0xFF1C2233),
+                      color: AppColors.textPrimaryAlt,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       height: 1.45,
@@ -1948,7 +1958,7 @@ class _LiveScheduleCard extends StatelessWidget {
                   Text(
                     item.teacher,
                     style: const TextStyle(
-                      color: Color(0xFF555C70),
+                      color: AppColors.neutralText5,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1959,7 +1969,7 @@ class _LiveScheduleCard extends StatelessWidget {
             const SizedBox(width: 10),
             const Icon(
               Icons.notifications_none_rounded,
-              color: Color(0xFF7B8197),
+              color: AppColors.neutralText7,
               size: 30,
             ),
           ],
@@ -1985,23 +1995,23 @@ class _ProfileAvatarSection extends StatelessWidget {
               height: 90,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF5A5FEF), width: 3),
+                border: Border.all(color: AppColors.primaryBright, width: 3),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF5A5FEF).withValues(alpha: 0.15),
+                    color: AppColors.primaryBright.withValues(alpha: 0.15),
                     blurRadius: 18,
                     offset: const Offset(0, 10),
                   ),
                 ],
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFF5F7FB), Color(0xFFE3E8F2)],
+                  colors: [AppColors.profileRing, AppColors.profileRing2],
                 ),
               ),
               child: const Center(
                 child: Icon(
                   Icons.person_rounded,
                   size: 50,
-                  color: Color(0xFF1B3C97),
+                  color: AppColors.profileIcon,
                 ),
               ),
             ),
@@ -2015,11 +2025,11 @@ class _ProfileAvatarSection extends StatelessWidget {
                   height: 25,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0xFFFFB020),
+                    color: AppColors.warning3,
                   ),
                   child: const Icon(
                     Icons.edit_rounded,
-                    color: Color(0xFF5E3B00),
+                    color: AppColors.warningTextDark,
                     size: 17,
                   ),
                 ),
@@ -2031,7 +2041,7 @@ class _ProfileAvatarSection extends StatelessWidget {
         Text(
           profile?.name ?? 'Student',
           style: const TextStyle(
-            color: Color(0xFF1D2231),
+            color: AppColors.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w900,
           ),
@@ -2043,13 +2053,13 @@ class _ProfileAvatarSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFE8E6FF),
+                color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Text(
                 'CLASS ${profile?.userClass ?? '-'}',
                 style: const TextStyle(
-                  color: Color(0xFF5A5FEF),
+                  color: AppColors.primaryBright,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
@@ -2060,7 +2070,7 @@ class _ProfileAvatarSection extends StatelessWidget {
               child: Text(
                 '•',
                 style: TextStyle(
-                  color: Color(0xFFC1C4D3),
+                  color: AppColors.neutralDot,
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                 ),
@@ -2069,13 +2079,13 @@ class _ProfileAvatarSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFF6EEDC),
+                color: AppColors.boardBackground,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Text(
                 '${profile?.educationBoard ?? '-'} BOARD',
                 style: const TextStyle(
-                  color: Color(0xFF946000),
+                  color: AppColors.boardText,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
@@ -2113,7 +2123,7 @@ class _StatCard extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: Color(0xFF1D2231),
+              color: AppColors.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
@@ -2122,7 +2132,7 @@ class _StatCard extends StatelessWidget {
           Text(
             subtitle,
             style: const TextStyle(
-              color: Color(0xFF7A7C8C),
+              color: AppColors.neutralText8,
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -2147,7 +2157,9 @@ class _ProfileMenuTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFF0F2F8))),
+          border: Border(
+            bottom: BorderSide(color: AppColors.profileMenuBorder),
+          ),
         ),
         child: Row(
           children: [
@@ -2157,9 +2169,9 @@ class _ProfileMenuTile extends StatelessWidget {
               child: Text(
                 item.title,
                 style: TextStyle(
-                  color: item.color == const Color(0xFFC81E1E)
-                      ? const Color(0xFFC81E1E)
-                      : const Color(0xFF1D2231),
+                  color: item.color == AppColors.destructive
+                      ? AppColors.destructive
+                      : AppColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2167,9 +2179,9 @@ class _ProfileMenuTile extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: item.color == const Color(0xFFC81E1E)
-                  ? const Color(0xFFE4B1B1)
-                  : const Color(0xFFC6CAD8),
+              color: item.color == AppColors.destructive
+                  ? AppColors.neutralText11
+                  : AppColors.neutralText10,
               size: 30,
             ),
           ],
@@ -2190,25 +2202,34 @@ class _AvatarStack extends StatelessWidget {
         children: [
           Positioned(
             left: 0,
-            child: CircleAvatar(radius: 17, backgroundColor: Color(0xFFBCC4D9)),
+            child: CircleAvatar(
+              radius: 17,
+              backgroundColor: AppColors.avatarGray,
+            ),
           ),
           Positioned(
             left: 20,
-            child: CircleAvatar(radius: 17, backgroundColor: Color(0xFFD8A9A9)),
+            child: CircleAvatar(
+              radius: 17,
+              backgroundColor: AppColors.avatarPink,
+            ),
           ),
           Positioned(
             left: 40,
-            child: CircleAvatar(radius: 17, backgroundColor: Color(0xFF9F8A7B)),
+            child: CircleAvatar(
+              radius: 17,
+              backgroundColor: AppColors.avatarBrown,
+            ),
           ),
           Positioned(
             left: 60,
             child: CircleAvatar(
               radius: 17,
-              backgroundColor: Color(0xFFF0F3F8),
+              backgroundColor: AppColors.avatarLight,
               child: Text(
                 '+42',
                 style: TextStyle(
-                  color: Color(0xFF8190AD),
+                  color: AppColors.neutralText9,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -2226,7 +2247,7 @@ class _BadgeItem extends StatelessWidget {
     required this.label,
     required this.color,
     required this.icon,
-    this.textColor = const Color(0xFF202534),
+    this.textColor = AppColors.textDark,
   });
 
   final String label;
@@ -2241,7 +2262,7 @@ class _BadgeItem extends StatelessWidget {
         CircleAvatar(
           radius: 34,
           backgroundColor: color,
-          child: Icon(icon, color: Colors.white, size: 25),
+          child: Icon(icon, color: AppColors.white, size: 25),
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -2271,13 +2292,13 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F2F8),
+        color: AppColors.profileMenuBorder,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: Color(0xFF4B4F61),
+          color: AppColors.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w700,
         ),
@@ -2301,13 +2322,13 @@ class _BannerButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: inverted ? Colors.white : const Color(0xFF4A4FD9),
+          color: inverted ? AppColors.white : AppColors.primary,
           borderRadius: BorderRadius.circular(26),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: inverted ? const Color(0xFF4A4FD9) : Colors.white,
+            color: inverted ? AppColors.primary : AppColors.white,
             fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
@@ -2325,7 +2346,7 @@ class _LiveNowButton extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF4A4FD9),
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(26),
       ),
       child: const Row(
@@ -2333,13 +2354,13 @@ class _LiveNowButton extends StatelessWidget {
           Text(
             'Join Now',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.white,
               fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
           ),
           SizedBox(width: 8),
-          Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 24),
+          Icon(Icons.arrow_forward_rounded, color: AppColors.white, size: 24),
         ],
       ),
     );
@@ -2348,12 +2369,12 @@ class _LiveNowButton extends StatelessWidget {
 
 BoxDecoration _cardDecoration({double borderRadius = 26}) {
   return BoxDecoration(
-    color: Colors.white,
+    color: AppColors.white,
     borderRadius: BorderRadius.circular(borderRadius),
-    border: Border.all(color: const Color(0xFFE3E8F4)),
+    border: Border.all(color: AppColors.cardBorder),
     boxShadow: [
       BoxShadow(
-        color: const Color(0xFFCBD4ED).withValues(alpha: 0.24),
+        color: AppColors.cardShadow.withValues(alpha: 0.24),
         blurRadius: 18,
         offset: const Offset(0, 8),
       ),
