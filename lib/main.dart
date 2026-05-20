@@ -1,0 +1,60 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+
+import 'modules/auth/views/login_screen.dart';
+import 'modules/dashboard_vc/views/dashboard_tabbar_views_screen.dart';
+import 'modules/leaderboard/views/leaderboard_views.dart';
+import 'modules/onboard/views/onboard_view.dart';
+import 'modules/splash/views/splash_view.dart';
+import 'modules/student_profile_setup/student_profile_setup_views.dart';
+import 'routes/app_routes.dart';
+
+import 'package:provider/provider.dart';
+import 'core/data/user_profile_provider.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  runApp(
+    MultiProvider(
+      providers: [ChangeNotifierProvider(create: (_) => UserProfileProvider())],
+      child: const EduPathApp(),
+    ),
+  );
+}
+
+class EduPathApp extends StatelessWidget {
+  const EduPathApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'EduPath',
+      initialRoute: AppRoutes.splash,
+      getPages: [
+        GetPage(name: AppRoutes.splash, page: () => const SplashView()),
+        GetPage(name: AppRoutes.login, page: () => const LoginScreen()),
+        GetPage(name: AppRoutes.onboarding, page: () => const OnboardView()),
+        GetPage(
+          name: AppRoutes.studentProfileSetup,
+          page: () => const StudentProfileSetupViews(),
+        ),
+        GetPage(
+          name: AppRoutes.dashboard,
+          page: () => const DashboardTabbarViewsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.leaderboard,
+          page: () => const LeaderboardViews(),
+        ),
+      ],
+      theme: ThemeData(
+        fontFamily: 'Lexend',
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5F59EF)),
+        useMaterial3: true,
+      ),
+    );
+  }
+}
