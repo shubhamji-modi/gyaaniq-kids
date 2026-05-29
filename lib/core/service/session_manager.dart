@@ -93,15 +93,13 @@ class SessionManager extends GetxService {
     await _prefs?.setString(_keyUserToken, token);
     await _prefs?.setString(_keyUserId, userId);
 
-    if (userData != null && email !=null ) {
+    if (userData != null && email != null) {
       await _prefs?.setString(_keyUserData, userData);
       await _prefs?.setString(_keyUserEmail, email);
     }
 
-    if(profilePic != null){
-
+    if (profilePic != null) {
       await _prefs?.setString(_keyProfilePic, profilePic);
-
     }
   }
 
@@ -115,6 +113,8 @@ class SessionManager extends GetxService {
     await _prefs?.remove(_keyUserToken);
     await _prefs?.remove(_keyUserId);
     await _prefs?.remove(_keyUserData);
+    await _prefs?.remove(_keyUserEmail);
+    await _prefs?.remove(_keyProfilePic);
   }
 
   // Update token
@@ -139,11 +139,12 @@ class SessionManager extends GetxService {
   // Get user data
   String? getUserData() {
     return _prefs?.getString(_keyUserData);
-  }  // Get user data
+  } // Get user data
 
   String? getUserEmail() {
     return _prefs?.getString(_keyUserEmail);
   }
+
   String? getUserProfile() {
     return _prefs?.getString(_keyProfilePic);
   }

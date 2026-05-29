@@ -1,79 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/service/api_service.dart';
+
 class LeaderboardController extends GetxController {
-  final List<LeaderboardUser> topThree = const [
-    LeaderboardUser(
-      rank: 2,
-      name: 'Jordan Lee',
-      xp: 12450,
-      initials: 'JL',
-      avatarGradient: [Color(0xFF71D7D4), Color(0xFF3A6EA8)],
-      ringColor: Color(0xFFD6D0EF),
-    ),
-    LeaderboardUser(
-      rank: 1,
-      name: 'Maya Chen',
-      xp: 15200,
-      initials: 'MC',
-      avatarGradient: [Color(0xFFFFD561), Color(0xFF9F4B11)],
-      ringColor: Color(0xFFFFA81E),
-      isChampion: true,
-    ),
-    LeaderboardUser(
-      rank: 3,
-      name: 'Leo Garcia',
-      xp: 11900,
-      initials: 'LG',
-      avatarGradient: [Color(0xFF2A6BC6), Color(0xFF101C33)],
-      ringColor: Color(0xFFFFB46A),
-    ),
-  ];
+  final RxBool isLoading = true.obs;
+  final RxString errorMessage = ''.obs;
+  final RxString classLevel = ''.obs;
+  final RxInt totalStudents = 0.obs;
+  final RxInt myRank = 0.obs;
+  final RxBool myInTop = false.obs;
+  final RxList<LeaderboardUser> top = <LeaderboardUser>[].obs;
+  final Rxn<LeaderboardUser> myEntry = Rxn<LeaderboardUser>();
 
-  final LeaderboardUser currentUser = const LeaderboardUser(
-    rank: 14,
-    name: 'Alex Johnson',
-    xp: 8450,
-    initials: 'AJ',
-    avatarGradient: [Color(0xFFFFD0AE), Color(0xFFF08E54)],
-    ringColor: Color(0xFFFFFFFF),
-    subtitle: 'Ranked #14 this week',
-  );
+  List<LeaderboardUser> get topThree => top.take(3).toList();
 
-  final List<LeaderboardUser> rankings = const [
-    LeaderboardUser(
-      rank: 4,
-      name: 'Sarah Williams',
-      xp: 10200,
-      initials: 'SW',
-      avatarGradient: [Color(0xFFCBEAEC), Color(0xFF8AC6CB)],
-      ringColor: Color(0xFFEAF4F5),
-    ),
-    LeaderboardUser(
-      rank: 5,
-      name: 'David Kim',
-      xp: 9800,
-      initials: 'DK',
-      avatarGradient: [Color(0xFF7ED0FF), Color(0xFF1F4B72)],
-      ringColor: Color(0xFFE8F4FB),
-    ),
-    LeaderboardUser(
-      rank: 6,
-      name: 'Elena Rodriguez',
-      xp: 9450,
-      initials: 'ER',
-      avatarGradient: [Color(0xFFEAFBFF), Color(0xFF8AB9D5)],
-      ringColor: Color(0xFFEAF4FB),
-    ),
-    LeaderboardUser(
-      rank: 7,
-      name: 'James Smith',
-      xp: 8900,
-      initials: 'JS',
-      avatarGradient: [Color(0xFF1D2E48), Color(0xFF457EA6)],
-      ringColor: Color(0xFFE8EEF7),
-    ),
-  ];
+  LeaderboardUser? get currentUser => myEntry.value;
+
+  List<LeaderboardUser> get rankings => top.skip(3).toList();
+
+  @override
+  void onInit() {
+    super.onInit();
+    loadLeaderboard();
+  }
+
+  Future<void> loadLeaderboard() async {
+    isLoading.value = true;
+    errorMessage.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.USER_LEADERBOARD,
+      showLoader: false,
+      fromJson: (json) => json,
+      queryParameters: const {'topLimit': 10},
+    );
+
+    isLoading.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      errorMessage.value = response.message;
+      top.clear();
+      myEntry.value = null;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    classLevel.value = _safeText(data['classLevel']);
+    totalStudents.value = (data['totalStudents'] as num?)?.toInt() ?? 0;
+    myRank.value = (data['myRank'] as num?)?.toInt() ?? 0;
+    myInTop.value = data['myInTop'] == true;
+    top.assignAll(
+      (data['top'] as List<dynamic>? ?? const []).map(
+        (item) => LeaderboardUser.fromApi(item as Map<String, dynamic>),
+      ),
+    );
+    final entryJson = data['myEntry'];
+    myEntry.value = entryJson is Map<String, dynamic>
+        ? LeaderboardUser.fromApi(
+            entryJson,
+            subtitle: myRank.value > 0 ? 'Ranked #${myRank.value}' : null,
+          )
+        : null;
+  }
 
   String formatXp(int value) {
     final valueText = value.toString();
@@ -109,4 +99,56 @@ class LeaderboardUser {
   final Color ringColor;
   final String? subtitle;
   final bool isChampion;
+
+  factory LeaderboardUser.fromApi(
+    Map<String, dynamic> json, {
+    String? subtitle,
+  }) {
+    final student = (json['student'] as Map<String, dynamic>?) ?? const {};
+    final rank = (json['rank'] as num?)?.toInt() ?? 0;
+    final name = _safeText(student['name'], fallback: 'Student');
+    return LeaderboardUser(
+      rank: rank,
+      name: name,
+      xp: (json['score'] as num?)?.toInt() ?? 0,
+      initials: _initials(name),
+      avatarGradient: _avatarGradient(rank),
+      ringColor: rank == 1
+          ? const Color(0xFFFFA81E)
+          : rank == 2
+          ? const Color(0xFFD6D0EF)
+          : const Color(0xFFFFB46A),
+      subtitle: subtitle,
+      isChampion: rank == 1,
+    );
+  }
+}
+
+String _safeText(dynamic value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+String _initials(String name) {
+  final parts = name
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .toList();
+  if (parts.isEmpty) {
+    return 'ST';
+  }
+  return parts.take(2).map((part) => part[0].toUpperCase()).join();
+}
+
+List<Color> _avatarGradient(int rank) {
+  switch (rank) {
+    case 1:
+      return const [Color(0xFFFFD561), Color(0xFF9F4B11)];
+    case 2:
+      return const [Color(0xFF71D7D4), Color(0xFF3A6EA8)];
+    case 3:
+      return const [Color(0xFF2A6BC6), Color(0xFF101C33)];
+    default:
+      return const [Color(0xFF7ED0FF), Color(0xFF1F4B72)];
+  }
 }

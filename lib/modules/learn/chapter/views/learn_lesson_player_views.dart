@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../controller/learn_chapter_controller.dart';
+import '../../../dashboard_vc/views/dashboard_tabbar_views_screen.dart';
 import 'learn_subject_views.dart';
 
 class LearnLessonPlayerViews extends StatefulWidget {
@@ -15,13 +18,46 @@ class LearnLessonPlayerViews extends StatefulWidget {
 
 class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
   bool _showVideo = true;
+  bool _isMarkingComplete = false;
 
   @override
   Widget build(BuildContext context) {
     final lesson = widget.topic.lesson;
+    final hasVideo = lesson.videoUrl.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+        child: SizedBox(
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: _isMarkingComplete ? null : _markLessonAsComplete,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4D49E8),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            icon: _isMarkingComplete
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.check_circle_rounded, size: 20),
+            label: Text(
+              _isMarkingComplete ? 'Please wait...' : 'Mark as Complete',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -36,93 +72,11 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                       color: const Color(0xFF0F1720),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  const Color(0xFF263A2F),
-                                  const Color(0xFF10151D),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _BoardSketchPainter(),
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.68),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(99),
-                                child: LinearProgressIndicator(
-                                  value: lesson.progress,
-                                  minHeight: 8,
-                                  backgroundColor: Colors.white.withValues(
-                                    alpha: 0.28,
-                                  ),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF5E63F4),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.play_arrow_rounded,
-                                    color: Colors.white,
-                                    size: 29,
-                                  ),
-                                  const SizedBox(width: 16),
-                                  const Icon(
-                                    Icons.volume_up_outlined,
-                                    color: Colors.white,
-                                    size: 26,
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Text(
-                                    '${lesson.currentTime} / ${lesson.totalTime}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  const Icon(
-                                    Icons.fullscreen_rounded,
-                                    color: Colors.white,
-                                    size: 26,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: hasVideo
+                          ? _LessonVideoPlayer(videoUrl: lesson.videoUrl)
+                          : const _VideoNotFoundCard(),
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -208,13 +162,126 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  ...lesson.resources.map(
-                    (resource) => Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: _LessonResourceCard(resource: resource),
+                  if (lesson.resources.isEmpty)
+                    const _NoPdfStateCard()
+                  else
+                    ...lesson.resources.map(
+                      (resource) => Padding(
+                        padding: const EdgeInsets.only(bottom: 18),
+                        child: _LessonResourceCard(resource: resource),
+                      ),
                     ),
-                  ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _markLessonAsComplete() async {
+    if (_isMarkingComplete) {
+      return;
+    }
+
+    setState(() {
+      _isMarkingComplete = true;
+    });
+
+    final response = await LearnCatalogData.markLessonComplete(
+      lessonId: widget.topic.lesson.id,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isMarkingComplete = false;
+    });
+
+    if (!response.success) {
+      Get.snackbar(
+        'Unable to complete lesson',
+        response.message,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFB42318),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(14),
+      );
+      return;
+    }
+
+    LearnProgressRefreshService.instance.notifyRefresh();
+
+    Get.offAll(
+      () => const DashboardTabbarViewsScreen(),
+      arguments: {
+        'initialTab': 1,
+        'successMessage': response.message,
+        'forceReload': true,
+      },
+    );
+  }
+}
+
+class _LessonVideoPlayer extends StatefulWidget {
+  const _LessonVideoPlayer({required this.videoUrl});
+
+  final String videoUrl;
+
+  @override
+  State<_LessonVideoPlayer> createState() => _LessonVideoPlayerState();
+}
+
+class _LessonVideoPlayerState extends State<_LessonVideoPlayer> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF0F1720))
+      ..loadRequest(Uri.parse(_normalizedVideoUrl(widget.videoUrl)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WebViewWidget(controller: _controller);
+  }
+}
+
+class _VideoNotFoundCard extends StatelessWidget {
+  const _VideoNotFoundCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF263A2F), Color(0xFF10151D)],
+        ),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.videocam_off_rounded,
+              color: Colors.white70,
+              size: 44,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Video not found',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -224,51 +291,66 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
   }
 }
 
-class _BoardSketchPainter extends CustomPainter {
+class _NoPdfStateCard extends StatelessWidget {
+  const _NoPdfStateCard();
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFC8C7F1)),
+      ),
+      child: const Text(
+        'PDF not found for this lesson.',
+        style: TextStyle(
+          color: Color(0xFF4C4F5E),
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
 
-    final framePaint = Paint()..color = const Color(0xFF7B5A34);
-    canvas.drawRect(Rect.fromLTWH(0, 0, 14, size.height), framePaint);
-    canvas.drawRect(Rect.fromLTWH(size.width - 14, 0, 14, size.height), framePaint);
+class _LessonPdfWebView extends StatefulWidget {
+  const _LessonPdfWebView({required this.title, required this.pdfUrl});
 
-    canvas.drawLine(
-      Offset(size.width * 0.15, size.height * 0.15),
-      Offset(size.width * 0.85, size.height * 0.15),
-      linePaint,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.28, size.height * 0.22),
-      42,
-      linePaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.58, size.height * 0.18, 120, 52),
-      linePaint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.60, size.height * 0.55),
-      Offset(size.width * 0.72, size.height * 0.32),
-      linePaint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.72, size.height * 0.32),
-      Offset(size.width * 0.80, size.height * 0.70),
-      linePaint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.72, size.height * 0.32),
-      Offset(size.width * 0.89, size.height * 0.32),
-      linePaint,
-    );
+  final String title;
+  final String pdfUrl;
+
+  @override
+  State<_LessonPdfWebView> createState() => _LessonPdfWebViewState();
+}
+
+class _LessonPdfWebViewState extends State<_LessonPdfWebView> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final viewerUrl = _pdfViewerUrl(widget.pdfUrl);
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..loadRequest(Uri.parse(viewerUrl));
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            LearnTopBar(title: widget.title),
+            Expanded(child: WebViewWidget(controller: _controller)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PlayerTab extends StatelessWidget {
@@ -355,75 +437,100 @@ class _LessonResourceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFC8C7F1)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFD8DDF0).withValues(alpha: 0.26),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+    return InkWell(
+      onTap: () => Get.to(
+        () => _LessonPdfWebView(
+          title: resource.title,
+          pdfUrl: resource.url,
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: resource.iconBackground,
-              borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFC8C7F1)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFD8DDF0).withValues(alpha: 0.26),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
-            child: Icon(resource.icon, color: resource.accent, size: 30),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  resource.title,
-                  style: const TextStyle(
-                    color: Color(0xFF1D2231),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  resource.meta,
-                  style: const TextStyle(
-                    color: Color(0xFF4C4F5E),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: resource.iconBackground,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(resource.icon, color: resource.accent, size: 30),
             ),
-          ),
-          IconButton(
-            onPressed: () {
-              Get.snackbar(
-                'Download Started',
-                '${resource.title} is being downloaded.',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: Colors.white,
-                colorText: const Color(0xFF1D2231),
-                margin: const EdgeInsets.all(14),
-              );
-            },
-            icon: const Icon(
-              Icons.download_rounded,
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    resource.title,
+                    style: const TextStyle(
+                      color: Color(0xFF1D2231),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    resource.meta,
+                    style: const TextStyle(
+                      color: Color(0xFF4C4F5E),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
               color: Color(0xFF4A4FD9),
-              size: 25,
+              size: 18,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
+
+String _normalizedVideoUrl(String url) {
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null) {
+    return url;
+  }
+
+  if (uri.host.contains('youtube.com')) {
+    final videoId = uri.queryParameters['v'];
+    if (videoId != null && videoId.isNotEmpty) {
+      return 'https://www.youtube.com/embed/$videoId';
+    }
+  }
+
+  if (uri.host.contains('youtu.be')) {
+    final segments = uri.pathSegments;
+    if (segments.isNotEmpty && segments.first.isNotEmpty) {
+      return 'https://www.youtube.com/embed/${segments.first}';
+    }
+  }
+
+  return url;
+}
+
+String _pdfViewerUrl(String pdfUrl) {
+  final encodedUrl = Uri.encodeComponent(pdfUrl);
+  return 'https://docs.google.com/gview?embedded=1&url=$encodedUrl';
 }

@@ -2,17 +2,127 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/data/user_profile_provider.dart';
+import '../../../../core/service/api_service.dart';
+import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/theme/appcolors.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
 import '../../daily_quiz/views/start_quiz_views.dart';
+import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../daily_quiz/result/preview_result/views/preview_result_views.dart';
 import '../../daily_quiz/practice_test/Views/quiz_practice_paper_subject_views.dart';
 import '../../explore_classes/views/explore_classes_views.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
 
-class DashboardTabbarViewsScreen extends StatelessWidget {
+class DashboardTabbarViewsScreen extends StatefulWidget {
   const DashboardTabbarViewsScreen({super.key});
+
+  @override
+  State<DashboardTabbarViewsScreen> createState() =>
+      _DashboardTabbarViewsScreenState();
+}
+
+class _DashboardTabbarViewsScreenState
+    extends State<DashboardTabbarViewsScreen> {
+  bool _isFetchingProfile = false;
+  bool _hasHandledLaunchArgs = false;
+  late final Worker _refreshWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshWorker = ever<int>(
+      LearnProgressRefreshService.instance.refreshTick,
+      (_) {
+        if (!mounted) {
+          return;
+        }
+        Get.put(DashboardTabbarController()).loadDashboardData();
+        _fetchProfile();
+      },
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleLaunchArgs();
+      _fetchProfile();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshWorker.dispose();
+    super.dispose();
+  }
+
+  void _handleLaunchArgs() {
+    if (_hasHandledLaunchArgs || !mounted) {
+      return;
+    }
+    _hasHandledLaunchArgs = true;
+
+    final controller = Get.put(DashboardTabbarController());
+    final args = Get.arguments;
+    if (args is! Map) {
+      return;
+    }
+
+    final initialTab = args['initialTab'];
+    if (initialTab is int) {
+      controller.changeTab(initialTab);
+    }
+
+    if (args['forceReload'] == true) {
+      controller.loadDashboardData();
+      _fetchProfile();
+    }
+
+    final successMessage = args['successMessage']?.toString().trim() ?? '';
+    if (successMessage.isNotEmpty) {
+      Future<void>.delayed(const Duration(milliseconds: 250), () {
+        if (!mounted) {
+          return;
+        }
+        Get.snackbar(
+          'Success',
+          successMessage,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.white,
+          colorText: const Color(0xFF1D2231),
+          margin: const EdgeInsets.all(14),
+        );
+      });
+    }
+  }
+
+  Future<void> _fetchProfile() async {
+    if (_isFetchingProfile || !mounted) {
+      return;
+    }
+
+    _isFetchingProfile = true;
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.GET_PROFILE,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    _isFetchingProfile = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      return;
+    }
+
+    context.read<UserProfileProvider>().setProfile(UserProfile.fromApi(data));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,26 +262,11 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [
-                      AppColors.avatarGradientStart,
-                      AppColors.avatarGradientEnd,
-                    ],
-                  ),
-                  border: Border.all(color: AppColors.avatarBorder, width: 2),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.person_rounded,
-                    color: AppColors.white,
-                    size: 28,
-                  ),
-                ),
+              _ProfileAvatar(
+                imageUrl: profile?.profilePic ?? '',
+                size: 40,
+                iconSize: 28,
+                borderWidth: 2,
               ),
               const Positioned(
                 right: -1,
@@ -250,77 +345,150 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
   }
 }
 
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.imageUrl,
+    required this.size,
+    required this.iconSize,
+    required this.borderWidth,
+    this.backgroundColor,
+  });
+
+  final String imageUrl;
+  final double size;
+  final double iconSize;
+  final double borderWidth;
+  final Color? backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl.trim().isNotEmpty;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: hasImage
+            ? null
+            : const LinearGradient(
+                colors: [
+                  AppColors.avatarGradientStart,
+                  AppColors.avatarGradientEnd,
+                ],
+              ),
+        color: hasImage ? backgroundColor ?? AppColors.white : null,
+        border: Border.all(color: AppColors.avatarBorder, width: borderWidth),
+      ),
+      child: ClipOval(
+        child: hasImage
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _FallbackAvatarIcon(iconSize: iconSize),
+              )
+            : _FallbackAvatarIcon(iconSize: iconSize),
+      ),
+    );
+  }
+}
+
+class _FallbackAvatarIcon extends StatelessWidget {
+  const _FallbackAvatarIcon({required this.iconSize});
+
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Icon(Icons.person_rounded, color: AppColors.white, size: iconSize),
+    );
+  }
+}
+
 class _HomeTab extends StatelessWidget {
   const _HomeTab();
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<DashboardTabbarController>();
+
     return _DashboardScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Your Learning Journey',
-            style: TextStyle(
-              color: AppColors.textBlue,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 3),
-          const Text(
-            'Master your goals with interactive quests.',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 18),
-          const _JourneyCard(),
-          const SizedBox(height: 18),
-          const Row(
-            children: [
-              Expanded(child: _DailyQuizMiniCard()),
-              SizedBox(width: 14),
-              Expanded(child: _AiTutorCard()),
-            ],
-          ),
-          const SizedBox(height: 18),
-          const _LeaderboardStripCard(),
-          const SizedBox(height: 18),
-          Row(
-            children: const [
-              Text(
-                'Live Classes',
-                style: TextStyle(
-                  color: AppColors.textPrimaryNavy,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
+      child: Obx(
+        () => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your Learning Journey',
+              style: TextStyle(
+                color: AppColors.textBlue,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
               ),
-              Spacer(),
-              Text(
-                '● LIVE NOW',
-                style: TextStyle(
-                  color: AppColors.live,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+            ),
+            const SizedBox(height: 3),
+            const Text(
+              'Master your goals with interactive quests.',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
+            ),
+            const SizedBox(height: 18),
+            if (controller.dashboardSummaryError.value.isNotEmpty)
+              _DashboardInlineState(
+                message: controller.dashboardSummaryError.value,
+                onRetry: controller.loadDashboardData,
+              )
+            else ...[
+              const _JourneyCard(),
+              const SizedBox(height: 18),
             ],
-          ),
-          const SizedBox(height: 16),
-          const _LiveHeroCard(),
-          const SizedBox(height: 18),
-          const _SpokenEnglishCard(),
-          const SizedBox(height: 18),
-          InkWell(
-            onTap: () => Get.to(() => const ExploreClassesViews()),
-            borderRadius: BorderRadius.circular(24),
-            child: const _ExploreClassesCard(),
-          ),
-        ],
+            const Row(
+              children: [
+                Expanded(child: _DailyQuizMiniCard()),
+                SizedBox(width: 14),
+                Expanded(child: _AiTutorCard()),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const _LeaderboardStripCard(),
+            const SizedBox(height: 18),
+            Row(
+              children: const [
+                Text(
+                  'Live Classes',
+                  style: TextStyle(
+                    color: AppColors.textPrimaryNavy,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Spacer(),
+                Text(
+                  '● LIVE NOW',
+                  style: TextStyle(
+                    color: AppColors.live,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const _LiveHeroCard(),
+            const SizedBox(height: 18),
+            const _SpokenEnglishCard(),
+            const SizedBox(height: 18),
+            InkWell(
+              onTap: () => Get.to(() => const ExploreClassesViews()),
+              borderRadius: BorderRadius.circular(24),
+              child: const _ExploreClassesCard(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -332,47 +500,64 @@ class _LearnTab extends GetView<DashboardTabbarController> {
   @override
   Widget build(BuildContext context) {
     return _DashboardScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _ChallengeBanner(),
-          const SizedBox(height: 24),
-          const Text(
-            'My Subjects',
-            style: TextStyle(
-              color: AppColors.textHeadingAlt,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+      child: Obx(
+        () => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _ChallengeBanner(),
+            const SizedBox(height: 24),
+            const Text(
+              'My Subjects',
+              style: TextStyle(
+                color: AppColors.textHeadingAlt,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: controller.subjects.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.90,
+            const SizedBox(height: 16),
+            if (controller.isLoadingLearnSubjects.value)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (controller.learnSubjectsError.value.isNotEmpty)
+              _DashboardInlineState(
+                message: controller.learnSubjectsError.value,
+                onRetry: controller.loadDashboardData,
+              )
+            else if (controller.learnSubjects.isEmpty)
+              const _DashboardInlineState(
+                message: 'No subjects available right now.',
+              )
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: controller.learnSubjects.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 0.90,
+                ),
+                itemBuilder: (context, index) {
+                  final subject = controller.learnSubjects[index];
+                  return _SubjectCard(subject: subject);
+                },
+              ),
+            const SizedBox(height: 28),
+            const Text(
+              'Study Tools',
+              style: TextStyle(
+                color: AppColors.textHeadingAlt,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            itemBuilder: (context, index) {
-              final subject = controller.subjects[index];
-              return _SubjectCard(subject: subject);
-            },
-          ),
-          const SizedBox(height: 28),
-          const Text(
-            'Study Tools',
-            style: TextStyle(
-              color: AppColors.textHeadingAlt,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...controller.studyTools.map(_StudyToolCard.new),
-        ],
+            const SizedBox(height: 14),
+            ...controller.studyTools.map(_StudyToolCard.new),
+          ],
+        ),
       ),
     );
   }
@@ -394,7 +579,7 @@ class _QuizTab extends GetView<DashboardTabbarController> {
           const SizedBox(height: 18),
           const _AnalyticsCard(),
           const SizedBox(height: 18),
-          _PreviousResultsCard(results: controller.previousResults),
+          const _PreviousResultsCard(),
           const SizedBox(height: 18),
           const _RecentBadgesCard(),
         ],
@@ -503,83 +688,89 @@ class _JourneyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<DashboardTabbarController>();
 
-    return InkWell(
-      onTap: () => controller.changeTab(1),
-      borderRadius: BorderRadius.circular(26),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(22),
-        decoration: _cardDecoration(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(10),
+    return Obx(() {
+      final summary = controller.lessonSummary.value;
+
+      return InkWell(
+        onTap: () => controller.changeTab(1),
+        borderRadius: BorderRadius.circular(26),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(22),
+          decoration: _cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.import_contacts_rounded,
+                  color: AppColors.primary,
+                  size: 25,
+                ),
               ),
-              child: const Icon(
-                Icons.import_contacts_rounded,
-                color: AppColors.primary,
-                size: 25,
+              const SizedBox(height: 15),
+              const Text(
+                'Learning',
+                style: TextStyle(
+                  color: AppColors.textPrimaryAlt,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 15),
-            const Text(
-              'Learning',
-              style: TextStyle(
-                color: AppColors.textPrimaryAlt,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+              const SizedBox(height: 6),
+              Text(
+                summary.activeLessonLabel,
+                style: const TextStyle(
+                  color: AppColors.neutralText2,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              '42 Active Chapters',
-              style: TextStyle(
-                color: AppColors.neutralText2,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 25),
+              Row(
+                children: [
+                  const Text(
+                    'Overall Progress',
+                    style: TextStyle(
+                      color: AppColors.textMuted3,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    summary.progressLabel,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 25),
-            Row(
-              children: const [
-                Text(
-                  'Overall Progress',
-                  style: TextStyle(
-                    color: AppColors.textMuted3,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  value: summary.progressValue,
+                  minHeight: 10,
+                  backgroundColor: AppColors.neutralSurface3,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.primary,
                   ),
                 ),
-                Spacer(),
-                Text(
-                  '68%',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: const LinearProgressIndicator(
-                value: 0.68,
-                minHeight: 10,
-                backgroundColor: AppColors.neutralSurface3,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
 
@@ -1183,11 +1374,10 @@ class _SubjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = double.parse(subject.progressLabel.replaceAll('%', '')) / 100;
     final controller = Get.find<DashboardTabbarController>();
 
     return InkWell(
-      onTap: () => controller.openLearnSubjectFromCard(subject.title),
+      onTap: () => controller.openLearnSubjectFromCard(subject),
       borderRadius: BorderRadius.circular(26),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -1220,7 +1410,7 @@ class _SubjectCard extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(99),
                     child: LinearProgressIndicator(
-                      value: value,
+                      value: subject.progressValue,
                       minHeight: 8,
                       backgroundColor: AppColors.neutralSurface5,
                       valueColor: AlwaysStoppedAnimation<Color>(subject.accent),
@@ -1240,7 +1430,7 @@ class _SubjectCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Continue',
+              subject.progressText,
               style: TextStyle(
                 color: subject.accent,
                 fontSize: 14,
@@ -1249,6 +1439,50 @@ class _SubjectCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DashboardInlineState extends StatelessWidget {
+  const _DashboardInlineState({required this.message, this.onRetry});
+
+  final String message;
+  final Future<void> Function()? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.resultMeta,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: onRetry,
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1476,72 +1710,113 @@ class _MockTestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.warningSoft,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.alarm_rounded,
-              color: AppColors.warningTextDark,
-              size: 25,
-            ),
-          ),
-          const SizedBox(height: 22),
-          const Text(
-            'Mock Test',
-            style: TextStyle(
-              color: AppColors.textHeading,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Real exam simulation with timers.',
-            style: TextStyle(
-              color: AppColors.textSecondaryAlt,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.neutralSurface4,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.event_note_rounded,
-                  color: AppColors.primaryBright,
-                  size: 15,
+    return Obx(() {
+      final dashboardController = Get.find<DashboardTabbarController>();
+      final mockTest = dashboardController.mockTests.isNotEmpty
+          ? dashboardController.mockTests.first
+          : null;
+
+      return InkWell(
+        onTap: mockTest == null
+            ? null
+            : () {
+                if (!mockTest.canStart) {
+                  Get.snackbar(
+                    'Mock Test',
+                    mockTest.attemptStatus == 'attempted'
+                        ? 'You have already attempted this mock test.'
+                        : 'Mock test is ${mockTest.statusLabel.toLowerCase()}.',
+                    snackPosition: SnackPosition.BOTTOM,
+                  );
+                  return;
+                }
+                Get.to(() => StartQuizViews(mockTestId: mockTest.id));
+              },
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: _cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.warningSoft,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                SizedBox(width: 8),
-                Text(
-                  'Next: Sunday, 10 AM',
-                  style: TextStyle(
-                    color: AppColors.neutralText4,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: const Icon(
+                  Icons.alarm_rounded,
+                  color: AppColors.warningTextDark,
+                  size: 25,
                 ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                mockTest?.title ?? 'Mock Test',
+                style: const TextStyle(
+                  color: AppColors.textHeading,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                dashboardController.isLoadingMockTests.value
+                    ? 'Loading mock tests...'
+                    : (dashboardController.mockTestsError.value.isNotEmpty
+                          ? dashboardController.mockTestsError.value
+                          : 'Real exam simulation with timers.'),
+                style: const TextStyle(
+                  color: AppColors.textSecondaryAlt,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.neutralSurface4,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.event_note_rounded,
+                      color: AppColors.primaryBright,
+                      size: 15,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        mockTest?.windowLabel ?? 'No mock test available',
+                        style: const TextStyle(
+                          color: AppColors.neutralText4,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (mockTest != null) ...[
+                const SizedBox(height: 10),
+                _Tag(label: mockTest.statusLabel),
               ],
-            ),
+            ],
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 }
 
@@ -1632,10 +1907,42 @@ class _AnalyticsCard extends StatelessWidget {
   }
 }
 
-class _PreviousResultsCard extends StatelessWidget {
-  const _PreviousResultsCard({required this.results});
+class _PreviousResultsCard extends StatefulWidget {
+  const _PreviousResultsCard();
 
-  final List<PreviousResultData> results;
+  @override
+  State<_PreviousResultsCard> createState() => _PreviousResultsCardState();
+}
+
+class _PreviousResultsCardState extends State<_PreviousResultsCard> {
+  bool _isLoading = true;
+  String _errorMessage = '';
+  List<QuizSubmitResultItem> _results = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadResults();
+  }
+
+  Future<void> _loadResults() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    final response = await QuizSubmitResultRepository.fetchResults(limit: 2);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+      _results = response.data?.results ?? const [];
+      _errorMessage = response.success ? '' : response.message;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1669,70 +1976,121 @@ class _PreviousResultsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          ...results.map(
-            (result) => Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: result.iconBackground,
-                      shape: BoxShape.circle,
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_errorMessage.isNotEmpty)
+            _PreviousResultState(message: _errorMessage, onRetry: _loadResults)
+          else if (_results.isEmpty)
+            const _PreviousResultState(
+              message: 'No previous results available yet.',
+            )
+          else
+            ..._results.map(
+              (result) => Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: result.iconBackground,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(result.icon, color: result.accent, size: 22),
                     ),
-                    child: Icon(result.icon, color: result.accent, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          result.title,
-                          style: const TextStyle(
-                            color: AppColors.textDark,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            result.quizTitle,
+                            style: const TextStyle(
+                              color: AppColors.textDark,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          result.meta,
-                          style: const TextStyle(
-                            color: AppColors.resultMeta,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                          const SizedBox(height: 2),
+                          Text(
+                            '${result.scoreText} • ${result.percentageText}',
+                            style: const TextStyle(
+                              color: AppColors.resultMeta,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        result.scoreText,
-                        style: const TextStyle(
-                          color: AppColors.primaryScore,
-                          fontSize: 14,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: result.accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(
+                        result.passed ? 'Passed' : 'Failed',
+                        style: TextStyle(
+                          color: result.accent,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const Text(
-                        'SCORE',
-                        style: TextStyle(
-                          color: AppColors.textMuted4,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviousResultState extends StatelessWidget {
+  const _PreviousResultState({required this.message, this.onRetry});
+
+  final String message;
+  final Future<void> Function()? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.resultMeta,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
           ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: onRetry,
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1818,10 +2176,9 @@ class _LiveFeaturedCard extends StatelessWidget {
           children: [
             const DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.blueGrayLight, AppColors.grayBlue],
+                image: DecorationImage(
+                  image: AssetImage('assets/images/live_backImage.png'),
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
@@ -1832,8 +2189,8 @@ class _LiveFeaturedCard extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      AppColors.black.withValues(alpha: 0.04),
-                      AppColors.black.withValues(alpha: 0.42),
+                      AppColors.black.withValues(alpha: 0.02),
+                      AppColors.black.withValues(alpha: 0.34),
                     ],
                   ),
                 ),
@@ -2007,11 +2364,13 @@ class _ProfileAvatarSection extends StatelessWidget {
                   colors: [AppColors.profileRing, AppColors.profileRing2],
                 ),
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.person_rounded,
-                  size: 50,
-                  color: AppColors.profileIcon,
+              child: Center(
+                child: _ProfileAvatar(
+                  imageUrl: profile?.profilePic ?? '',
+                  size: 82,
+                  iconSize: 50,
+                  borderWidth: 0,
+                  backgroundColor: AppColors.transparent,
                 ),
               ),
             ),
@@ -2153,7 +2512,7 @@ class _ProfileMenuTile extends StatelessWidget {
     final controller = Get.find<DashboardTabbarController>();
 
     return InkWell(
-      onTap: () => controller.handleProfileMenuTap(item),
+      onTap: () => controller.handleProfileMenuTap(item, context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
         decoration: const BoxDecoration(

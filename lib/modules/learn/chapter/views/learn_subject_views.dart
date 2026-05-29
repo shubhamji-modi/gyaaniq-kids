@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
+import '../../../../core/data/user_profile_provider.dart';
+import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_chapter_views.dart';
 
@@ -13,16 +16,63 @@ class LearnSubjectViews extends StatefulWidget {
 
 class _LearnSubjectViewsState extends State<LearnSubjectViews> {
   String _query = '';
+  bool _isLoading = true;
+  String _errorMessage = '';
+  List<LearnSubjectModel> _subjects = const [];
+  late final Worker _refreshWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshWorker = ever<int>(
+      LearnProgressRefreshService.instance.refreshTick,
+      (_) {
+        if (mounted) {
+          _loadSubjects();
+        }
+      },
+    );
+    _loadSubjects();
+  }
+
+  @override
+  void dispose() {
+    _refreshWorker.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSubjects() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    final response = await LearnCatalogData.getUserSubjects();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+      _subjects = response.data ?? const [];
+      _errorMessage = response.success ? '' : response.message;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final subjects = LearnCatalogData.subjects.where((subject) {
-      final q = _query.trim().toLowerCase();
-      if (q.isEmpty) {
+    final profile = context.watch<UserProfileProvider>().profile;
+    final gradeLabel = _subjects.isNotEmpty
+        ? _subjects.first.classLevel
+        : (profile?.userClass ?? '-');
+    final query = _query.trim().toLowerCase();
+    final subjects = _subjects.where((subject) {
+      if (query.isEmpty) {
         return true;
       }
-      return subject.title.toLowerCase().contains(q) ||
-          subject.subtitle.toLowerCase().contains(q);
+      return subject.title.toLowerCase().contains(query) ||
+          subject.subtitle.toLowerCase().contains(query);
     }).toList();
 
     return Scaffold(
@@ -32,73 +82,101 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
           children: [
             const LearnTopBar(title: 'Subject'),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
-                children: [
-                  const Text(
-                    'Select a Subject',
-                    style: TextStyle(
-                      color: Color(0xFF1D2231),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+              child: RefreshIndicator(
+                onRefresh: _loadSubjects,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
+                  children: [
+                    const Text(
+                      'Select a Subject',
+                      style: TextStyle(
+                        color: Color(0xFF1D2231),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Grade 8 • Path of Discovery',
-                    style: TextStyle(
-                      color: Color(0xFF4F5367),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    onChanged: (value) {
-                      setState(() {
-                        _query = value;
-                      });
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Search your subjects...',
-                      hintStyle: const TextStyle(
-                        color: Color(0xFF72788D),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Grade $gradeLabel',
+                      style: const TextStyle(
+                        color: Color(0xFF4F5367),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFF7D8092),
-                        size: 22,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 13),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFC7C3F0)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFC7C3F0)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4A4FD9),
-                          width: 1.5,
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      onChanged: (value) {
+                        setState(() {
+                          _query = value;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search your subjects...',
+                        hintStyle: const TextStyle(
+                          color: Color(0xFF72788D),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: Color(0xFF7D8092),
+                          size: 22,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 13,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFC7C3F0),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFC7C3F0),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF4A4FD9),
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  ...subjects.map(
-                    (subject) => Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: _SubjectDetailsCard(subject: subject),
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    if (_isLoading)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 80),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_errorMessage.isNotEmpty)
+                      _ErrorStateCard(
+                        message: _errorMessage,
+                        onRetry: _loadSubjects,
+                      )
+                    else if (subjects.isEmpty)
+                      const _EmptyStateCard(
+                        title: 'No subjects found',
+                        message: 'Try a different search or pull to refresh.',
+                      )
+                    else
+                      ...subjects.map(
+                        (subject) => Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: _SubjectDetailsCard(
+                            subject: subject,
+                            onReload: _loadSubjects,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -151,14 +229,25 @@ class LearnTopBar extends StatelessWidget {
 }
 
 class _SubjectDetailsCard extends StatelessWidget {
-  const _SubjectDetailsCard({required this.subject});
+  const _SubjectDetailsCard({
+    required this.subject,
+    required this.onReload,
+  });
 
   final LearnSubjectModel subject;
+  final Future<void> Function() onReload;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Get.to(() => LearnChapterViews(subject: subject)),
+      onTap: () async {
+        final shouldReload = await Get.to<bool>(
+          () => LearnChapterViews(subject: subject),
+        );
+        if (shouldReload == true) {
+          await onReload();
+        }
+      },
       borderRadius: BorderRadius.circular(28),
       child: Container(
         padding: const EdgeInsets.all(22),
@@ -263,6 +352,99 @@ class _SubjectDetailsCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ErrorStateCard extends StatelessWidget {
+  const _ErrorStateCard({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFC8C7F1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Unable to load subjects',
+            style: TextStyle(
+              color: Color(0xFF1D2231),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: const TextStyle(
+              color: Color(0xFF4F5367),
+              fontSize: 14,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4A4FD9),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFC8C7F1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF1D2231),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: const TextStyle(
+              color: Color(0xFF4F5367),
+              fontSize: 14,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

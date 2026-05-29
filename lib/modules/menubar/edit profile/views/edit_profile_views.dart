@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/data/user_profile_provider.dart';
+import '../../../../core/service/api_service.dart';
 
 class EditProfileViews extends StatefulWidget {
   const EditProfileViews({super.key});
@@ -14,15 +15,16 @@ class EditProfileViews extends StatefulWidget {
 class _EditProfileViewsState extends State<EditProfileViews> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
-  String _selectedGrade = 'Grade 8';
+  String _selectedGrade = '8th';
+  bool _isSaving = false;
 
   final List<String> _grades = const [
-    'Grade 5',
-    'Grade 6',
-    'Grade 7',
-    'Grade 8',
-    'Grade 9',
-    'Grade 10',
+    '5th',
+    '6th',
+    '7th',
+    '8th',
+    '9th',
+    '10th',
   ];
 
   @override
@@ -30,13 +32,13 @@ class _EditProfileViewsState extends State<EditProfileViews> {
     super.initState();
     final profile = context.read<UserProfileProvider>().profile;
     final profileName = profile?.name ?? 'Alex Johnson';
-    final classNumber = profile?.userClass ?? '8';
+    final classNumber = profile?.userClass ?? '8th';
 
     _nameController = TextEditingController(text: profileName);
-    _phoneController = TextEditingController(text: '+91 1234567890');
-    _selectedGrade = 'Grade $classNumber';
+    _phoneController = TextEditingController(text: profile?.mobile ?? '');
+    _selectedGrade = classNumber;
     if (!_grades.contains(_selectedGrade)) {
-      _selectedGrade = 'Grade 8';
+      _selectedGrade = '8th';
     }
   }
 
@@ -47,29 +49,75 @@ class _EditProfileViewsState extends State<EditProfileViews> {
     super.dispose();
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     final provider = context.read<UserProfileProvider>();
     final currentProfile = provider.profile;
     final updatedName = _nameController.text.trim().isEmpty
         ? 'Student'
         : _nameController.text.trim();
-    final updatedClass = _selectedGrade.replaceFirst('Grade ', '');
+    if (currentProfile == null) {
+      _showMessage('Profile data not found', isError: true);
+      return;
+    }
 
-    provider.setProfile(
-      UserProfile(
-        name: updatedName,
-        instructionMedium: currentProfile?.instructionMedium ?? 'English',
-        educationBoard: currentProfile?.educationBoard ?? 'CBSE',
-        userClass: updatedClass,
-      ),
+    setState(() {
+      _isSaving = true;
+    });
+
+    final response = await ApiService.instance.put<dynamic>(
+      endpoint: ApiService.EDIT_PROFILE,
+      data: {
+        'name': updatedName,
+        'instructionMedium': currentProfile.instructionMedium,
+        'classLevel': _selectedGrade,
+        'educationalBoard': currentProfile.educationBoard,
+        'profilePic': null,
+      },
+      fromJson: (json) => json,
     );
 
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+    });
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      _showMessage(response.message, isError: true);
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      _showMessage(
+        body['message']?.toString() ?? 'Profile update failed',
+        isError: true,
+      );
+      return;
+    }
+
+    provider.setProfile(
+      UserProfile.fromApi(data).copyWith(mobile: _phoneController.text.trim()),
+    );
+
+    _showMessage(
+      body['message']?.toString() ??
+          'Your profile changes have been saved successfully.',
+    );
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
     Get.snackbar(
-      'Profile Updated',
-      'Your profile changes have been saved successfully.',
+      isError ? 'Error' : 'Success',
+      message,
       snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.white,
-      colorText: const Color(0xFF1D2231),
+      backgroundColor: isError
+          ? const Color(0xFFB42318)
+          : const Color(0xFF0F9D58),
+      colorText: Colors.white,
       margin: const EdgeInsets.all(14),
     );
   }
@@ -80,7 +128,7 @@ class _EditProfileViewsState extends State<EditProfileViews> {
     final displayName = _nameController.text.trim().isEmpty
         ? (profile?.name ?? 'Alex Johnson')
         : _nameController.text.trim();
-    final email = '${displayName.toLowerCase().replaceAll(' ', '.')}@gmail.com';
+    final email = profile?.email ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
@@ -105,7 +153,7 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                           const SizedBox(height: 22),
                           const _FieldLabel(title: 'Email Address (Primary)'),
                           _ReadOnlyField(
-                            value: email,
+                            value: email.isEmpty ? 'Not available' : email,
                             trailing: const Icon(
                               Icons.lock_rounded,
                               color: Color(0xFF7B7C91),
@@ -167,31 +215,34 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _saveProfile,
+                        onPressed: _isSaving ? null : _saveProfile,
                         style: ElevatedButton.styleFrom(
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           backgroundColor: const Color(0xFF4B49E3),
                           foregroundColor: Colors.white,
-                          shadowColor: const Color(0xFF4B49E3).withValues(
-                            alpha: 0.35,
-                          ),
+                          shadowColor: const Color(
+                            0xFF4B49E3,
+                          ).withValues(alpha: 0.35),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(42),
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Save Changes',
-                              style: TextStyle(
+                              _isSaving ? 'Saving...' : 'Save Changes',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            SizedBox(width: 10),
-                            Icon(Icons.check_circle_outline_rounded, size: 20),
+                            const SizedBox(width: 10),
+                            const Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 20,
+                            ),
                           ],
                         ),
                       ),
@@ -277,10 +328,7 @@ class _ProfileHeader extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFFF7A30),
-                    width: 2,
-                  ),
+                  border: Border.all(color: const Color(0xFFFF7A30), width: 2),
                 ),
                 child: const CircleAvatar(
                   backgroundColor: Color(0xFFFFD0AF),
@@ -390,10 +438,7 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _InputField extends StatelessWidget {
-  const _InputField({
-    required this.controller,
-    this.keyboardType,
-  });
+  const _InputField({required this.controller, this.keyboardType});
 
   final TextEditingController controller;
   final TextInputType? keyboardType;
@@ -433,10 +478,7 @@ class _InputField extends StatelessWidget {
 }
 
 class _ReadOnlyField extends StatelessWidget {
-  const _ReadOnlyField({
-    required this.value,
-    this.trailing,
-  });
+  const _ReadOnlyField({required this.value, this.trailing});
 
   final String value;
   final Widget? trailing;
@@ -503,10 +545,8 @@ class _GradeDropdown extends StatelessWidget {
           ),
           items: items
               .map(
-                (grade) => DropdownMenuItem<String>(
-                  value: grade,
-                  child: Text(grade),
-                ),
+                (grade) =>
+                    DropdownMenuItem<String>(value: grade, child: Text(grade)),
               )
               .toList(),
           onChanged: onChanged,

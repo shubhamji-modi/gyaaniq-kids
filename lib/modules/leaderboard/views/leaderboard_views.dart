@@ -19,40 +19,135 @@ class LeaderboardViews extends StatelessWidget {
           children: [
             const _LeaderboardHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(14, 18, 14, 26),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 220,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(child: _TopRankCard(user: controller.topThree[0])),
-                          Expanded(
-                            flex: 2,
-                            child: _TopRankCard(
-                              user: controller.topThree[1],
-                              isCenter: true,
+              child: Obx(() {
+                if (controller.isLoading.value) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (controller.errorMessage.value.isNotEmpty) {
+                  return _LeaderboardState(
+                    title: 'Unable to load leaderboard',
+                    message: controller.errorMessage.value,
+                    onRetry: controller.loadLeaderboard,
+                  );
+                }
+
+                if (controller.top.isEmpty && controller.currentUser == null) {
+                  return _LeaderboardState(
+                    title: 'No leaderboard yet',
+                    message: 'Your class leaderboard will appear here soon.',
+                    onRetry: controller.loadLeaderboard,
+                  );
+                }
+
+                final topThree = controller.topThree;
+                final currentUser = controller.currentUser;
+
+                return RefreshIndicator(
+                  onRefresh: controller.loadLeaderboard,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(14, 18, 14, 26),
+                    child: Column(
+                      children: [
+                        if (topThree.isNotEmpty)
+                          SizedBox(
+                            height: 220,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: topThree.length > 1
+                                      ? _TopRankCard(user: topThree[1])
+                                      : const SizedBox.shrink(),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: _TopRankCard(
+                                    user: topThree.first,
+                                    isCenter: true,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: topThree.length > 2
+                                      ? _TopRankCard(user: topThree[2])
+                                      : const SizedBox.shrink(),
+                                ),
+                              ],
                             ),
                           ),
-                          Expanded(child: _TopRankCard(user: controller.topThree[2])),
+                        if (topThree.isNotEmpty) const SizedBox(height: 40),
+                        if (currentUser != null) ...[
+                          _CurrentUserCard(user: currentUser),
+                          const SizedBox(height: 15),
                         ],
-                      ),
+                        ...controller.rankings.map(
+                          (user) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _RankingListTile(user: user),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 40),
-                    _CurrentUserCard(user: controller.currentUser),
-                    const SizedBox(height: 15),
-                    ...controller.rankings.map(
-                      (user) => Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _RankingListTile(user: user),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderboardState extends StatelessWidget {
+  const _LeaderboardState({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String title;
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF202436),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF4B4D63),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4D4FE1),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
             ),
           ],
         ),
@@ -338,11 +433,7 @@ class _RankingListTile extends GetView<LeaderboardController> {
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(
-            Icons.star_rounded,
-            color: Color(0xFFFFA81E),
-            size: 20,
-          ),
+          const Icon(Icons.star_rounded, color: Color(0xFFFFA81E), size: 20),
         ],
       ),
     );

@@ -9,7 +9,8 @@ class QuestionAnswerShowViews extends StatefulWidget {
   const QuestionAnswerShowViews({super.key});
 
   @override
-  State<QuestionAnswerShowViews> createState() => _QuestionAnswerShowViewsState();
+  State<QuestionAnswerShowViews> createState() =>
+      _QuestionAnswerShowViewsState();
 }
 
 class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
@@ -46,7 +47,8 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
             Expanded(
               child: Obx(() {
                 final question = controller.currentQuestion;
-                final questionNumber = controller.currentQuestionIndex.value + 1;
+                final questionNumber =
+                    controller.currentQuestionIndex.value + 1;
 
                 return Column(
                   children: [
@@ -118,12 +120,17 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                                 ),
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFFB046F6), Color(0xFF7B2DE3)],
+                                    colors: [
+                                      Color(0xFFB046F6),
+                                      Color(0xFF7B2DE3),
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF8F40E9).withValues(alpha: 0.25),
+                                      color: const Color(
+                                        0xFF8F40E9,
+                                      ).withValues(alpha: 0.25),
                                       blurRadius: 20,
                                       offset: const Offset(0, 8),
                                     ),
@@ -144,14 +151,23 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                             const SizedBox(height: 22),
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                              padding: const EdgeInsets.fromLTRB(
+                                22,
+                                22,
+                                22,
+                                20,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(32),
-                                border: Border.all(color: const Color(0xFFD1CEEF)),
+                                border: Border.all(
+                                  color: const Color(0xFFD1CEEF),
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFDCE2F3).withValues(alpha: 0.55),
+                                    color: const Color(
+                                      0xFFDCE2F3,
+                                    ).withValues(alpha: 0.55),
                                     blurRadius: 24,
                                     offset: const Offset(0, 14),
                                   ),
@@ -173,10 +189,11 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                                     child: Padding(
                                       padding: const EdgeInsets.only(right: 18),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            question.question,
+                                            'Q. $questionNumber ${question.question}',
                                             style: const TextStyle(
                                               color: Color(0xFF202436),
                                               fontSize: 16,
@@ -191,20 +208,29 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                                             children: question.tags
                                                 .map(
                                                   (tag) => Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 11,
-                                                      vertical: 7,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 11,
+                                                          vertical: 7,
+                                                        ),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFFF0F1F5),
-                                                      borderRadius: BorderRadius.circular(24),
+                                                      color: const Color(
+                                                        0xFFF0F1F5,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            24,
+                                                          ),
                                                     ),
                                                     child: Text(
                                                       tag,
                                                       style: const TextStyle(
-                                                        color: Color(0xFF505165),
+                                                        color: Color(
+                                                          0xFF505165,
+                                                        ),
                                                         fontSize: 11,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                       ),
                                                     ),
                                                   ),
@@ -222,12 +248,17 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                             Transform.translate(
                               offset: const Offset(0, 20),
                               child: Column(
-                                children: List.generate(question.options.length, (index) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: _OptionTile(optionIndex: index),
-                                  );
-                                }),
+                                children: List.generate(
+                                  question.options.length,
+                                  (index) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16,
+                                      ),
+                                      child: _OptionTile(optionIndex: index),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                           ],
@@ -251,6 +282,8 @@ class _QuestionTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<QuestionAnswerShowController>();
+
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -268,14 +301,20 @@ class _QuestionTopBar extends StatelessWidget {
               size: 20,
             ),
           ),
-          const Expanded(
-            child: Text(
-              'Quiz',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF123887),
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+          Expanded(
+            child: Obx(
+              () => Text(
+                controller.quizTitle.value.isEmpty
+                    ? 'Quiz'
+                    : controller.quizTitle.value,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF123887),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -299,7 +338,8 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
           controller.selectedAnswers[controller.currentQuestionIndex.value];
       final isSelected = selectedIndex == optionIndex;
       final isCorrect = question.correctOptionIndex == optionIndex;
-      final showReviewColors = controller.isReviewMode.value;
+      final showReviewColors =
+          controller.isReviewMode.value && controller.hasAnswerKey;
 
       Color borderColor = const Color(0xFFD1CEEF);
       Color fillColor = Colors.white;
@@ -334,7 +374,10 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
           decoration: BoxDecoration(
             color: fillColor,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: borderColor, width: isSelected ? 2.5 : 1.4),
+            border: Border.all(
+              color: borderColor,
+              width: isSelected ? 2.5 : 1.4,
+            ),
           ),
           child: Row(
             children: [
@@ -404,15 +447,31 @@ class _BottomActionBar extends StatelessWidget {
                 child: SizedBox(
                   height: 40,
                   child: ElevatedButton.icon(
-                    onPressed: controller.isQuizCompleted &&
-                            !controller.isReviewMode.value
+                    onPressed:
+                        controller.totalQuestions > 0 &&
+                            !controller.isReviewMode.value &&
+                            !controller.isSubmittingQuiz.value
                         ? controller.submitQuiz
                         : null,
-                    icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+                    icon: controller.isSubmittingQuiz.value
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: 20,
+                          ),
                     label: Text(
                       controller.isReviewMode.value
                           ? 'Answers Reviewed'
-                          : 'Submit Quiz',
+                          : (controller.isSubmittingQuiz.value
+                                ? 'Submitting...'
+                                : 'Finish Quiz'),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4D4FE1),
@@ -434,7 +493,9 @@ class _BottomActionBar extends StatelessWidget {
               const SizedBox(width: 18),
               _CircleNavButton(
                 icon: Icons.chevron_right_rounded,
-                onTap: controller.hasNextQuestion ? controller.nextQuestion : null,
+                onTap: controller.hasNextQuestion
+                    ? controller.nextQuestion
+                    : null,
               ),
             ],
           ),
@@ -462,7 +523,9 @@ class _CircleNavButton extends StatelessWidget {
           color: isEnabled ? const Color(0xFF5D63F0) : Colors.white,
           shape: BoxShape.circle,
           border: Border.all(
-            color: isEnabled ? const Color(0xFF5D63F0) : const Color(0xFFD1CEEF),
+            color: isEnabled
+                ? const Color(0xFF5D63F0)
+                : const Color(0xFFD1CEEF),
             width: 1.6,
           ),
         ),

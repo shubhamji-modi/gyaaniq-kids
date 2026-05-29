@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/data/user_profile_provider.dart';
+import '../../../core/service/api_service.dart';
+import '../../../core/service/session_manager.dart';
+import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../../menubar/download/views/menubar_download_views.dart';
 import '../../menubar/purchase_subscription/views/subscription_history_views.dart';
-import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../../learn/chapter/views/learn_chapter_views.dart';
 import '../../learn/chapter/views/learn_subject_views.dart';
 import '../../learn/attendance/views/learn_attendance_views.dart';
@@ -20,6 +24,16 @@ import '../../../routes/app_routes.dart';
 class DashboardTabbarController extends GetxController {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final RxInt currentTabIndex = 0.obs;
+  final RxBool isLoadingDashboardSummary = true.obs;
+  final RxBool isLoadingLearnSubjects = true.obs;
+  final RxString dashboardSummaryError = ''.obs;
+  final RxString learnSubjectsError = ''.obs;
+  final RxBool isLoadingMockTests = true.obs;
+  final RxString mockTestsError = ''.obs;
+  final RxList<SubjectCardData> learnSubjects = <SubjectCardData>[].obs;
+  final RxList<MockTestCardData> mockTests = <MockTestCardData>[].obs;
+  final Rx<DashboardLessonSummary> lessonSummary =
+      const DashboardLessonSummary().obs;
 
   final String studentName = 'Sarah!';
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
@@ -32,37 +46,6 @@ class DashboardTabbarController extends GetxController {
     DashboardNavItemData(label: 'Quiz', icon: Icons.quiz_outlined),
     DashboardNavItemData(label: 'Live', icon: Icons.ondemand_video_outlined),
     DashboardNavItemData(label: 'Profile', icon: Icons.person_outline_rounded),
-  ];
-
-  final List<SubjectCardData> subjects = const [
-    SubjectCardData(
-      title: 'Math',
-      progressLabel: '80%',
-      accent: Color(0xFF4A4FD9),
-      icon: Icons.calculate_outlined,
-      iconBackground: Color(0xFFE9E8FF),
-    ),
-    SubjectCardData(
-      title: 'Science',
-      progressLabel: '25%',
-      accent: Color(0xFFA56A00),
-      icon: Icons.science_outlined,
-      iconBackground: Color(0xFFFFEDCF),
-    ),
-    SubjectCardData(
-      title: 'English',
-      progressLabel: '100%',
-      accent: Color(0xFF8A2CD5),
-      icon: Icons.import_contacts_rounded,
-      iconBackground: Color(0xFFF0DEFF),
-    ),
-    SubjectCardData(
-      title: 'Social',
-      progressLabel: '0%',
-      accent: Color(0xFF575867),
-      icon: Icons.public_rounded,
-      iconBackground: Color(0xFFE0E3E7),
-    ),
   ];
 
   final List<StudyToolData> studyTools = const [
@@ -196,6 +179,124 @@ class DashboardTabbarController extends GetxController {
     currentTabIndex.value = index;
   }
 
+  @override
+  void onInit() {
+    super.onInit();
+    loadDashboardData();
+  }
+
+  Future<void> loadDashboardData() async {
+    await _loadProgressSummary();
+    await _loadLearnSubjects();
+    await loadMockTests();
+  }
+
+  Future<void> loadMockTests() async {
+    isLoadingMockTests.value = true;
+    mockTestsError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.USER_MOCK_TEST,
+      showLoader: false,
+      fromJson: (json) => json,
+      queryParameters: const {'page': 1, 'limit': 10},
+    );
+
+    isLoadingMockTests.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      mockTests.clear();
+      mockTestsError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final itemsJson = data['mockTests'] as List<dynamic>? ?? const [];
+    final items =
+        itemsJson
+            .map(
+              (item) => MockTestCardData.fromApi(item as Map<String, dynamic>),
+            )
+            .toList()
+          ..sort((a, b) {
+            final phaseCompare = a.phasePriority.compareTo(b.phasePriority);
+            if (phaseCompare != 0) {
+              return phaseCompare;
+            }
+            final aStart = a.startAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final bStart = b.startAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            return aStart.compareTo(bStart);
+          });
+    mockTests.assignAll(items);
+  }
+
+  Future<void> _loadProgressSummary() async {
+    isLoadingDashboardSummary.value = true;
+    dashboardSummaryError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.DASHBOARD_PROGRESS_SUMMARY,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    isLoadingDashboardSummary.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      dashboardSummaryError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final lessons = (data['lessons'] as Map<String, dynamic>?) ?? const {};
+    final perSubjectJson = data['perSubject'] as List<dynamic>? ?? const [];
+
+    lessonSummary.value = DashboardLessonSummary.fromApi(lessons);
+    _perSubjectSummaryById
+      ..clear()
+      ..addEntries(
+        perSubjectJson.map((entry) {
+          final summary = SubjectProgressSummary.fromApi(
+            entry as Map<String, dynamic>,
+          );
+          return MapEntry(summary.subjectId, summary);
+        }),
+      );
+  }
+
+  final Map<String, SubjectProgressSummary> _perSubjectSummaryById = {};
+
+  Future<void> _loadLearnSubjects() async {
+    isLoadingLearnSubjects.value = true;
+    learnSubjectsError.value = '';
+
+    final response = await LearnCatalogData.getUserSubjects();
+
+    if (!response.success) {
+      isLoadingLearnSubjects.value = false;
+      learnSubjects.clear();
+      learnSubjectsError.value = response.message;
+      return;
+    }
+
+    final subjects = response.data ?? const <LearnSubjectModel>[];
+    learnSubjects.assignAll(
+      subjects.asMap().entries.map((entry) {
+        final subject = entry.value;
+        final summary = _perSubjectSummaryById[subject.id];
+        return SubjectCardData.fromLearnSubject(
+          subject,
+          index: entry.key,
+          summary: summary,
+        );
+      }),
+    );
+
+    isLoadingLearnSubjects.value = false;
+  }
+
   void openLeaderboard() {
     Get.toNamed(AppRoutes.leaderboard);
   }
@@ -204,25 +305,14 @@ class DashboardTabbarController extends GetxController {
     Get.to(() => const LearnSubjectViews());
   }
 
-  void openLearnSubjectFromCard(String title) {
-    final subjectMap = {
-      'Math': 'mathematics',
-      'Science': 'science',
-      'English': 'english',
-      'Social': 'social',
-    };
-
-    final subjectId = subjectMap[title];
-    final subject = subjectId == null
-        ? null
-        : LearnCatalogData.subjectById(subjectId);
-
-    if (subject == null) {
-      openLearnSubjects();
-      return;
-    }
-
-    Get.to(() => LearnChapterViews(subject: subject));
+  void openLearnSubjectFromCard(SubjectCardData subject) {
+    Get.to<bool>(() => LearnChapterViews(subject: subject.learnSubject))?.then((
+      shouldReload,
+    ) {
+      if (shouldReload == true) {
+        loadDashboardData();
+      }
+    });
   }
 
   void openStudyTool(StudyToolData tool) {
@@ -257,7 +347,10 @@ class DashboardTabbarController extends GetxController {
     }
   }
 
-  Future<void> handleProfileMenuTap(ProfileMenuData item) async {
+  Future<void> handleProfileMenuTap(
+    ProfileMenuData item,
+    BuildContext context,
+  ) async {
     if (item.title == 'Leaderboard') {
       openLeaderboard();
       return;
@@ -309,9 +402,95 @@ class DashboardTabbarController extends GetxController {
       );
 
       if (shouldLogout == true) {
+        final response = await ApiService.instance.post<dynamic>(
+          endpoint: ApiService.LOGOUT,
+          fromJson: (json) => json,
+        );
+
+        if (!response.success) {
+          Get.snackbar(
+            'Error',
+            response.message,
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFFB42318),
+            colorText: Colors.white,
+            margin: const EdgeInsets.all(16),
+          );
+          return;
+        }
+
         final preferences = await SharedPreferences.getInstance();
         await preferences.setBool(StorageKeys.profileSetupCompleted, false);
         await _storage.delete(key: StorageKeys.authToken);
+        await SessionManager.instance.logout();
+        if (context.mounted) {
+          Provider.of<UserProfileProvider>(
+            context,
+            listen: false,
+          ).clearProfile();
+        }
+        Get.offAllNamed(AppRoutes.login);
+      }
+
+      return;
+    }
+
+    if (item.title == 'Delete Account') {
+      final shouldDelete = await Get.dialog<bool>(
+        AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Delete Account',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: const Text('Are you sure you want to delete your account?'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Get.back(result: true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A4FD9),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldDelete == true) {
+        final response = await ApiService.instance.delete<dynamic>(
+          endpoint: ApiService.DELETE_ACCOUNT,
+          fromJson: (json) => json,
+        );
+
+        if (!response.success) {
+          Get.snackbar(
+            'Error',
+            response.message,
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFFB42318),
+            colorText: Colors.white,
+            margin: const EdgeInsets.all(16),
+          );
+          return;
+        }
+
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setBool(StorageKeys.profileSetupCompleted, false);
+        await _storage.delete(key: StorageKeys.authToken);
+        await SessionManager.instance.logout();
+        if (context.mounted) {
+          Provider.of<UserProfileProvider>(
+            context,
+            listen: false,
+          ).clearProfile();
+        }
         Get.offAllNamed(AppRoutes.login);
       }
     }
@@ -326,19 +505,128 @@ class DashboardNavItemData {
 }
 
 class SubjectCardData {
+  final LearnSubjectModel learnSubject;
   final String title;
+  final String subjectId;
   final String progressLabel;
+  final String progressText;
+  final double progressValue;
   final Color accent;
   final IconData icon;
   final Color iconBackground;
 
   const SubjectCardData({
+    required this.learnSubject,
     required this.title,
+    required this.subjectId,
     required this.progressLabel,
+    required this.progressText,
+    required this.progressValue,
     required this.accent,
     required this.icon,
     required this.iconBackground,
   });
+
+  factory SubjectCardData.fromLearnSubject(
+    LearnSubjectModel subject, {
+    required int index,
+    SubjectProgressSummary? summary,
+  }) {
+    final palette = _subjectPalette(index);
+    final lessonsTotal = summary?.lessonsTotal ?? 0;
+    final lessonsCompleted = summary?.lessonsCompleted ?? 0;
+    final progressValue = lessonsTotal == 0
+        ? 0.0
+        : (lessonsCompleted / lessonsTotal).clamp(0.0, 1.0).toDouble();
+    final progressPercentage = (progressValue * 100).round();
+
+    return SubjectCardData(
+      learnSubject: subject,
+      title: subject.title,
+      subjectId: subject.id,
+      progressLabel: '$progressPercentage%',
+      progressText: '$lessonsCompleted/$lessonsTotal Lessons',
+      progressValue: progressValue,
+      accent: palette.accent,
+      icon: palette.icon,
+      iconBackground: palette.iconBackground,
+    );
+  }
+}
+
+class DashboardLessonSummary {
+  final int total;
+  final int completed;
+  final int inProgress;
+  final int notStarted;
+  final double completionRate;
+
+  const DashboardLessonSummary({
+    this.total = 0,
+    this.completed = 0,
+    this.inProgress = 0,
+    this.notStarted = 0,
+    this.completionRate = 0,
+  });
+
+  factory DashboardLessonSummary.fromApi(Map<String, dynamic> json) {
+    return DashboardLessonSummary(
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      completed: (json['completed'] as num?)?.toInt() ?? 0,
+      inProgress: (json['inProgress'] as num?)?.toInt() ?? 0,
+      notStarted: (json['notStarted'] as num?)?.toInt() ?? 0,
+      completionRate: (json['completionRate'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  double get progressValue => (completionRate / 100).clamp(0, 1);
+
+  String get progressLabel =>
+      completionRate.truncateToDouble() == completionRate
+      ? '${completionRate.toStringAsFixed(0)}%'
+      : '${completionRate.toStringAsFixed(2)}%';
+
+  String get activeLessonLabel =>
+      '$total Active Lesson${total == 1 ? '' : 's'}';
+}
+
+class _SubjectPalette {
+  final IconData icon;
+  final Color accent;
+  final Color iconBackground;
+
+  const _SubjectPalette({
+    required this.icon,
+    required this.accent,
+    required this.iconBackground,
+  });
+}
+
+_SubjectPalette _subjectPalette(int index) {
+  const palettes = [
+    _SubjectPalette(
+      icon: Icons.calculate_outlined,
+      accent: Color(0xFF4A4FD9),
+      iconBackground: Color(0xFFE9E8FF),
+    ),
+    _SubjectPalette(
+      icon: Icons.science_outlined,
+      accent: Color(0xFFA56A00),
+      iconBackground: Color(0xFFFFEDCF),
+    ),
+    _SubjectPalette(
+      icon: Icons.import_contacts_rounded,
+      accent: Color(0xFF8A2CD5),
+      iconBackground: Color(0xFFF0DEFF),
+    ),
+    _SubjectPalette(
+      icon: Icons.public_rounded,
+      accent: Color(0xFF575867),
+      iconBackground: Color(0xFFE0E3E7),
+    ),
+  ];
+
+  return palettes[index % palettes.length];
 }
 
 class StudyToolData {
@@ -393,6 +681,82 @@ class PreviousResultData {
   });
 }
 
+class MockTestCardData {
+  const MockTestCardData({
+    required this.id,
+    required this.title,
+    required this.classLevel,
+    required this.startAt,
+    required this.endAt,
+    required this.totalMarks,
+    required this.passingPercentage,
+    required this.phase,
+    required this.attemptStatus,
+    required this.myAttemptId,
+  });
+
+  final String id;
+  final String title;
+  final String classLevel;
+  final DateTime? startAt;
+  final DateTime? endAt;
+  final int totalMarks;
+  final int passingPercentage;
+  final String phase;
+  final String attemptStatus;
+  final String myAttemptId;
+
+  factory MockTestCardData.fromApi(Map<String, dynamic> json) {
+    return MockTestCardData(
+      id: _safeText(json['_id']),
+      title: _safeText(json['title'], fallback: 'Mock Test'),
+      classLevel: _safeText(json['classLevel']),
+      startAt: DateTime.tryParse(json['startAt']?.toString() ?? ''),
+      endAt: DateTime.tryParse(json['endAt']?.toString() ?? ''),
+      totalMarks: (json['totalMarks'] as num?)?.toInt() ?? 0,
+      passingPercentage: (json['passingPercentage'] as num?)?.toInt() ?? 0,
+      phase: _safeText(json['phase'], fallback: 'upcoming'),
+      attemptStatus: _safeText(
+        json['attemptStatus'],
+        fallback: 'not_attempted',
+      ),
+      myAttemptId: _safeText(json['myAttemptId']),
+    );
+  }
+
+  bool get canStart => phase == 'live' && attemptStatus == 'not_attempted';
+
+  int get phasePriority {
+    if (phase == 'live') {
+      return 0;
+    }
+    if (phase == 'upcoming') {
+      return 1;
+    }
+    return 2;
+  }
+
+  String get windowLabel {
+    return 'Start: ${_formatMockDateTime(startAt)}\nEnd: ${_formatMockDateTime(endAt)}';
+  }
+
+  String get statusLabel {
+    if (attemptStatus == 'attempted') {
+      return 'Attempted';
+    }
+    if (attemptStatus == 'missed') {
+      return 'Missed';
+    }
+    if (phase == 'live') {
+      return 'Live Now';
+    }
+    if (phase == 'past') {
+      return 'Ended';
+    }
+    return 'Upcoming';
+  }
+}
+
 class ProfileMenuData {
   final String title;
   final IconData icon;
@@ -403,4 +767,34 @@ class ProfileMenuData {
     required this.icon,
     this.color = const Color(0xFF4A4FD9),
   });
+}
+
+String _safeText(dynamic value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+String _formatMockDateTime(DateTime? date) {
+  if (date == null) {
+    return '-';
+  }
+  final local = date.toLocal();
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final period = local.hour >= 12 ? 'PM' : 'AM';
+  return '${months[local.month - 1]} ${local.day}, $hour:$minute $period';
 }

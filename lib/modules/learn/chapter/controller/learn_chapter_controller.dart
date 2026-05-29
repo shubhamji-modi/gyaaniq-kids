@@ -1,321 +1,226 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/service/api_service.dart';
+
 class LearnCatalogData {
-  static final List<LearnSubjectModel> subjects = [
-    LearnSubjectModel(
-      id: 'mathematics',
-      title: 'Mathematics',
-      subtitle: 'Geometry, Algebra, and Statistics',
-      statusLabel: 'Active',
-      icon: Icons.calculate_outlined,
-      accent: const Color(0xFF4A4FD9),
-      iconBackground: const Color(0xFFDCD9FF),
-      chapters: [
-        LearnChapterModel(
-          id: 'math_ch_1',
-          chapterNumber: 1,
-          title: 'Real Numbers & Logic',
-          status: LearnChapterStatus.completed,
-          completedLessons: 12,
-          totalLessons: 12,
-          quizCount: 4,
-          accent: const Color(0xFFA46A00),
-          summary:
-              'Build number sense with reasoning, divisibility, and foundational logic.',
-          topics: [
-            LearnTopicModel(
-              id: 'topic_1_1',
-              title: 'Natural and Whole Numbers',
-              status: LearnTopicStatus.completed,
-              progress: 1,
-              hasVideo: true,
-              hasNotes: true,
-              hasWorksheet: false,
-              lesson: _defaultLesson(
-                title: 'Natural and Whole Numbers',
-                chapterLabel: 'CHAPTER 1',
-              ),
-            ),
-            LearnTopicModel(
-              id: 'topic_1_2',
-              title: 'Divisibility Rules',
-              status: LearnTopicStatus.completed,
-              progress: 1,
-              hasVideo: true,
-              hasNotes: true,
-              hasWorksheet: true,
-              lesson: _defaultLesson(
-                title: 'Divisibility Rules',
-                chapterLabel: 'CHAPTER 1',
-              ),
-            ),
-          ],
-        ),
-        LearnChapterModel(
-          id: 'math_ch_2',
-          chapterNumber: 2,
-          title: 'Polynomials',
-          status: LearnChapterStatus.completed,
-          completedLessons: 8,
-          totalLessons: 8,
-          quizCount: 2,
-          accent: const Color(0xFFA46A00),
-          summary:
-              'Understand variables, terms, and expressions through visual examples.',
-          topics: [
-            LearnTopicModel(
-              id: 'topic_2_1',
-              title: 'Understanding Terms',
-              status: LearnTopicStatus.completed,
-              progress: 1,
-              hasVideo: true,
-              hasNotes: true,
-              hasWorksheet: true,
-              lesson: _defaultLesson(
-                title: 'Understanding Terms',
-                chapterLabel: 'CHAPTER 2',
-              ),
-            ),
-          ],
-        ),
-        LearnChapterModel(
-          id: 'math_ch_3',
-          chapterNumber: 3,
-          title: 'Linear Equations',
-          status: LearnChapterStatus.inProgress,
-          completedLessons: 10,
-          totalLessons: 15,
-          quizCount: 5,
-          accent: const Color(0xFF4A4FD9),
-          summary:
-              'Master the language of numbers through interactive visualization and AI-powered practice sessions.',
-          topics: [
-            LearnTopicModel(
-              id: 'topic_3_1',
-              title: 'Introduction to Quadratics',
-              status: LearnTopicStatus.completed,
-              progress: 1,
-              hasVideo: false,
-              hasNotes: true,
-              hasWorksheet: true,
-              lesson: _defaultLesson(
-                title: 'Introduction to Quadratics',
-                chapterLabel: 'CHAPTER 3',
-              ),
-            ),
-            LearnTopicModel(
-              id: 'topic_3_2',
-              title: 'Solving by Factoring',
-              status: LearnTopicStatus.inProgress,
-              progress: 0.4,
-              hasVideo: true,
-              hasNotes: true,
-              hasWorksheet: true,
-              lesson: LearnLessonModel(
-                title: 'Mastering the Quadratic Split',
-                chapterLabel: 'CHAPTER 4',
-                subjectLabel: 'MATHEMATICS',
-                description:
-                    'In this session, we break down the complex process of finding roots for quadratic equations by splitting the middle term. Learn the "Magic Pair" method to identify factors quickly and accurately.',
-                progress: 0.71,
-                currentTime: '08:42',
-                totalTime: '12:15',
-                notes:
-                    'Notes tab can include quick formulas, examples, and teacher highlights for revision.',
-                resources: const [
-                  LearnResourceModel(
-                    title: 'Factoring Cheat Sheet',
-                    meta: 'PDF • 1.2 MB',
-                    icon: Icons.picture_as_pdf_outlined,
-                    accent: Color(0xFFD6332B),
-                    iconBackground: Color(0xFFFFD8D2),
-                  ),
-                  LearnResourceModel(
-                    title: 'Example Problems',
-                    meta: 'PDF • 850 KB',
-                    icon: Icons.task_alt_outlined,
-                    accent: Color(0xFF4A4FD9),
-                    iconBackground: Color(0xFFDAD8FF),
-                  ),
-                ],
-              ),
-            ),
-            LearnTopicModel(
-              id: 'topic_3_3',
-              title: 'The Quadratic Formula',
-              status: LearnTopicStatus.locked,
-              progress: 0,
-              hasVideo: true,
-              hasNotes: true,
-              hasWorksheet: false,
-              lesson: _defaultLesson(
-                title: 'The Quadratic Formula',
-                chapterLabel: 'CHAPTER 3',
-              ),
-            ),
-            LearnTopicModel(
-              id: 'topic_3_4',
-              title: 'Nature of Roots',
-              status: LearnTopicStatus.locked,
-              progress: 0,
-              hasVideo: false,
-              hasNotes: true,
-              hasWorksheet: false,
-              lesson: _defaultLesson(
-                title: 'Nature of Roots',
-                chapterLabel: 'CHAPTER 3',
-              ),
-            ),
-          ],
-        ),
-        LearnChapterModel(
-          id: 'math_ch_4',
-          chapterNumber: 4,
-          title: 'Coordinate Geometry',
-          status: LearnChapterStatus.locked,
-          completedLessons: 0,
-          totalLessons: 11,
-          quizCount: 3,
-          accent: const Color(0xFFCACED8),
-          summary: 'Starts after Chapter 3',
-          topics: const [],
-        ),
-        LearnChapterModel(
-          id: 'math_ch_5',
-          chapterNumber: 5,
-          title: 'Arithmetic Progressions',
-          status: LearnChapterStatus.locked,
-          completedLessons: 0,
-          totalLessons: 13,
-          quizCount: 4,
-          accent: const Color(0xFFCACED8),
-          summary: 'Starts after Chapter 4',
-          topics: const [],
-        ),
-        LearnChapterModel(
-          id: 'math_ch_6',
-          chapterNumber: 6,
-          title: 'Triangles & Similarity',
-          status: LearnChapterStatus.locked,
-          completedLessons: 0,
-          totalLessons: 14,
-          quizCount: 4,
-          accent: const Color(0xFFCACED8),
-          summary: 'Starts after Chapter 5',
-          topics: const [],
-        ),
-      ],
-    ),
-    LearnSubjectModel(
-      id: 'science',
-      title: 'Science',
-      subtitle: 'Biology, Chemistry, and Physics',
-      statusLabel: 'New Content',
-      icon: Icons.science_outlined,
-      accent: const Color(0xFFFFA31A),
-      iconBackground: const Color(0xFFFFD8A8),
-      chapters: List.generate(
-        16,
-        (index) => LearnChapterModel(
-          id: 'science_ch_$index',
-          chapterNumber: index + 1,
-          title: 'Science Chapter ${index + 1}',
-          status: index < 4
-              ? LearnChapterStatus.completed
-              : LearnChapterStatus.locked,
-          completedLessons: index < 4 ? 8 : 0,
-          totalLessons: 8,
-          quizCount: 2,
-          accent: const Color(0xFFFFA31A),
-          summary: index < 4
-              ? 'Explore core science fundamentals.'
-              : 'Unlock after previous chapter',
-          topics: const [],
-        ),
-      ),
-    ),
-    LearnSubjectModel(
-      id: 'english',
-      title: 'English Literature',
-      subtitle: 'Grammar, Fiction, and Poetry',
-      icon: Icons.menu_book_rounded,
-      accent: const Color(0xFF7D31E2),
-      iconBackground: const Color(0xFFE9D2FF),
-      chapters: List.generate(
-        15,
-        (index) => LearnChapterModel(
-          id: 'english_ch_$index',
-          chapterNumber: index + 1,
-          title: 'English Chapter ${index + 1}',
-          status: LearnChapterStatus.completed,
-          completedLessons: 6,
-          totalLessons: 6,
-          quizCount: 1,
-          accent: const Color(0xFF7D31E2),
-          summary: 'Grammar drills and reading practice.',
-          topics: const [],
-        ),
-      ),
-    ),
-    LearnSubjectModel(
-      id: 'social',
-      title: 'Social Studies',
-      subtitle: 'History, Civics, and Geography',
-      icon: Icons.public_rounded,
-      accent: const Color(0xFF575867),
-      iconBackground: const Color(0xFFE0E3E7),
-      chapters: List.generate(
-        12,
-        (index) => LearnChapterModel(
-          id: 'social_ch_$index',
-          chapterNumber: index + 1,
-          title: 'Social Chapter ${index + 1}',
-          status: LearnChapterStatus.locked,
-          completedLessons: 0,
-          totalLessons: 7,
-          quizCount: 2,
-          accent: const Color(0xFF575867),
-          summary: 'Begin your social science path soon.',
-          topics: const [],
-        ),
-      ),
-    ),
-  ];
+  static Future<ApiResponse<List<LearnSubjectModel>>> getUserSubjects() async {
+    final summaryResponse = await getSubjectProgressSummary();
 
-  static LearnSubjectModel? subjectById(String id) {
-    for (final subject in subjects) {
-      if (subject.id == id) {
-        return subject;
-      }
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.GET_USER_SUBJECT,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<List<LearnSubjectModel>>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
     }
-    return null;
-  }
-}
 
-LearnLessonModel _defaultLesson({
-  required String title,
-  required String chapterLabel,
-}) {
-  return LearnLessonModel(
-    title: title,
-    chapterLabel: chapterLabel,
-    subjectLabel: 'MATHEMATICS',
-    description:
-        'This lesson walks you through the concept with examples, guided practice, and recap notes.',
-    progress: 0.3,
-    currentTime: '03:10',
-    totalTime: '10:00',
-    notes: 'Use the notes tab for formulas, examples, and revision points.',
-    resources: const [
-      LearnResourceModel(
-        title: 'Lesson Summary',
-        meta: 'PDF • 420 KB',
-        icon: Icons.description_outlined,
-        accent: Color(0xFF4A4FD9),
-        iconBackground: Color(0xFFDAD8FF),
+    final body = response.data as Map<String, dynamic>;
+    final subjectsJson =
+        ((body['data'] as Map<String, dynamic>?)?['subjects'])
+            as List<dynamic>? ??
+        const [];
+    final summaryById = summaryResponse.data ?? const <String, SubjectProgressSummary>{};
+
+    final subjects = subjectsJson
+        .asMap()
+        .entries
+        .map(
+          (entry) => LearnSubjectModel.fromApi(
+            entry.value as Map<String, dynamic>,
+            index: entry.key,
+            summary: summaryById[_safeText((entry.value as Map<String, dynamic>)['_id'])],
+          ),
+        )
+        .toList();
+
+    return ApiResponse<List<LearnSubjectModel>>(
+      success: true,
+      data: subjects,
+      message: body['message']?.toString() ?? response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  static Future<ApiResponse<List<LearnChapterModel>>> getUserLessons({
+    required LearnSubjectModel subject,
+  }) async {
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: ApiService.GET_USER_LESSON,
+      showLoader: false,
+      fromJson: (json) => json,
+      data: {'classLevel': subject.classLevel, 'subjectId': subject.id},
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<List<LearnChapterModel>>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final lessonsJson =
+        ((body['data'] as Map<String, dynamic>?)?['lessons'])
+            as List<dynamic>? ??
+        const [];
+
+    final chapters =
+        lessonsJson
+            .asMap()
+            .entries
+            .map(
+              (entry) => LearnChapterModel.fromApiLesson(
+                entry.value as Map<String, dynamic>,
+                subject: subject,
+                fallbackNumber: entry.key + 1,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.chapterNumber.compareTo(b.chapterNumber));
+
+    return ApiResponse<List<LearnChapterModel>>(
+      success: true,
+      data: chapters,
+      message: body['message']?.toString() ?? response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> markLessonComplete({
+    required String lessonId,
+  }) async {
+    final endpoint = ApiService.MARK_A_LESSON.replaceFirst(':id', lessonId);
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: endpoint,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    return ApiResponse<Map<String, dynamic>>(
+      success: true,
+      data: (body['data'] as Map<String, dynamic>?) ?? const {},
+      message: body['message']?.toString() ?? response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> markLessonStarted({
+    required String lessonId,
+  }) async {
+    final endpoint = ApiService.MARK_START_LESSON.replaceFirst(':id', lessonId);
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: endpoint,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    return ApiResponse<Map<String, dynamic>>(
+      success: true,
+      data: (body['data'] as Map<String, dynamic>?) ?? const {},
+      message: body['message']?.toString() ?? response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  static Future<ApiResponse<LearnLessonProgress>> getLessonProgress({
+    required String lessonId,
+  }) async {
+    final endpoint = ApiService.GET_PROGRESS_ONE_LESSON.replaceFirst(
+      ':id',
+      lessonId,
+    );
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: endpoint,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<LearnLessonProgress>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    return ApiResponse<LearnLessonProgress>(
+      success: true,
+      data: LearnLessonProgress.fromApi(
+        (body['data'] as Map<String, dynamic>?) ?? const {},
+        lessonId: lessonId,
       ),
-    ],
-  );
+      message: body['message']?.toString() ?? response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, SubjectProgressSummary>>>
+  getSubjectProgressSummary() async {
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.DASHBOARD_PROGRESS_SUMMARY,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<Map<String, SubjectProgressSummary>>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final perSubjectJson = data['perSubject'] as List<dynamic>? ?? const [];
+
+    final summaryById = <String, SubjectProgressSummary>{};
+    for (final entry in perSubjectJson) {
+      if (entry is! Map<String, dynamic>) {
+        continue;
+      }
+      final summary = SubjectProgressSummary.fromApi(entry);
+      if (summary.subjectId.isEmpty) {
+        continue;
+      }
+      summaryById[summary.subjectId] = summary;
+    }
+
+    return ApiResponse<Map<String, SubjectProgressSummary>>(
+      success: true,
+      data: summaryById,
+      message: body['message']?.toString() ?? response.message,
+      statusCode: response.statusCode,
+    );
+  }
+
+  static LearnSubjectModel? subjectById(String id) => null;
 }
 
 class LearnSubjectModel {
@@ -327,6 +232,10 @@ class LearnSubjectModel {
   final Color accent;
   final Color iconBackground;
   final List<LearnChapterModel> chapters;
+  final String classLevel;
+  final String description;
+  final int completedLessons;
+  final int totalLessons;
 
   LearnSubjectModel({
     required this.id,
@@ -337,20 +246,81 @@ class LearnSubjectModel {
     required this.accent,
     required this.iconBackground,
     required this.chapters,
+    required this.classLevel,
+    required this.description,
+    required this.completedLessons,
+    required this.totalLessons,
   });
+
+  factory LearnSubjectModel.fromApi(
+    Map<String, dynamic> json, {
+    required int index,
+    SubjectProgressSummary? summary,
+  }) {
+    final palette = _subjectPalette(index);
+    final description = _safeText(json['description']);
+
+    return LearnSubjectModel(
+      id: _safeText(json['_id']),
+      title: _safeText(json['name'], fallback: 'Untitled Subject'),
+      subtitle: description.isEmpty
+          ? 'No description available for this subject yet.'
+          : description,
+      statusLabel: _statusLabelForIndex(index),
+      icon: palette.icon,
+      accent: palette.accent,
+      iconBackground: palette.iconBackground,
+      chapters: const [],
+      classLevel: _safeText(json['classLevel'], fallback: '-'),
+      description: description,
+      completedLessons: summary?.lessonsCompleted ?? 0,
+      totalLessons: summary?.lessonsTotal ?? 0,
+    );
+  }
 
   int get totalChapters => chapters.length;
 
-  int get completedChapters =>
-      chapters.where((chapter) => chapter.status == LearnChapterStatus.completed).length;
+  int get completedChapters => chapters
+      .where((chapter) => chapter.status == LearnChapterStatus.completed)
+      .length;
 
   double get progress =>
-      totalChapters == 0 ? 0 : completedChapters / totalChapters;
+      totalLessons == 0 ? 0 : completedLessons / totalLessons;
 
   String get progressPercentage => '${(progress * 100).round()}%';
 
   String get progressText =>
-      '$completedChapters/$totalChapters Chapters Completed';
+      '$completedLessons/$totalLessons Lessons Completed';
+}
+
+class SubjectProgressSummary {
+  final String subjectId;
+  final String subjectName;
+  final int lessonsTotal;
+  final int lessonsCompleted;
+  final int quizAttempts;
+  final double avgPercentage;
+
+  const SubjectProgressSummary({
+    required this.subjectId,
+    required this.subjectName,
+    required this.lessonsTotal,
+    required this.lessonsCompleted,
+    required this.quizAttempts,
+    required this.avgPercentage,
+  });
+
+  factory SubjectProgressSummary.fromApi(Map<String, dynamic> json) {
+    final subject = (json['subject'] as Map<String, dynamic>?) ?? const {};
+    return SubjectProgressSummary(
+      subjectId: _safeText(subject['_id']),
+      subjectName: _safeText(subject['name']),
+      lessonsTotal: (json['lessonsTotal'] as num?)?.toInt() ?? 0,
+      lessonsCompleted: (json['lessonsCompleted'] as num?)?.toInt() ?? 0,
+      quizAttempts: (json['quizAttempts'] as num?)?.toInt() ?? 0,
+      avgPercentage: (json['avgPercentage'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
 
 enum LearnChapterStatus { completed, inProgress, locked }
@@ -380,15 +350,53 @@ class LearnChapterModel {
     required this.topics,
   });
 
+  factory LearnChapterModel.fromApiLesson(
+    Map<String, dynamic> json, {
+    required LearnSubjectModel subject,
+    required int fallbackNumber,
+  }) {
+    final order = (json['order'] as num?)?.toInt() ?? fallbackNumber;
+    final lesson = LearnLessonModel.fromApi(
+      json,
+      subject: subject,
+      order: order,
+    );
+
+    return LearnChapterModel(
+      id: _safeText(json['_id']),
+      chapterNumber: order,
+      title: _safeText(json['title'], fallback: 'Untitled Lesson'),
+      status: LearnChapterStatus.inProgress,
+      completedLessons: 0,
+      totalLessons: 1,
+      quizCount: 0,
+      accent: subject.accent,
+      summary: lesson.description,
+      topics: [
+        LearnTopicModel(
+          id: lesson.id,
+          title: lesson.title,
+          status: LearnTopicStatus.inProgress,
+          progress: 0,
+          hasVideo: lesson.videoUrl.isNotEmpty,
+          hasNotes: lesson.notes.isNotEmpty,
+          hasWorksheet: lesson.pdfUrl.isNotEmpty,
+          lesson: lesson,
+        ),
+      ],
+    );
+  }
+
   double get progress =>
       totalLessons == 0 ? 0 : completedLessons / totalLessons;
 
   String get progressPercentage => '${(progress * 100).round()}%';
 
-  String get lessonQuizMeta => '$totalLessons Lessons • $quizCount Quizzes';
+  String get lessonQuizMeta =>
+      '$completedLessons/$totalLessons Lessons Completed';
 }
 
-enum LearnTopicStatus { completed, inProgress, locked }
+enum LearnTopicStatus { notStarted, completed, inProgress, locked }
 
 class LearnTopicModel {
   final String id;
@@ -412,7 +420,70 @@ class LearnTopicModel {
   });
 }
 
+class LearnLessonProgress {
+  final String lessonId;
+  final LearnTopicStatus status;
+  final String startedAt;
+  final String completedAt;
+  final String lastAccessedAt;
+
+  const LearnLessonProgress({
+    required this.lessonId,
+    required this.status,
+    required this.startedAt,
+    required this.completedAt,
+    required this.lastAccessedAt,
+  });
+
+  factory LearnLessonProgress.fromApi(
+    Map<String, dynamic> json, {
+    required String lessonId,
+  }) {
+    final lessonValue = json['lesson'];
+    final progressLessonId = lessonValue is Map<String, dynamic>
+        ? _safeText(lessonValue['_id'], fallback: lessonId)
+        : _safeText(lessonValue, fallback: lessonId);
+
+    return LearnLessonProgress(
+      lessonId: progressLessonId,
+      status: _topicStatusFromApi(_safeText(json['status'])),
+      startedAt: _safeText(json['startedAt']),
+      completedAt: _safeText(json['completedAt']),
+      lastAccessedAt: _safeText(json['lastAccessedAt']),
+    );
+  }
+
+  double get progressValue {
+    switch (status) {
+      case LearnTopicStatus.completed:
+        return 1;
+      case LearnTopicStatus.inProgress:
+        return 0.5;
+      case LearnTopicStatus.notStarted:
+      case LearnTopicStatus.locked:
+        return 0;
+    }
+  }
+}
+
+LearnTopicStatus _topicStatusFromApi(String value) {
+  switch (value.trim().toLowerCase()) {
+    case 'completed':
+      return LearnTopicStatus.completed;
+    case 'in_progress':
+    case 'in progress':
+      return LearnTopicStatus.inProgress;
+    case 'locked':
+      return LearnTopicStatus.locked;
+    case 'not_started':
+    case 'not started':
+    default:
+      return LearnTopicStatus.notStarted;
+  }
+}
+
 class LearnLessonModel {
+  final String id;
   final String title;
   final String chapterLabel;
   final String subjectLabel;
@@ -421,9 +492,13 @@ class LearnLessonModel {
   final String currentTime;
   final String totalTime;
   final String notes;
+  final String videoUrl;
+  final String pdfUrl;
+  final String content;
   final List<LearnResourceModel> resources;
 
   const LearnLessonModel({
+    required this.id,
     required this.title,
     required this.chapterLabel,
     required this.subjectLabel,
@@ -432,13 +507,70 @@ class LearnLessonModel {
     required this.currentTime,
     required this.totalTime,
     required this.notes,
+    required this.videoUrl,
+    required this.pdfUrl,
+    required this.content,
     required this.resources,
   });
+
+  factory LearnLessonModel.fromApi(
+    Map<String, dynamic> json, {
+    required LearnSubjectModel subject,
+    required int order,
+  }) {
+    final title = _safeText(json['title'], fallback: 'Untitled Lesson');
+    final description = _safeText(json['description']);
+    final content = _safeText(json['content']);
+    final videoUrl = _safeText(json['videoUrl']);
+    final pdfUrl = _safeText(json['pdfUrl']);
+    final teacherName = _safeText(
+      (json['teacher'] as Map<String, dynamic>?)?['name'],
+    );
+    final plainContent = _stripHtml(content);
+    final notes = plainContent.isNotEmpty
+        ? plainContent
+        : (description.isNotEmpty
+              ? description
+              : 'Lesson notes will be available soon.');
+
+    final resources = <LearnResourceModel>[
+      if (pdfUrl.isNotEmpty)
+        LearnResourceModel(
+          title: 'Lesson PDF',
+          meta: 'Study material',
+          url: pdfUrl,
+          icon: Icons.picture_as_pdf_outlined,
+          accent: Color(0xFFD6332B),
+          iconBackground: Color(0xFFFFD8D2),
+        ),
+    ];
+
+    return LearnLessonModel(
+      id: _safeText(json['_id']),
+      title: title,
+      chapterLabel: 'LESSON $order',
+      subjectLabel: subject.title.toUpperCase(),
+      description: description.isNotEmpty
+          ? description
+          : (plainContent.isNotEmpty
+                ? plainContent
+                : 'Lesson description will be available soon.'),
+      progress: 0,
+      currentTime: '00:00',
+      totalTime: '00:00',
+      notes: teacherName.isEmpty ? notes : '$notes\n\nTeacher: $teacherName',
+      videoUrl: videoUrl,
+      pdfUrl: pdfUrl,
+      content: content,
+      resources: resources,
+    );
+  }
 }
 
 class LearnResourceModel {
   final String title;
   final String meta;
+  final String url;
   final IconData icon;
   final Color accent;
   final Color iconBackground;
@@ -446,8 +578,74 @@ class LearnResourceModel {
   const LearnResourceModel({
     required this.title,
     required this.meta,
+    required this.url,
     required this.icon,
     required this.accent,
     required this.iconBackground,
   });
+}
+
+class _SubjectPalette {
+  final IconData icon;
+  final Color accent;
+  final Color iconBackground;
+
+  const _SubjectPalette({
+    required this.icon,
+    required this.accent,
+    required this.iconBackground,
+  });
+}
+
+_SubjectPalette _subjectPalette(int index) {
+  const palettes = [
+    _SubjectPalette(
+      icon: Icons.calculate_outlined,
+      accent: Color(0xFF4A4FD9),
+      iconBackground: Color(0xFFDCD9FF),
+    ),
+    _SubjectPalette(
+      icon: Icons.science_outlined,
+      accent: Color(0xFFFFA31A),
+      iconBackground: Color(0xFFFFD8A8),
+    ),
+    _SubjectPalette(
+      icon: Icons.menu_book_rounded,
+      accent: Color(0xFF7D31E2),
+      iconBackground: Color(0xFFE9D2FF),
+    ),
+    _SubjectPalette(
+      icon: Icons.public_rounded,
+      accent: Color(0xFF575867),
+      iconBackground: Color(0xFFE0E3E7),
+    ),
+  ];
+
+  return palettes[index % palettes.length];
+}
+
+String? _statusLabelForIndex(int index) {
+  if (index == 0) {
+    return 'Active';
+  }
+  if (index == 1) {
+    return 'New Content';
+  }
+  return null;
+}
+
+String _safeText(dynamic value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+String _stripHtml(String value) {
+  return value
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&amp;', '&')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }

@@ -1,8 +1,9 @@
-import 'dart:convert';
-
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
-import '../../modules/auth/modules/login_request.dart';
-import '../../modules/auth/modules/login_response.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../routes/app_routes.dart';
+import '../values/constants.dart';
 import 'api_service.dart';
 import 'session_manager.dart';
 
@@ -11,164 +12,89 @@ class AuthService extends GetxService {
 
   final ApiService _apiService = ApiService.instance;
   final SessionManager _sessionManager = SessionManager.instance;
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-
-
-  // Login method
-  Future<ApiResponse<LoginResponse>> login({
+  Future<ApiResponse<Map<String, dynamic>>> login({
     required String email,
     required String password,
-  }) async {
-    try {
-      final loginRequest = LoginRequest(
-        email: email,
-        password: password,
-      );
-
-      final response = await _apiService.post<LoginResponse>(
-        endpoint: ApiService.LOGIN,
-        data: loginRequest.toJson(),
-        fromJson: (json) => LoginResponse.fromJson(json),
-      );
-
-      if (response.success && response.data != null) {
-        // Check if the API response indicates success
-        if (response.data!.status == 'success') {
-          // Save session data
-          await _sessionManager.login(
-            token: response.data!.token,
-            userId: response.data!.user.id,
-            userData: response.data!.user.name,
-            email: response.data!.user.email,
-            profilePic: response.data!.user.profilePicture,
-          );
-
-          return ApiResponse<LoginResponse>(
-            success: true,
-            data: response.data,
-            message: response.data!.message,
-            statusCode: response.statusCode,
-          );
-        } else {
-          return ApiResponse<LoginResponse>(
-            success: false,
-            message: response.data!.message,
-            statusCode: response.statusCode,
-          );
-        }
-      }
-
-      return response;
-    } catch (e) {
-      return ApiResponse<LoginResponse>(
-        success: false,
-        message: 'Login failed: ${e.toString()}',
-        statusCode: 0,
-      );
-    }
+  }) {
+    return _authenticate(
+      endpoint: ApiService.LOGIN,
+      payload: {'email': email.trim(), 'password': password},
+    );
   }
 
-
-  // Login method
-  Future<ApiResponse<LoginResponse>> loginGoogle({
-    required String email,
+  Future<ApiResponse<Map<String, dynamic>>> register({
     required String name,
-  }) async {
-    try {
-      final loginRequest = Map<String, dynamic>();
-      loginRequest['email'] =email;
-      loginRequest['name'] =name;
-
-      final response = await _apiService.post<LoginResponse>(
-        endpoint: ApiService.LOGIN_GOOGLE,
-        data: loginRequest,
-        fromJson: (json) => LoginResponse.fromJson(json),
-      );
-
-      if (response.success && response.data != null) {
-        // Check if the API response indicates success
-        if (response.data!.status == 'success') {
-          // Save session data
-          await _sessionManager.login(
-            token: response.data!.token,
-            userId: response.data!.user.id,
-            userData: response.data!.user.name,
-            email: response.data!.user.email,
-          );
-
-          return ApiResponse<LoginResponse>(
-            success: true,
-            data: response.data,
-            message: response.data!.message,
-            statusCode: response.statusCode,
-          );
-        } else {
-          return ApiResponse<LoginResponse>(
-            success: false,
-            message: response.data!.message,
-            statusCode: response.statusCode,
-          );
-        }
-      }
-
-      return response;
-    } catch (e) {
-      return ApiResponse<LoginResponse>(
-        success: false,
-        message: 'Login failed: ${e.toString()}',
-        statusCode: 0,
-      );
-    }
-  }
-
-  // Forgot method
-  Future<ApiResponse<dynamic>> forgotPassword({
     required String email,
-  }) async {
-    try {
-      final response = await _apiService.post<dynamic>(
-        endpoint: ApiService.FORGOT_PASSWORD,
-        data: {
-          "email": email,
-        },
-        fromJson: (json) => json,
-      );
+    required String password,
+  }) {
+    return _authenticate(
+      endpoint: ApiService.REGISTER,
+      payload: {
+        'name': name.trim(),
+        'email': email.trim(),
+        'password': password,
+      },
+    );
+  }
 
-      if (response.success) {
-        return ApiResponse(
-          success: true,
-          message: response.data['message'] ?? 'Reset link sent successfully',
-          statusCode: response.statusCode,
-        );
-      } else {
-        return ApiResponse(
-          success: false,
-          message: response.message,
-          statusCode: response.statusCode,
-        );
-      }
-    } catch (e) {
-      return ApiResponse(
+  Future<ApiResponse<Map<String, dynamic>>> _authenticate({
+    required String endpoint,
+    required Map<String, dynamic> payload,
+  }) async {
+    final response = await _apiService.post<dynamic>(
+      endpoint: endpoint,
+      data: payload,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<Map<String, dynamic>>(
         success: false,
-        message: e.toString(),
-        statusCode: 0,
+        message: response.message,
+        statusCode: response.statusCode,
       );
     }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>?;
+    final token = data?['token']?.toString() ?? '';
+    final userId = data?['_id']?.toString() ?? '';
+    final name = data?['name']?.toString() ?? '';
+    final email = data?['email']?.toString() ?? '';
+
+    if (token.isEmpty || userId.isEmpty) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: body['message']?.toString() ?? 'Authentication failed',
+        statusCode: response.statusCode,
+      );
+    }
+
+    await _storage.write(key: StorageKeys.authToken, value: token);
+    await _sessionManager.login(
+      token: token,
+      userId: userId,
+      userData: name,
+      email: email,
+    );
+
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('user_name', name);
+    await preferences.setString('user_email', email);
+
+    return ApiResponse<Map<String, dynamic>>(
+      success: true,
+      data: body,
+      message: body['message']?.toString() ?? 'Success',
+      statusCode: response.statusCode,
+    );
   }
 
-
-  // Logout method
   Future<void> logout() async {
+    await _storage.delete(key: StorageKeys.authToken);
     await _sessionManager.logout();
-    Get.offAllNamed('/login');
+    Get.offAllNamed(AppRoutes.login);
   }
-
-  // Check if user is authenticated
-  bool get isAuthenticated => _sessionManager.isLoggedIn;
-
-  // Get current user token
-  String get currentToken => _sessionManager.userToken;
-
-  // Get current user ID
-  String get currentUserId => _sessionManager.userId;
 }

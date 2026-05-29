@@ -1,24 +1,52 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:edupath_learning/core/service/session_manager.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart' hide Response, FormData, MultipartFile;
 import 'package:flutter/foundation.dart';
 
+import '../values/constants.dart';
 import '../utils/loading_dialog.dart';
 
 class ApiService extends GetxService {
   static ApiService get instance => Get.find<ApiService>();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   late Dio _dio;
 
   ///BASE URL
-  static String baseUrl = 'https://api.example.app/api/';
+  static String baseUrl =
+      'https://d4f1-2405-201-301c-203c-2858-e35c-bd9-e95.ngrok-free.app/api/v1/';
 
   ///End points
+  static const String REGISTER = 'auth/register';
   static const String LOGIN = 'auth/login';
-  static const String FORGOT_PASSWORD = "/auth/forgot-password";
-  static const String LOGIN_GOOGLE = 'auth/google-login';
+  static const String LOGOUT = 'auth/logout';
+  static const String DELETE_ACCOUNT = 'user/account';
+  static const String GET_PROFILE = 'user/profile';
+  static const String EDIT_PROFILE = 'user/profile/setup';
+  static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
+  static const String GET_USER_SUBJECT = 'user/subjects';
+  static const String GET_USER_LESSON = 'user/lessons/by-class-subject';
+  static const String FETCH_QUIZZES = 'user/quizzes/by-lesson';
+  static const String FETCH_SINGLE_QUIZZES = 'user/quizzes/:id';
+  static const String SUBMIT_PRACTICE_QUIZZES = 'user/quizzes/:id/attempt';
+  static const String GET_SUBMIT_RESULT = 'user/progress/quizzes/attempts';
+  static const String DASHBOARD_PROGRESS_SUMMARY = 'user/progress/summary';
+  static const String MARK_A_LESSON = 'user/progress/lessons/:id/complete';
+  static const String MARK_START_LESSON = 'user/progress/lessons/:id/start';
+  static const String GET_PROGRESS_ONE_LESSON = 'user/progress/lessons/:id';
+  static const String DAILY_QUIZZS = 'user/daily-quiz/today';
+  static const String DAILY_QUIZZS_ATTEMPT = 'user/daily-quiz/today/attempt';
+  static const String DAILY_QUIZZS_HISTORY = 'user/daily-quiz/my-attempts';
+  static const String USER_MOCK_TEST = 'user/mock-tests';
+  static const String FETCH_MOCK_TEST = 'user/mock-tests/:id';
+  static const String SUBMIT_MOCK_TEST = 'user/mock-tests/:id/attempt';
+  static const String MOCK_TEST_HISTORY = 'user/mock-tests/my-attempts';
+  static const String USER_LEADERBOARD = 'user/leaderboard';
+  static const String PRACTICE_FEEDBACK = 'user/progress/quizzes/attempts/:id';
+  static const String DAILY_QUIZ_FEEDBACK = 'user/daily-quiz/my-attempts/:id';
+  static const String MOCK_FEEDBACK = 'user/mock-tests/my-attempts/:id';
+
 
   @override
   void onInit() {
@@ -27,17 +55,17 @@ class ApiService extends GetxService {
     _initializeDio();
   }
 
-  void _initializeDio() async{
-
-
-
+  void _initializeDio() async {
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         sendTimeout: const Duration(seconds: 30),
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
       ),
     );
 
@@ -69,19 +97,19 @@ class ApiService extends GetxService {
           print('error');
           print(error);
           if (kDebugMode) {
-            print('ERROR[${error.response?.statusCode}] => DATA: ${error.response?.data}');
+            print(
+              'ERROR[${error.response?.statusCode}] => DATA: ${error.response?.data}',
+            );
             print(error.response?.data['errorCode']);
           }
 
-          try{
+          try {
             var errr = error.response?.data;
             /* if(errr['errorCode'] == 'InvalidToken'){
               _handleUnauthorized();
               Get.snackbar('Invalid Token', 'Please Login again to access the app.');
             }*/
-          }catch(e){
-
-          }
+          } catch (e) {}
 
           // Handle token expiration
           if (error.response?.statusCode == 401) {
@@ -98,6 +126,7 @@ class ApiService extends GetxService {
   }
 
   void _handleUnauthorized() async {
+    await _storage.delete(key: StorageKeys.authToken);
     await SessionManager.instance.logout();
     Get.offAllNamed('/login'); // Navigate to login page
   }
@@ -124,15 +153,26 @@ class ApiService extends GetxService {
           print('$response');
           break;
         case 'POST':
-          response = await _dio.post(endpoint, data: data, queryParameters: queryParameters);
+          response = await _dio.post(
+            endpoint,
+            data: data,
+            queryParameters: queryParameters,
+          );
           print('POST API SERVICE RES $endpoint');
           print('$response');
           break;
         case 'PUT':
-          response = await _dio.put(endpoint, data: data, queryParameters: queryParameters);
+          response = await _dio.put(
+            endpoint,
+            data: data,
+            queryParameters: queryParameters,
+          );
           break;
         case 'DELETE':
-          response = await _dio.delete(endpoint, queryParameters: queryParameters);
+          response = await _dio.delete(
+            endpoint,
+            queryParameters: queryParameters,
+          );
           break;
         default:
           throw Exception('Unsupported HTTP method: $method');
@@ -148,24 +188,35 @@ class ApiService extends GetxService {
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
         T? responseData;
         if (fromJson != null && response.data != null) {
-
           responseData = fromJson(response.data);
         } else {
           responseData = response.data as T?;
         }
 
-        return ApiResponse<T>(success: true, data: responseData, message: 'Success', statusCode: response.statusCode!);
+        return ApiResponse<T>(
+          success: true,
+          data: responseData,
+          message: 'Success',
+          statusCode: response.statusCode!,
+        );
       } else {
-
-        return ApiResponse<T>(success: false, message: response.data['message'] ?? 'Unknown error occurred', statusCode: response.statusCode!);
+        return ApiResponse<T>(
+          success: false,
+          message: response.data['message'] ?? 'Unknown error occurred',
+          statusCode: response.statusCode!,
+        );
       }
-    } on DioException catch (e,stack) {
+    } on DioException catch (e, stack) {
       if (showLoader) {
         LoadingDialog.hide();
       }
       print('=========== DioException ===========');
       print(stack);
-      return ApiResponse<T>(success: false, message: _handleDioError(e), statusCode: e.response?.statusCode ?? 0);
+      return ApiResponse<T>(
+        success: false,
+        message: _handleDioError(e),
+        statusCode: e.response?.statusCode ?? 0,
+      );
     } catch (e, stack) {
       print('=========== catch ===========');
       if (showLoader) {
@@ -173,7 +224,11 @@ class ApiService extends GetxService {
       }
       print(stack);
       //e.printError();
-      return ApiResponse<T>(success: false, message: 'Unexpected error occurred: ${e.toString()}', statusCode: 0);
+      return ApiResponse<T>(
+        success: false,
+        message: 'Unexpected error occurred: ${e.toString()}',
+        statusCode: 0,
+      );
     }
   }
 
@@ -198,11 +253,19 @@ class ApiService extends GetxService {
   }
 
   ///GET Request
-  Future<ApiResponse<T>> get<T>({required String endpoint,
+  Future<ApiResponse<T>> get<T>({
+    required String endpoint,
     Map<String, dynamic>? queryParameters,
     bool showLoader = true,
-    T Function(dynamic)? fromJson}) async {
-    return _apiCall<T>(method: 'GET', endpoint: endpoint, queryParameters: queryParameters, showLoader: showLoader, fromJson: fromJson);
+    T Function(dynamic)? fromJson,
+  }) async {
+    return _apiCall<T>(
+      method: 'GET',
+      endpoint: endpoint,
+      queryParameters: queryParameters,
+      showLoader: showLoader,
+      fromJson: fromJson,
+    );
   }
 
   ///POST Request
@@ -213,7 +276,14 @@ class ApiService extends GetxService {
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
-    return _apiCall<T>(method: 'POST', endpoint: endpoint, data: data, queryParameters: queryParameters, showLoader: showLoader, fromJson: fromJson);
+    return _apiCall<T>(
+      method: 'POST',
+      endpoint: endpoint,
+      data: data,
+      queryParameters: queryParameters,
+      showLoader: showLoader,
+      fromJson: fromJson,
+    );
   }
 
   ///PUT Request
@@ -224,15 +294,32 @@ class ApiService extends GetxService {
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
-    return _apiCall<T>(method: 'PUT', endpoint: endpoint, data: data, queryParameters: queryParameters, showLoader: showLoader, fromJson: fromJson);
+    return _apiCall<T>(
+      method: 'PUT',
+      endpoint: endpoint,
+      data: data,
+      queryParameters: queryParameters,
+      showLoader: showLoader,
+      fromJson: fromJson,
+    );
   }
 
   ///DELETE Request
-  Future<ApiResponse<T>> delete<T>({required String endpoint, Map<String, dynamic>? queryParameters, bool showLoader = true, T Function(dynamic)? fromJson}) async {
-    return _apiCall<T>(method: 'DELETE', endpoint: endpoint, queryParameters: queryParameters, showLoader: showLoader, fromJson: fromJson);
+  Future<ApiResponse<T>> delete<T>({
+    required String endpoint,
+    Map<String, dynamic>? queryParameters,
+    bool showLoader = true,
+    T Function(dynamic)? fromJson,
+  }) async {
+    return _apiCall<T>(
+      method: 'DELETE',
+      endpoint: endpoint,
+      queryParameters: queryParameters,
+      showLoader: showLoader,
+      fromJson: fromJson,
+    );
   }
 }
-
 
 class ApiResponse<T> {
   final bool success;
@@ -240,7 +327,12 @@ class ApiResponse<T> {
   final String message;
   final int statusCode;
 
-  ApiResponse({required this.success, this.data, required this.message, required this.statusCode});
+  ApiResponse({
+    required this.success,
+    this.data,
+    required this.message,
+    required this.statusCode,
+  });
 
   @override
   String toString() {

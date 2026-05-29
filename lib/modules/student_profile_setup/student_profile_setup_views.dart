@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../core/data/user_profile_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/service/api_service.dart';
 import '../../core/values/constants.dart';
 import '../../routes/app_routes.dart';
 
@@ -17,7 +17,6 @@ class StudentProfileSetupViews extends StatefulWidget {
 }
 
 class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _boardSearchController = TextEditingController();
   final TextEditingController _boardSheetSearchController =
@@ -80,6 +79,7 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
   String? _selectedLanguage;
   String? _selectedBoard;
   String? _selectedFinalGrade;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -113,25 +113,52 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
     }
 
     if (_currentStep == 3) {
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.setBool(StorageKeys.profileSetupCompleted, true);
-      await _storage.write(
-        key: StorageKeys.authToken,
-        value: 'profile-setup-done',
+      final profileProvider = context.read<UserProfileProvider>();
+
+      setState(() {
+        _isSubmitting = true;
+      });
+
+      final response = await ApiService.instance.put<dynamic>(
+        endpoint: ApiService.STUDENT_PROFILE_SETUP,
+        data: {
+          'name': _nameController.text.trim(),
+          'instructionMedium': _selectedLanguage,
+          'classLevel': _selectedFinalGrade,
+          'educationalBoard': _selectedBoard,
+        },
+        fromJson: (json) => json,
       );
 
-      // Set profile data in Provider
-      if (context.mounted) {
-        Provider.of<UserProfileProvider>(context, listen: false).setProfile(
-          UserProfile(
-            name: _nameController.text.trim(),
-            instructionMedium: _selectedLanguage ?? '-',
-            educationBoard: _selectedBoard ?? '-',
-            userClass: _selectedFinalGrade ?? '-',
-          ),
-        );
+      if (!mounted) {
+        return;
       }
 
+      setState(() {
+        _isSubmitting = false;
+      });
+
+      if (!response.success || response.data is! Map<String, dynamic>) {
+        _showMessage(response.message, isError: true);
+        return;
+      }
+
+      final body = response.data as Map<String, dynamic>;
+      final data = body['data'];
+      if (data is! Map<String, dynamic>) {
+        _showMessage(
+          body['message']?.toString() ?? 'Profile setup failed',
+          isError: true,
+        );
+        return;
+      }
+
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool(StorageKeys.profileSetupCompleted, true);
+
+      profileProvider.setProfile(UserProfile.fromApi(data));
+
+      _showMessage(body['message']?.toString() ?? 'Profile setup successful');
       Get.offAllNamed(AppRoutes.dashboard);
       return;
     }
@@ -152,6 +179,19 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
     setState(() {
       _currentStep--;
     });
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    Get.snackbar(
+      isError ? 'Error' : 'Success',
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: isError
+          ? const Color(0xFFB42318)
+          : const Color(0xFF0F9D58),
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(16),
+    );
   }
 
   void _openBoardSheet() {
@@ -323,19 +363,21 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
               child: Row(
                 children: [
-                  InkWell(
-                    onTap: _onBack,
-                    borderRadius: BorderRadius.circular(20),
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        color: Color(0xFF1B2436),
-                        size: 28,
+                  if (_currentStep != 0) ...[
+                    InkWell(
+                      onTap: _onBack,
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          color: Color(0xFF1B2436),
+                          size: 28,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(99),
@@ -378,7 +420,9 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _canContinue ? _onContinue : null,
+                  onPressed: (_canContinue && !_isSubmitting)
+                      ? _onContinue
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4A4FD9),
                     foregroundColor: Colors.white,
@@ -396,7 +440,11 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        _currentStep == 3 ? 'Start Learning' : 'Continue',
+                        _isSubmitting
+                            ? 'Please wait...'
+                            : _currentStep == 3
+                            ? 'Start Learning'
+                            : 'Continue',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,

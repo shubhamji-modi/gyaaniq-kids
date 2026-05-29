@@ -30,10 +30,12 @@ class QuizDailyResult extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'Fantastic effort! You have completed the daily challenge.',
+                    Text(
+                      controller.passed
+                          ? 'Fantastic effort! Your quiz attempt has been submitted successfully.'
+                          : 'Your quiz attempt has been submitted. Review the answers and try again to improve.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Color(0xFF505165),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -47,9 +49,9 @@ class QuizDailyResult extends StatelessWidget {
                       decoration: _cardDecoration(),
                       child: Column(
                         children: [
-                          const Text(
-                            'FINAL SCORE',
-                            style: TextStyle(
+                          Text(
+                            controller.scoreLabel,
+                            style: const TextStyle(
                               color: Color(0xFF484B60),
                               fontSize: 18,
                               fontWeight: FontWeight.w500,
@@ -69,7 +71,7 @@ class QuizDailyResult extends StatelessWidget {
                                   ),
                                 ),
                                 TextSpan(
-                                  text: '/${controller.totalQuestions}',
+                                  text: '/${controller.maxScore}',
                                   style: const TextStyle(
                                     color: Color(0xFF6B6E82),
                                     fontSize: 30,
@@ -103,20 +105,30 @@ class QuizDailyResult extends StatelessWidget {
                             iconBackground: const Color(0xFFF1D9FF),
                             iconColor: const Color(0xFF8B36D9),
                             title: controller.accuracyText,
-                            subtitle: 'Accuracy',
+                            subtitle: controller.accuracyLabel,
                           ),
                         ),
                         const SizedBox(width: 18),
                         Expanded(
                           child: _StatCard(
                             icon: Icons.timer_outlined,
-                            iconBackground: const Color(0xFFFFDBAB),
-                            iconColor: const Color(0xFF9C6200),
-                            title: controller.formattedElapsedTime,
-                            subtitle: 'Time Taken',
+                            iconBackground: controller.passed
+                                ? const Color(0xFFE0F7E8)
+                                : const Color(0xFFFFDBAB),
+                            iconColor: controller.passed
+                                ? const Color(0xFF1E9E57)
+                                : const Color(0xFF9C6200),
+                            title: controller.passStatusLabel,
+                            subtitle: 'Result',
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    _AttemptMetaCard(
+                      attemptId: controller.attemptId,
+                      timeTaken: controller.formattedElapsedTime,
+                      totalQuestions: controller.totalQuestions,
                     ),
                     const SizedBox(height: 22),
                     Container(
@@ -187,7 +199,9 @@ class QuizDailyResult extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: controller.reviewAnswers,
                         icon: const Icon(Icons.assignment_turned_in_outlined, size: 22),
-                        label: const Text('Review Answers'),
+                        label: Text(
+                          'Review Answers',
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4D4FE1),
                           foregroundColor: Colors.white,
@@ -241,6 +255,8 @@ class _ResultTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<QuizDailyResultController>(tag: 'daily_quiz_result');
+
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -251,7 +267,7 @@ class _ResultTopBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: Get.back,
+            onPressed: controller.backToSubjects,
             icon: const Icon(
               Icons.arrow_back_ios_new_rounded,
               color: Color(0xFF113A90),
@@ -272,6 +288,74 @@ class _ResultTopBar extends StatelessWidget {
           const SizedBox(width: 48),
         ],
       ),
+    );
+  }
+}
+
+class _AttemptMetaCard extends StatelessWidget {
+  const _AttemptMetaCard({
+    required this.attemptId,
+    required this.timeTaken,
+    required this.totalQuestions,
+  });
+
+  final String attemptId;
+  final String timeTaken;
+  final int totalQuestions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(borderColor: const Color(0xFFD9D8FF)),
+      child: Column(
+        children: [
+          _AttemptMetaRow(label: 'Attempt ID', value: attemptId.isEmpty ? '-' : attemptId),
+          const SizedBox(height: 10),
+          _AttemptMetaRow(label: 'Questions Attempted', value: '$totalQuestions'),
+          const SizedBox(height: 10),
+          _AttemptMetaRow(label: 'Time Taken', value: timeTaken),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttemptMetaRow extends StatelessWidget {
+  const _AttemptMetaRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF505165),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF202436),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

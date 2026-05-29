@@ -28,8 +28,6 @@ class _SplashViewState extends State<SplashView> {
     final preferences = await SharedPreferences.getInstance();
     final onboardFlag =
         preferences.getBool(StorageKeys.onboardingCompleted) ?? false;
-    final profileSetupDone =
-        preferences.getBool(StorageKeys.profileSetupCompleted) ?? false;
 
     if (!onboardFlag) {
       Get.offAllNamed(AppRoutes.onboarding);
@@ -39,11 +37,7 @@ class _SplashViewState extends State<SplashView> {
     final token = await _storage.read(key: StorageKeys.authToken);
 
     if (token != null && token.isNotEmpty) {
-      if (profileSetupDone) {
-        Get.offAllNamed(AppRoutes.dashboard);
-      } else {
-        Get.offAllNamed(AppRoutes.studentProfileSetup);
-      }
+      Get.offAllNamed(AppRoutes.dashboard);
     } else {
       Get.offAllNamed(AppRoutes.login);
     }
