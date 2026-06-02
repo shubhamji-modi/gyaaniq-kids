@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/service/api_service.dart';
+import '../../chapter/controller/learn_chapter_controller.dart';
+
 class LearnEbookRepository {
   static const List<String> filters = [
     'All Subject',
@@ -117,6 +120,72 @@ class LearnEbookRepository {
       progress: 0.65,
     ),
   ];
+
+  static Future<ApiResponse<List<LearnEbookModel>>> fetchStudentEbooks() async {
+    final subjectsResponse = await LearnCatalogData.getUserSubjects();
+
+    if (!subjectsResponse.success) {
+      return ApiResponse<List<LearnEbookModel>>(
+        success: false,
+        message: subjectsResponse.message,
+        statusCode: subjectsResponse.statusCode,
+      );
+    }
+
+    final subjects = subjectsResponse.data ?? const <LearnSubjectModel>[];
+    final ebooks = <LearnEbookModel>[];
+
+    for (final subject in subjects) {
+      final response = await fetchEbooksBySubject(subject: subject);
+      if (!response.success) {
+        return response;
+      }
+      ebooks.addAll(response.data ?? const <LearnEbookModel>[]);
+    }
+
+    return ApiResponse<List<LearnEbookModel>>(
+      success: true,
+      data: ebooks,
+      message: 'Ebooks fetched successfully',
+      statusCode: 200,
+    );
+  }
+
+  static Future<ApiResponse<List<LearnEbookModel>>> fetchEbooksBySubject({
+    required LearnSubjectModel subject,
+  }) async {
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: ApiService.FETCH_EBOOKS_BY_CLASS_SUBJECT,
+      showLoader: false,
+      fromJson: (json) => json,
+      data: {'classLevel': subject.classLevel, 'subjectId': subject.id},
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<List<LearnEbookModel>>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final ebooksJson =
+        ((body['data'] as Map<String, dynamic>?)?['ebooks'])
+            as List<dynamic>? ??
+        const [];
+    final ebooks = ebooksJson
+        .whereType<Map<String, dynamic>>()
+        .map((item) => LearnEbookModel.fromApi(item, fallbackSubject: subject))
+        .toList();
+
+    return ApiResponse<List<LearnEbookModel>>(
+      success: true,
+      data: ebooks,
+      message: body['message']?.toString() ?? response.message,
+      statusCode: response.statusCode,
+    );
+  }
 }
 
 enum LearnEbookCoverStyle { math, chemistry, history, english, biology }
@@ -136,6 +205,11 @@ class LearnEbookModel {
   final String pageText;
   final String progressText;
   final double progress;
+  final String videoUrl;
+  final String pdfUrl;
+  final List<LearnEbookMediaModel> media;
+  final LearnEbookMediaModel? coverImage;
+  final String teacherName;
 
   const LearnEbookModel({
     required this.id,
@@ -152,5 +226,144 @@ class LearnEbookModel {
     required this.pageText,
     required this.progressText,
     required this.progress,
+    this.videoUrl = '',
+    this.pdfUrl = '',
+    this.media = const [],
+    this.coverImage,
+    this.teacherName = '',
   });
+
+  factory LearnEbookModel.fromApi(
+    Map<String, dynamic> json, {
+    required LearnSubjectModel fallbackSubject,
+  }) {
+    final subjectJson = (json['subject'] as Map<String, dynamic>?) ?? const {};
+    final subjectName = _safeText(
+      subjectJson['name'],
+      fallback: fallbackSubject.title,
+    );
+    final title = _safeText(json['title'], fallback: 'Untitled E-book');
+    final description = _stripHtml(_safeText(json['description']));
+    final teacherName = _safeText(
+      (json['teacher'] as Map<String, dynamic>?)?['name'],
+    );
+    final media = (json['media'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(LearnEbookMediaModel.fromApi)
+        .toList();
+    final coverJson = json['coverImage'];
+    final paragraphs = _paragraphsFromText(
+      description,
+      fallback:
+          'This e-book is available for $subjectName. Open the attached PDF, video, or teacher-uploaded files to continue studying.',
+      minCount: 3,
+    );
+
+    return LearnEbookModel(
+      id: _safeText(json['_id']),
+      subject: subjectName,
+      title: title,
+      filter: subjectName,
+      accent: fallbackSubject.accent,
+      coverStyle: _coverStyleForSubject(subjectName),
+      detailLabel:
+          '${subjectName.toUpperCase()} • ${_safeText(json['classLevel'], fallback: fallbackSubject.classLevel)}',
+      detailTitle: title,
+      detailParagraphs: paragraphs,
+      quickFactTitle: teacherName.isEmpty ? 'REFERENCE' : 'TEACHER',
+      quickFact: teacherName.isEmpty
+          ? 'Use the available links and attachments for this reference material.'
+          : 'Prepared by $teacherName.',
+      pageText: '${media.length} File${media.length == 1 ? '' : 's'}',
+      progressText: 'Available Now',
+      progress: 1,
+      videoUrl: _safeText(json['videoUrl']),
+      pdfUrl: _safeText(json['pdfUrl']),
+      media: media,
+      coverImage: coverJson is Map<String, dynamic>
+          ? LearnEbookMediaModel.fromApi(coverJson)
+          : null,
+      teacherName: teacherName,
+    );
+  }
+}
+
+class LearnEbookMediaModel {
+  final String key;
+  final String url;
+  final String mimeType;
+  final int size;
+  final String originalName;
+
+  const LearnEbookMediaModel({
+    required this.key,
+    required this.url,
+    required this.mimeType,
+    required this.size,
+    required this.originalName,
+  });
+
+  factory LearnEbookMediaModel.fromApi(Map<String, dynamic> json) {
+    return LearnEbookMediaModel(
+      key: _safeText(json['key']),
+      url: _safeText(json['url']),
+      mimeType: _safeText(json['mimeType']),
+      size: (json['size'] as num?)?.toInt() ?? 0,
+      originalName: _safeText(json['originalName'], fallback: 'Attachment'),
+    );
+  }
+}
+
+LearnEbookCoverStyle _coverStyleForSubject(String value) {
+  final subject = value.toLowerCase();
+  if (subject.contains('math')) {
+    return LearnEbookCoverStyle.math;
+  }
+  if (subject.contains('chem')) {
+    return LearnEbookCoverStyle.chemistry;
+  }
+  if (subject.contains('history') || subject.contains('social')) {
+    return LearnEbookCoverStyle.history;
+  }
+  if (subject.contains('english')) {
+    return LearnEbookCoverStyle.english;
+  }
+  return LearnEbookCoverStyle.biology;
+}
+
+List<String> _paragraphsFromText(
+  String value, {
+  required String fallback,
+  required int minCount,
+}) {
+  final parts = value
+      .split(RegExp(r'[\n.]+'))
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .map((part) => part.endsWith('.') ? part : '$part.')
+      .toList();
+
+  if (parts.isEmpty) {
+    parts.add(fallback);
+  }
+  while (parts.length < minCount) {
+    parts.add(parts.last);
+  }
+  return parts.take(minCount).toList();
+}
+
+String _safeText(dynamic value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+String _stripHtml(String value) {
+  return value
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&amp;', '&')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }

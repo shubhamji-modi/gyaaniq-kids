@@ -25,7 +25,8 @@ class LearnCatalogData {
         ((body['data'] as Map<String, dynamic>?)?['subjects'])
             as List<dynamic>? ??
         const [];
-    final summaryById = summaryResponse.data ?? const <String, SubjectProgressSummary>{};
+    final summaryById =
+        summaryResponse.data ?? const <String, SubjectProgressSummary>{};
 
     final subjects = subjectsJson
         .asMap()
@@ -34,7 +35,10 @@ class LearnCatalogData {
           (entry) => LearnSubjectModel.fromApi(
             entry.value as Map<String, dynamic>,
             index: entry.key,
-            summary: summaryById[_safeText((entry.value as Map<String, dynamic>)['_id'])],
+            summary:
+                summaryById[_safeText(
+                  (entry.value as Map<String, dynamic>)['_id'],
+                )],
           ),
         )
         .toList();
@@ -523,6 +527,7 @@ class LearnLessonModel {
     final content = _safeText(json['content']);
     final videoUrl = _safeText(json['videoUrl']);
     final pdfUrl = _safeText(json['pdfUrl']);
+    debugPrint('LESSON API videoUrl [$title]: $videoUrl');
     final teacherName = _safeText(
       (json['teacher'] as Map<String, dynamic>?)?['name'],
     );

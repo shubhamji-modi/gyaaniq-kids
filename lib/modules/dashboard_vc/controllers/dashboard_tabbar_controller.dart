@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
@@ -9,7 +11,6 @@ import '../../../core/service/api_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../../menubar/download/views/menubar_download_views.dart';
-import '../../menubar/purchase_subscription/views/subscription_history_views.dart';
 import '../../learn/chapter/views/learn_chapter_views.dart';
 import '../../learn/chapter/views/learn_subject_views.dart';
 import '../../learn/attendance/views/learn_attendance_views.dart';
@@ -17,9 +18,9 @@ import '../../learn/doubt_solve/views/learn_doubt_solve_views.dart';
 import '../../learn/e_book/views/learn_ebook_views.dart';
 import '../../learn/homework/views/learn_homework_views.dart';
 import '../../learn/notes/views/learn_notes_views.dart';
-import '../../my_course/views/my_course_views.dart';
 import '../../../core/values/constants.dart';
 import '../../../routes/app_routes.dart';
+import '../views/google_meet_webview_screen.dart';
 
 class DashboardTabbarController extends GetxController {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -30,10 +31,15 @@ class DashboardTabbarController extends GetxController {
   final RxString learnSubjectsError = ''.obs;
   final RxBool isLoadingMockTests = true.obs;
   final RxString mockTestsError = ''.obs;
+  final RxBool isLoadingLiveClasses = true.obs;
+  final RxString liveClassesError = ''.obs;
   final RxList<SubjectCardData> learnSubjects = <SubjectCardData>[].obs;
   final RxList<MockTestCardData> mockTests = <MockTestCardData>[].obs;
+  final RxList<LiveClassScheduleData> liveClassSchedules =
+      <LiveClassScheduleData>[].obs;
   final Rx<DashboardLessonSummary> lessonSummary =
       const DashboardLessonSummary().obs;
+  Timer? _liveClassClockTimer;
 
   final String studentName = 'Sarah!';
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
@@ -93,41 +99,6 @@ class DashboardTabbarController extends GetxController {
     ),
   ];
 
-  final List<LiveClassScheduleData> liveClassSchedules = const [
-    LiveClassScheduleData(
-      timeText: '02:30\nPM',
-      title: 'Photosynthesis & Plant Life',
-      teacher: 'Mr. David Chen',
-      subject: 'Science',
-      subjectColor: Color(0xFFEED7FF),
-      accent: Color(0xFF4A4FD9),
-    ),
-    LiveClassScheduleData(
-      timeText: '04:00\nPM',
-      title: 'The Industrial Revolution',
-      teacher: 'Prof. Elena Rodriguez',
-      subject: 'History',
-      subjectColor: Color(0xFFFFDFBA),
-      accent: Color(0xFF7B8197),
-    ),
-    LiveClassScheduleData(
-      timeText: '05:15\nPM',
-      title: 'Advanced Grammar Workshop',
-      teacher: 'Ms. Julia Knight',
-      subject: 'English',
-      subjectColor: Color(0xFFDDDDFE),
-      accent: Color(0xFF7B8197),
-    ),
-    LiveClassScheduleData(
-      timeText: 'Tomorrow\n09:00 AM',
-      title: 'Triangles & Trigonometry',
-      teacher: 'Dr. Sarah Miller',
-      subject: 'Geometry',
-      subjectColor: Color(0xFFF1D9FF),
-      accent: Color(0xFF7B8197),
-    ),
-  ];
-
   final List<PreviousResultData> previousResults = const [
     PreviousResultData(
       title: 'Algebra Unit Test',
@@ -152,10 +123,6 @@ class DashboardTabbarController extends GetxController {
     ProfileMenuData(title: 'My Course', icon: Icons.import_contacts_rounded),
     ProfileMenuData(title: 'Downloads', icon: Icons.download_outlined),
     ProfileMenuData(
-      title: 'Subscription',
-      icon: Icons.workspace_premium_outlined,
-    ),
-    ProfileMenuData(
       title: 'Terms of Service',
       icon: Icons.description_outlined,
     ),
@@ -177,18 +144,124 @@ class DashboardTabbarController extends GetxController {
 
   void changeTab(int index) {
     currentTabIndex.value = index;
+    if (index == 3 &&
+        liveClassSchedules.isEmpty &&
+        !isLoadingLiveClasses.value) {
+      loadLiveClasses();
+    }
   }
 
   @override
   void onInit() {
     super.onInit();
     loadDashboardData();
+    _liveClassClockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (currentTabIndex.value == 3 && liveClassSchedules.isNotEmpty) {
+        liveClassSchedules.refresh();
+      }
+    });
+  }
+
+  @override
+  void onClose() {
+    _liveClassClockTimer?.cancel();
+    super.onClose();
   }
 
   Future<void> loadDashboardData() async {
     await _loadProgressSummary();
     await _loadLearnSubjects();
     await loadMockTests();
+    await loadLiveClasses();
+  }
+
+  Future<void> loadLiveClasses({String? phase}) async {
+    isLoadingLiveClasses.value = true;
+    liveClassesError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.LIVE_CLASS,
+      showLoader: false,
+      fromJson: (json) => json,
+      queryParameters: {
+        if (phase != null && phase.trim().isNotEmpty) 'phase': phase,
+        'page': 1,
+        'limit': 20,
+      },
+    );
+
+    isLoadingLiveClasses.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      liveClassSchedules.clear();
+      liveClassesError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final itemsJson = data['liveClasses'] as List<dynamic>? ?? const [];
+    final items =
+        itemsJson
+            .whereType<Map<String, dynamic>>()
+            .map(LiveClassScheduleData.fromApi)
+            .toList()
+          ..sort((a, b) {
+            final phaseCompare = a.phasePriority.compareTo(b.phasePriority);
+            if (phaseCompare != 0) {
+              return phaseCompare;
+            }
+            final aStart = a.startAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final bStart = b.startAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            return aStart.compareTo(bStart);
+          });
+
+    liveClassSchedules.assignAll(items);
+  }
+
+  LiveClassScheduleData? get featuredLiveClass {
+    for (final item in liveClassSchedules) {
+      if (item.computedPhase == 'live') {
+        return item;
+      }
+    }
+    return liveClassSchedules.isEmpty ? null : liveClassSchedules.first;
+  }
+
+  Future<void> joinLiveClass(LiveClassScheduleData item) async {
+    if (!item.canJoin) {
+      Get.snackbar(
+        'Live class',
+        item.computedPhase == 'upcoming'
+            ? 'Join button class start time par enable hoga.'
+            : 'This live class has ended.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF4A4FD9),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
+    final meetUri = Uri.tryParse(item.meetLink);
+    if (meetUri == null) {
+      Get.snackbar(
+        'Error',
+        'Invalid Meet link.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFB42318),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
+    Get.to(
+      () => GoogleMeetWebViewScreen(
+        meetUrl: meetUri.toString(),
+        title: item.title,
+      ),
+    );
   }
 
   Future<void> loadMockTests() async {
@@ -357,17 +430,12 @@ class DashboardTabbarController extends GetxController {
     }
 
     if (item.title == 'My Course') {
-      Get.to(() => const MyCourseViews());
+      openLearnSubjects();
       return;
     }
 
     if (item.title == 'Downloads') {
       Get.to(() => const MenubarDownloadViews());
-      return;
-    }
-
-    if (item.title == 'Subscription') {
-      Get.to(() => const SubscriptionHistoryViews());
       return;
     }
 
@@ -646,21 +714,116 @@ class StudyToolData {
 }
 
 class LiveClassScheduleData {
+  final String id;
   final String timeText;
+  final String timeRangeText;
   final String title;
+  final String description;
+  final String meetLink;
+  final String classLevel;
   final String teacher;
   final String subject;
+  final String phase;
+  final DateTime? startAt;
+  final DateTime? endAt;
   final Color subjectColor;
   final Color accent;
 
   const LiveClassScheduleData({
+    required this.id,
     required this.timeText,
+    required this.timeRangeText,
     required this.title,
+    required this.description,
+    required this.meetLink,
+    required this.classLevel,
     required this.teacher,
     required this.subject,
+    required this.phase,
+    required this.startAt,
+    required this.endAt,
     required this.subjectColor,
     required this.accent,
   });
+
+  factory LiveClassScheduleData.fromApi(Map<String, dynamic> json) {
+    final subjectJson = _safeMap(json['subject']);
+    final teacherJson = _safeMap(json['teacher']);
+    final isLiveNow = json['isLiveNow'] == true;
+    final startAt =
+        _parseApiDate(json['startAt']) ??
+        (isLiveNow
+            ? _todayTimeAsDate(json['startTime'])
+            : _parseApiDate(json['nextOccurrenceAt']));
+    final endAt =
+        _parseApiDate(json['endAt']) ??
+        _parseApiDate(json['currentSessionEndsAt']) ??
+        (isLiveNow ? _todayTimeAsDate(json['endTime']) : null);
+    final subject = _safeText(subjectJson['name'], fallback: 'Live Class');
+    final palette = _liveClassPalette(subject);
+
+    return LiveClassScheduleData(
+      id: _safeText(json['_id']),
+      timeText: _formatLiveDateBlock(startAt),
+      timeRangeText: _formatLiveTimeRange(startAt, endAt),
+      title: _safeText(json['title'], fallback: 'Live Class'),
+      description: _safeText(json['description']),
+      meetLink: _safeText(json['meetLink']),
+      classLevel: _safeText(json['classLevel']),
+      teacher: _safeText(teacherJson['name'], fallback: 'Teacher'),
+      subject: subject,
+      phase: isLiveNow
+          ? 'live'
+          : _safeText(json['phase'], fallback: 'upcoming').toLowerCase(),
+      startAt: startAt,
+      endAt: endAt,
+      subjectColor: palette.subjectColor,
+      accent: palette.accent,
+    );
+  }
+
+  String get computedPhase {
+    final start = startAt?.toUtc();
+    final end = endAt?.toUtc();
+    if (start == null || end == null) {
+      return phase;
+    }
+
+    final now = DateTime.now().toUtc();
+    if (now.isBefore(start)) {
+      return 'upcoming';
+    }
+    if (now.isAfter(end)) {
+      return 'past';
+    }
+    return 'live';
+  }
+
+  bool get canJoin => meetLink.isNotEmpty && computedPhase == 'live';
+
+  int get phasePriority {
+    final status = computedPhase;
+    if (status == 'live') {
+      return 0;
+    }
+    if (status == 'upcoming') {
+      return 1;
+    }
+    return 2;
+  }
+
+  String get phaseLabel {
+    final status = computedPhase;
+    if (status == 'live') {
+      return 'Live Now';
+    }
+    if (status == 'past') {
+      return 'Ended';
+    }
+    return 'Upcoming';
+  }
+
+  String get joinButtonLabel => canJoin ? 'Join Now' : phaseLabel;
 }
 
 class PreviousResultData {
@@ -774,6 +937,35 @@ String _safeText(dynamic value, {String fallback = ''}) {
   return text.isEmpty ? fallback : text;
 }
 
+Map<String, dynamic> _safeMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return Map<String, dynamic>.from(value);
+  }
+  return const <String, dynamic>{};
+}
+
+DateTime? _parseApiDate(dynamic value) {
+  return DateTime.tryParse(value?.toString() ?? '');
+}
+
+DateTime? _todayTimeAsDate(dynamic value) {
+  final text = _safeText(value);
+  final parts = text.split(':');
+  if (parts.length < 2) {
+    return null;
+  }
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) {
+    return null;
+  }
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day, hour, minute);
+}
+
 String _formatMockDateTime(DateTime? date) {
   if (date == null) {
     return '-';
@@ -797,4 +989,97 @@ String _formatMockDateTime(DateTime? date) {
   final minute = local.minute.toString().padLeft(2, '0');
   final period = local.hour >= 12 ? 'PM' : 'AM';
   return '${months[local.month - 1]} ${local.day}, $hour:$minute $period';
+}
+
+String _formatLiveDateBlock(DateTime? date) {
+  if (date == null) {
+    return '--\n--';
+  }
+  final local = date.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final dateOnly = DateTime(local.year, local.month, local.day);
+  final dayText = dateOnly == today
+      ? 'Today'
+      : dateOnly == today.add(const Duration(days: 1))
+      ? 'Tomorrow'
+      : '${_monthName(local.month)} ${local.day}';
+  return '$dayText\n${_formatClock(local)}';
+}
+
+String _formatLiveTimeRange(DateTime? startAt, DateTime? endAt) {
+  if (startAt == null && endAt == null) {
+    return '';
+  }
+  if (endAt == null) {
+    return _formatClock(startAt!.toLocal());
+  }
+  if (startAt == null) {
+    return _formatClock(endAt.toLocal());
+  }
+  return '${_formatClock(startAt.toLocal())} - ${_formatClock(endAt.toLocal())}';
+}
+
+String _formatClock(DateTime date) {
+  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+  final minute = date.minute.toString().padLeft(2, '0');
+  final period = date.hour >= 12 ? 'PM' : 'AM';
+  return '$hour:$minute $period';
+}
+
+String _monthName(int month) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return months[(month - 1).clamp(0, months.length - 1)];
+}
+
+class _LiveClassPalette {
+  const _LiveClassPalette({required this.subjectColor, required this.accent});
+
+  final Color subjectColor;
+  final Color accent;
+}
+
+_LiveClassPalette _liveClassPalette(String subject) {
+  final key = subject.toLowerCase();
+  if (key.contains('math')) {
+    return const _LiveClassPalette(
+      subjectColor: Color(0xFFE1DDFF),
+      accent: Color(0xFF4A4FD9),
+    );
+  }
+  if (key.contains('science')) {
+    return const _LiveClassPalette(
+      subjectColor: Color(0xFFDDF7EA),
+      accent: Color(0xFF19945F),
+    );
+  }
+  if (key.contains('english')) {
+    return const _LiveClassPalette(
+      subjectColor: Color(0xFFFFE6C7),
+      accent: Color(0xFFB36500),
+    );
+  }
+  if (key.contains('history') || key.contains('social')) {
+    return const _LiveClassPalette(
+      subjectColor: Color(0xFFFFDFBA),
+      accent: Color(0xFF7B5B2B),
+    );
+  }
+  return const _LiveClassPalette(
+    subjectColor: Color(0xFFE6E8F2),
+    accent: Color(0xFF4A4FD9),
+  );
 }

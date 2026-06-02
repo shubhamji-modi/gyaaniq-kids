@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../chapter/views/learn_subject_views.dart';
 import '../controller/learn_homework_controller.dart';
@@ -16,7 +18,20 @@ class LearnHomeworkSumbitViews extends StatefulWidget {
 
 class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
   final TextEditingController _notesController = TextEditingController();
-  bool _hasFile = true;
+  final ImagePicker _imagePicker = ImagePicker();
+  late LearnHomeworkModel _homework;
+  final List<HomeworkAttachment> _uploadedAttachments = [];
+  bool _isLoadingDetail = true;
+  bool _isUploading = false;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _homework = widget.homework;
+    _applySubmission(_homework);
+    _fetchDetail();
+  }
 
   @override
   void dispose() {
@@ -24,9 +39,187 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
     super.dispose();
   }
 
+  void _applySubmission(LearnHomeworkModel homework) {
+    final submission = homework.mySubmission;
+    if (submission == null) {
+      return;
+    }
+    _notesController.text = submission.textAnswer;
+    _uploadedAttachments
+      ..clear()
+      ..addAll(submission.attachments);
+  }
+
+  Future<void> _fetchDetail() async {
+    final response = await LearnHomeworkRepository.fetchHomeworkDetail(
+      widget.homework.id,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isLoadingDetail = false;
+      if (response.success && response.data != null) {
+        _homework = response.data!;
+        _applySubmission(_homework);
+      }
+    });
+  }
+
+  Future<void> _showImagePickerOptions() async {
+    if (!_homework.canSubmit || _isUploading) {
+      return;
+    }
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD4D7E2),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _ImageSourceTile(
+                  icon: Icons.camera_alt_outlined,
+                  title: 'Camera',
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                const SizedBox(height: 10),
+                _ImageSourceTile(
+                  icon: Icons.photo_library_outlined,
+                  title: 'Gallery',
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    await _pickAndUploadImage(source);
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source) async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 86,
+        maxWidth: 1800,
+        maxHeight: 1800,
+        requestFullMetadata: false,
+      );
+      if (image == null || !mounted) {
+        return;
+      }
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      final response = await LearnHomeworkRepository.uploadAttachment(
+        image.path,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isUploading = false;
+        if (response.success && response.data != null) {
+          _uploadedAttachments.add(response.data!);
+        }
+      });
+
+      if (!response.success) {
+        _showError(response.message);
+      }
+    } on PlatformException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isUploading = false;
+      });
+      _showError(error.message ?? 'Unable to pick image.');
+    }
+  }
+
+  Future<void> _submitHomework() async {
+    final answer = _notesController.text.trim();
+    if (answer.isEmpty && _uploadedAttachments.isEmpty) {
+      _showError('Please add notes or upload at least one attachment.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final response = await LearnHomeworkRepository.submitHomework(
+      id: _homework.id,
+      textAnswer: answer,
+      attachments: _uploadedAttachments,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (!response.success) {
+      _showError(response.message);
+      return;
+    }
+
+    Get.snackbar(
+      'Homework Submitted',
+      '${_homework.title} has been submitted successfully.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.white,
+      colorText: const Color(0xFF1D2231),
+      margin: const EdgeInsets.all(14),
+    );
+    Get.back(result: true);
+  }
+
+  void _showError(String message) {
+    Get.snackbar(
+      'Error',
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: const Color(0xFFB42318),
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(14),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final homework = widget.homework;
+    final homework = _homework;
+    final isLocked = !homework.canSubmit;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
@@ -38,6 +231,9 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 22, 16, 28),
                 children: [
+                  if (_isLoadingDetail)
+                    const LinearProgressIndicator(minHeight: 3),
+                  if (_isLoadingDetail) const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
@@ -149,11 +345,7 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                   ),
                   const SizedBox(height: 18),
                   GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _hasFile = true;
-                      });
-                    },
+                    onTap: _showImagePickerOptions,
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 25),
@@ -166,29 +358,38 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                           strokeAlign: BorderSide.strokeAlignOutside,
                         ),
                       ),
-                      child: const Column(
+                      child: Column(
                         children: [
                           CircleAvatar(
                             radius: 25,
-                            backgroundColor: Color(0xFF6368F2),
-                            child: Icon(
-                              Icons.cloud_upload_outlined,
-                              color: Colors.white,
-                              size: 25,
-                            ),
+                            backgroundColor: const Color(0xFF6368F2),
+                            child: _isUploading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.cloud_upload_outlined,
+                                    color: Colors.white,
+                                    size: 25,
+                                  ),
                           ),
-                          SizedBox(height: 10),
+                          const SizedBox(height: 10),
                           Text(
-                            'Upload File',
-                            style: TextStyle(
+                            _isUploading ? 'Uploading...' : 'Upload Image',
+                            style: const TextStyle(
                               color: Color(0xFF4A4FD9),
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          SizedBox(height: 5),
-                          Text(
-                            'PDF, JPG, or PNG, Max 10MB',
+                          const SizedBox(height: 5),
+                          const Text(
+                            'JPG or PNG, Max 20MB',
                             style: TextStyle(
                               color: Color(0xFF4C5164),
                               fontSize: 12,
@@ -200,70 +401,23 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  if (_hasFile)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFC8C7F1)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 45,
-                            height: 45,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFD8D2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.picture_as_pdf_outlined,
-                              color: Color(0xFFCB2018),
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  homework.fileName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF1D2231),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  homework.fileMeta,
-                                  style: const TextStyle(
-                                    color: Color(0xFF4C5164),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () {
-                              setState(() {
-                                _hasFile = false;
-                              });
-                            },
-                            icon: const Icon(
-                              Icons.delete_outline_rounded,
-                              color: Color(0xFFCB2018),
-                              size: 22,
-                            ),
-                          ),
-                        ],
+                  ..._uploadedAttachments.map(
+                    (attachment) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _AttachmentTile(
+                        attachment: attachment,
+                        canRemove: !isLocked,
+                        onRemove: () {
+                          setState(() {
+                            _uploadedAttachments.remove(attachment);
+                          });
+                        },
                       ),
                     ),
+                  ),
+                  if (isLocked &&
+                      homework.mySubmission?.feedback.isNotEmpty == true)
+                    _FeedbackCard(feedback: homework.mySubmission!.feedback),
                   const SizedBox(height: 28),
                   const Text(
                     'Additional Notes',
@@ -276,6 +430,7 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                   const SizedBox(height: 18),
                   TextField(
                     controller: _notesController,
+                    enabled: !isLocked,
                     maxLines: 4,
                     decoration: InputDecoration(
                       hintText: 'Leave a message for your teacher...',
@@ -308,16 +463,9 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Get.snackbar(
-                          'Homework Submitted',
-                          '${homework.title} has been submitted successfully.',
-                          snackPosition: SnackPosition.BOTTOM,
-                          backgroundColor: Colors.white,
-                          colorText: const Color(0xFF1D2231),
-                          margin: const EdgeInsets.all(14),
-                        );
-                      },
+                      onPressed: isLocked || _isSubmitting || _isUploading
+                          ? null
+                          : _submitHomework,
                       style: ElevatedButton.styleFrom(
                         elevation: 0,
                         backgroundColor: const Color(0xFF4A4FD9),
@@ -327,14 +475,27 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                           borderRadius: BorderRadius.circular(34),
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.send_rounded, size: 18),
-                          SizedBox(width: 12),
+                          _isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.send_rounded, size: 18),
+                          const SizedBox(width: 12),
                           Text(
-                            'Submit Assignment',
-                            style: TextStyle(
+                            isLocked
+                                ? 'Graded'
+                                : _isSubmitting
+                                ? 'Submitting...'
+                                : 'Submit Assignment',
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                             ),
@@ -388,6 +549,180 @@ class _HeaderChip extends StatelessWidget {
           color: foreground,
           fontSize: 11,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachmentTile extends StatelessWidget {
+  const _AttachmentTile({
+    required this.attachment,
+    required this.canRemove,
+    required this.onRemove,
+  });
+
+  final HomeworkAttachment attachment;
+  final bool canRemove;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPdf =
+        attachment.mimeType.toLowerCase().contains('pdf') ||
+        attachment.originalName.toLowerCase().endsWith('.pdf');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFC8C7F1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              color: isPdf ? const Color(0xFFFFD8D2) : const Color(0xFFE4E4FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
+              color: isPdf ? const Color(0xFFCB2018) : const Color(0xFF4A4FD9),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  attachment.originalName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF1D2231),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  attachment.sizeLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF4C5164),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (canRemove)
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFCB2018),
+                size: 22,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedbackCard extends StatelessWidget {
+  const _FeedbackCard({required this.feedback});
+
+  final String feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFFAF3),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFCDEFD9)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.rate_review_outlined,
+                color: Color(0xFF0AA84F),
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Teacher Feedback',
+                style: TextStyle(
+                  color: Color(0xFF0AA84F),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            feedback,
+            style: const TextStyle(
+              color: Color(0xFF35523F),
+              fontSize: 13,
+              height: 1.6,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageSourceTile extends StatelessWidget {
+  const _ImageSourceTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FD),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF4A4FD9)),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF1D2231),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

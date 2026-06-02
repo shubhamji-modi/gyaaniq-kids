@@ -1,6 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../controller/learn_chapter_controller.dart';
@@ -236,20 +243,149 @@ class _LessonVideoPlayer extends StatefulWidget {
 }
 
 class _LessonVideoPlayerState extends State<_LessonVideoPlayer> {
-  late final WebViewController _controller;
+  VideoPlayerController? _videoController;
+  YoutubePlayerController? _youtubeController;
+  bool _isLoading = true;
+  bool _hasError = false;
+  bool _isNativeVideo = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF0F1720))
-      ..loadRequest(Uri.parse(_normalizedVideoUrl(widget.videoUrl)));
+    final videoUrl = widget.videoUrl.trim();
+    debugPrint('LESSON PLAYER videoUrl: $videoUrl');
+    _isNativeVideo = _isDirectVideoUrl(videoUrl);
+    if (_isNativeVideo) {
+      _initializeNativeVideo(videoUrl);
+    } else {
+      _initializeYoutubeVideo(videoUrl);
+    }
+  }
+
+  Future<void> _initializeNativeVideo(String videoUrl) async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+    _videoController = controller;
+    try {
+      await controller.initialize();
+      await controller.play();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isLoading = false);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  void _initializeYoutubeVideo(String videoUrl) {
+    final videoId = YoutubePlayerController.convertUrlToId(videoUrl);
+    if (videoId == null) {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+      return;
+    }
+
+    _youtubeController = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      autoPlay: false,
+      params: const YoutubePlayerParams(
+        mute: false,
+        enableCaption: true,
+        showFullscreenButton: true,
+        strictRelatedVideos: true,
+        playsInline: true,
+      ),
+    );
+
+    setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    _youtubeController?.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return WebViewWidget(controller: _controller);
+    final videoController = _videoController;
+    final youtubeController = _youtubeController;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        if (_isNativeVideo &&
+            videoController != null &&
+            videoController.value.isInitialized)
+          Center(
+            child: AspectRatio(
+              aspectRatio: videoController.value.aspectRatio,
+              child: VideoPlayer(videoController),
+            ),
+          )
+        else if (!_isNativeVideo && youtubeController != null)
+          YoutubePlayer(
+            controller: youtubeController,
+            backgroundColor: const Color(0xFF0F1720),
+          ),
+        if (_isLoading)
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        if (_hasError)
+          const Padding(
+            padding: EdgeInsets.all(18),
+            child: Text(
+              'Unable to play this video in app.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        if (_isNativeVideo &&
+            videoController != null &&
+            videoController.value.isInitialized &&
+            !_isLoading &&
+            !_hasError)
+          InkWell(
+            onTap: () {
+              setState(() {
+                videoController.value.isPlaying
+                    ? videoController.pause()
+                    : videoController.play();
+              });
+            },
+            borderRadius: BorderRadius.circular(36),
+            child: Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: 0.42),
+              ),
+              child: Icon(
+                videoController.value.isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 34,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -270,11 +406,7 @@ class _VideoNotFoundCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.videocam_off_rounded,
-              color: Colors.white70,
-              size: 44,
-            ),
+            Icon(Icons.videocam_off_rounded, color: Colors.white70, size: 44),
             SizedBox(height: 12),
             Text(
               'Video not found',
@@ -315,26 +447,95 @@ class _NoPdfStateCard extends StatelessWidget {
   }
 }
 
-class _LessonPdfWebView extends StatefulWidget {
-  const _LessonPdfWebView({required this.title, required this.pdfUrl});
+class _LessonPdfView extends StatefulWidget {
+  const _LessonPdfView({required this.title, required this.pdfUrl});
 
   final String title;
   final String pdfUrl;
 
   @override
-  State<_LessonPdfWebView> createState() => _LessonPdfWebViewState();
+  State<_LessonPdfView> createState() => _LessonPdfViewState();
 }
 
-class _LessonPdfWebViewState extends State<_LessonPdfWebView> {
-  late final WebViewController _controller;
+class _LessonPdfViewState extends State<_LessonPdfView> {
+  String? _filePath;
+  WebViewController? _webController;
+  String _error = '';
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    final viewerUrl = _pdfViewerUrl(widget.pdfUrl);
-    _controller = WebViewController()
+    _loadPdf();
+  }
+
+  Future<void> _loadPdf() async {
+    try {
+      setState(() {
+        _filePath = null;
+        _webController = null;
+        _error = '';
+        _isLoading = true;
+      });
+
+      final response = await http
+          .get(Uri.parse(widget.pdfUrl.trim()), headers: _pdfRequestHeaders)
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+
+      final directory = await getTemporaryDirectory();
+      final fileName = _safePdfFileName(widget.pdfUrl);
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes, flush: true);
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _filePath = file.path;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      debugPrint('PDF load error: $error');
+      _openPdfInWebViewFallback();
+    }
+  }
+
+  void _openPdfInWebViewFallback() {
+    final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..loadRequest(Uri.parse(viewerUrl));
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) {
+              setState(() => _isLoading = false);
+            }
+          },
+          onWebResourceError: (_) {
+            if (mounted) {
+              setState(() {
+                _error = 'Unable to load PDF. Please try again.';
+                _isLoading = false;
+              });
+            }
+          },
+        ),
+      )
+      ..loadRequest(
+        Uri.parse(widget.pdfUrl.trim()),
+        headers: _pdfRequestHeaders,
+      );
+
+    setState(() {
+      _webController = controller;
+      _isLoading = true;
+      _error = '';
+    });
   }
 
   @override
@@ -345,7 +546,73 @@ class _LessonPdfWebViewState extends State<_LessonPdfWebView> {
         child: Column(
           children: [
             LearnTopBar(title: widget.title),
-            Expanded(child: WebViewWidget(controller: _controller)),
+            Expanded(
+              child: Stack(
+                children: [
+                  if (_filePath != null)
+                    PDFView(
+                      filePath: _filePath!,
+                      fitPolicy: FitPolicy.WIDTH,
+                      onError: (error) {
+                        if (mounted) {
+                          setState(
+                            () => _error =
+                                'Unable to render PDF. Please try again.',
+                          );
+                        }
+                      },
+                      onPageError: (page, error) {
+                        if (mounted) {
+                          setState(
+                            () =>
+                                _error = 'Unable to render page ${page ?? ''}.',
+                          );
+                        }
+                      },
+                    ),
+                  if (_filePath == null && _webController != null)
+                    WebViewWidget(controller: _webController!),
+                  if (_isLoading)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF4A4FD9),
+                        ),
+                      ),
+                    ),
+                  if (_error.isNotEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Text(
+                          _error,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF4C4F5E),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (_error.isNotEmpty)
+                    Positioned(
+                      left: 24,
+                      right: 24,
+                      bottom: 28,
+                      child: ElevatedButton(
+                        onPressed: _loadPdf,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4A4FD9),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -386,9 +653,7 @@ class _PlayerTab extends StatelessWidget {
             width: 70,
             height: 5,
             decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFF4A4FD9)
-                  : Colors.transparent,
+              color: isSelected ? const Color(0xFF4A4FD9) : Colors.transparent,
               borderRadius: BorderRadius.circular(99),
             ),
           ),
@@ -439,10 +704,7 @@ class _LessonResourceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => Get.to(
-        () => _LessonPdfWebView(
-          title: resource.title,
-          pdfUrl: resource.url,
-        ),
+        () => _LessonPdfView(title: resource.title, pdfUrl: resource.url),
       ),
       borderRadius: BorderRadius.circular(28),
       child: Container(
@@ -507,30 +769,30 @@ class _LessonResourceCard extends StatelessWidget {
   }
 }
 
-String _normalizedVideoUrl(String url) {
-  final uri = Uri.tryParse(url.trim());
-  if (uri == null) {
-    return url;
-  }
-
-  if (uri.host.contains('youtube.com')) {
-    final videoId = uri.queryParameters['v'];
-    if (videoId != null && videoId.isNotEmpty) {
-      return 'https://www.youtube.com/embed/$videoId';
-    }
-  }
-
-  if (uri.host.contains('youtu.be')) {
-    final segments = uri.pathSegments;
-    if (segments.isNotEmpty && segments.first.isNotEmpty) {
-      return 'https://www.youtube.com/embed/${segments.first}';
-    }
-  }
-
-  return url;
+bool _isDirectVideoUrl(String url) {
+  final lowerUrl = url.toLowerCase();
+  return lowerUrl.endsWith('.mp4') ||
+      lowerUrl.endsWith('.mov') ||
+      lowerUrl.endsWith('.m3u8') ||
+      lowerUrl.contains('.mp4?') ||
+      lowerUrl.contains('.mov?') ||
+      lowerUrl.contains('.m3u8?');
 }
 
-String _pdfViewerUrl(String pdfUrl) {
-  final encodedUrl = Uri.encodeComponent(pdfUrl);
-  return 'https://docs.google.com/gview?embedded=1&url=$encodedUrl';
+const Map<String, String> _pdfRequestHeaders = {
+  'User-Agent':
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  'Accept': 'application/pdf,application/octet-stream,*/*',
+  'Referer': 'https://ncert.nic.in/',
+};
+
+String _safePdfFileName(String pdfUrl) {
+  final uri = Uri.tryParse(pdfUrl);
+  final pathName = uri?.pathSegments.isNotEmpty == true
+      ? uri!.pathSegments.last
+      : 'lesson.pdf';
+  final sanitized = pathName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+  return sanitized.toLowerCase().endsWith('.pdf')
+      ? sanitized
+      : '$sanitized.pdf';
 }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -363,6 +365,8 @@ class _ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = imageUrl.trim().isNotEmpty;
+    final trimmedImage = imageUrl.trim();
+    final isNetworkImage = trimmedImage.startsWith('http');
 
     return Container(
       width: size,
@@ -382,12 +386,19 @@ class _ProfileAvatar extends StatelessWidget {
       ),
       child: ClipOval(
         child: hasImage
-            ? Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    _FallbackAvatarIcon(iconSize: iconSize),
-              )
+            ? isNetworkImage
+                  ? Image.network(
+                      trimmedImage,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _FallbackAvatarIcon(iconSize: iconSize),
+                    )
+                  : Image.file(
+                      File(trimmedImage),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _FallbackAvatarIcon(iconSize: iconSize),
+                    )
             : _FallbackAvatarIcon(iconSize: iconSize),
       ),
     );
@@ -481,12 +492,12 @@ class _HomeTab extends StatelessWidget {
             const _LiveHeroCard(),
             const SizedBox(height: 18),
             const _SpokenEnglishCard(),
-            const SizedBox(height: 18),
-            InkWell(
-              onTap: () => Get.to(() => const ExploreClassesViews()),
-              borderRadius: BorderRadius.circular(24),
-              child: const _ExploreClassesCard(),
-            ),
+            // const SizedBox(height: 18),
+            // InkWell(
+            //   onTap: () => Get.to(() => const ExploreClassesViews()),
+            //   borderRadius: BorderRadius.circular(24),
+            //   // child: const _ExploreClassesCard(),
+            // ),
           ],
         ),
       ),
@@ -594,23 +605,49 @@ class _LiveTab extends GetView<DashboardTabbarController> {
   @override
   Widget build(BuildContext context) {
     return _DashboardScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Live Class',
-            style: TextStyle(
-              color: AppColors.textHeadingAlt,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+      child: Obx(() {
+        if (controller.isLoadingLiveClasses.value) {
+          return const SizedBox(
+            height: 220,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (controller.liveClassesError.value.isNotEmpty) {
+          return _DashboardInlineState(
+            message: controller.liveClassesError.value,
+            onRetry: controller.loadLiveClasses,
+          );
+        }
+
+        if (controller.liveClassSchedules.isEmpty) {
+          return _DashboardInlineState(
+            message: 'No live classes available right now.',
+            onRetry: controller.loadLiveClasses,
+          );
+        }
+
+        final featuredClass = controller.featuredLiveClass;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Live Class',
+              style: TextStyle(
+                color: AppColors.textHeadingAlt,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const SizedBox(height: 18),
-          const _LiveFeaturedCard(),
-          const SizedBox(height: 20),
-          ...controller.liveClassSchedules.map(_LiveScheduleCard.new),
-        ],
-      ),
+            const SizedBox(height: 18),
+            if (featuredClass != null) ...[
+              _LiveFeaturedCard(item: featuredClass),
+              const SizedBox(height: 20),
+            ],
+            ...controller.liveClassSchedules.map(_LiveScheduleCard.new),
+          ],
+        );
+      }),
     );
   }
 }
@@ -2152,10 +2189,13 @@ class _RecentBadgesCard extends StatelessWidget {
 }
 
 class _LiveFeaturedCard extends StatelessWidget {
-  const _LiveFeaturedCard();
+  const _LiveFeaturedCard({required this.item});
+
+  final LiveClassScheduleData item;
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<DashboardTabbarController>();
     return Container(
       height: 180,
       decoration: BoxDecoration(
@@ -2196,19 +2236,22 @@ class _LiveFeaturedCard extends StatelessWidget {
                 ),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 28,
               top: 24,
               child: DecoratedBox(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primaryBright,
                   borderRadius: BorderRadius.all(Radius.circular(24)),
                 ),
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 5,
+                  ),
                   child: Text(
-                    'Mathematics',
-                    style: TextStyle(
+                    item.subject,
+                    style: const TextStyle(
                       color: AppColors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -2217,7 +2260,7 @@ class _LiveFeaturedCard extends StatelessWidget {
                 ),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 28,
               right: 28,
               bottom: 28,
@@ -2225,8 +2268,8 @@ class _LiveFeaturedCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Algebra Foundations\nwith Dr. Sarah Miller',
-                      style: TextStyle(
+                      '${item.title}\nwith ${item.teacher}',
+                      style: const TextStyle(
                         color: AppColors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -2234,8 +2277,14 @@ class _LiveFeaturedCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(width: 16),
-                  _LiveNowButton(),
+                  const SizedBox(width: 16),
+                  _LiveNowButton(
+                    text: item.joinButtonLabel,
+                    enabled: item.canJoin,
+                    onTap: item.canJoin
+                        ? () => controller.joinLiveClass(item)
+                        : null,
+                  ),
                 ],
               ),
             ),
@@ -2253,6 +2302,7 @@ class _LiveScheduleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<DashboardTabbarController>();
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Container(
@@ -2320,14 +2370,25 @@ class _LiveScheduleCard extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  if (item.timeRangeText.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      item.timeRangeText,
+                      style: const TextStyle(
+                        color: AppColors.textMuted8,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 10),
-            const Icon(
-              Icons.notifications_none_rounded,
-              color: AppColors.neutralText7,
-              size: 30,
+            _LiveNowButton(
+              text: item.joinButtonLabel,
+              enabled: item.canJoin,
+              onTap: item.canJoin ? () => controller.joinLiveClass(item) : null,
             ),
           ],
         ),
@@ -2698,29 +2759,45 @@ class _BannerButton extends StatelessWidget {
 }
 
 class _LiveNowButton extends StatelessWidget {
-  const _LiveNowButton();
+  const _LiveNowButton({required this.text, required this.enabled, this.onTap});
+
+  final String text;
+  final bool enabled;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(26),
-      ),
-      child: const Row(
-        children: [
-          Text(
-            'Join Now',
-            style: TextStyle(
-              color: AppColors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+    final foreground = enabled ? AppColors.white : AppColors.neutralText7;
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(26),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: enabled ? AppColors.primary : AppColors.neutralSurface3,
+          borderRadius: BorderRadius.circular(26),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          SizedBox(width: 8),
-          Icon(Icons.arrow_forward_rounded, color: AppColors.white, size: 24),
-        ],
+            if (enabled) ...[
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: AppColors.white,
+                size: 22,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

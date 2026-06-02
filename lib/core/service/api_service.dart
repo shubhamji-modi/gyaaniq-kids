@@ -15,7 +15,7 @@ class ApiService extends GetxService {
 
   ///BASE URL
   static String baseUrl =
-      'https://d4f1-2405-201-301c-203c-2858-e35c-bd9-e95.ngrok-free.app/api/v1/';
+      'https://c78a-2405-201-301c-203c-250a-998-3f5-2a68.ngrok-free.app/api/v1/';
 
   ///End points
   static const String REGISTER = 'auth/register';
@@ -27,6 +27,9 @@ class ApiService extends GetxService {
   static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
   static const String GET_USER_SUBJECT = 'user/subjects';
   static const String GET_USER_LESSON = 'user/lessons/by-class-subject';
+  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT =
+      'user/ebooks/by-class-subject';
+  static const String FETCH_NOTES_BY_LESSON = 'user/notes/by-lesson';
   static const String FETCH_QUIZZES = 'user/quizzes/by-lesson';
   static const String FETCH_SINGLE_QUIZZES = 'user/quizzes/:id';
   static const String SUBMIT_PRACTICE_QUIZZES = 'user/quizzes/:id/attempt';
@@ -46,7 +49,13 @@ class ApiService extends GetxService {
   static const String PRACTICE_FEEDBACK = 'user/progress/quizzes/attempts/:id';
   static const String DAILY_QUIZ_FEEDBACK = 'user/daily-quiz/my-attempts/:id';
   static const String MOCK_FEEDBACK = 'user/mock-tests/my-attempts/:id';
-
+  static const String LIVE_CLASS = 'user/live-classes';
+  static const String HOMEWORK = 'user/homework';
+  static const String HOMEWORK_DETAIL = 'user/homework/:id';
+  static const String HOMEWORK_SUBMIT = 'user/homework/:id/submit';
+  static const String HOMEWORK_UPLOAD_ATTACHMENT =
+      'user/homework/upload-attachment';
+  static const String HOMEWORK_MY_SUBMISSIONS = 'user/homework/my-submissions';
 
   @override
   void onInit() {
@@ -284,6 +293,73 @@ class ApiService extends GetxService {
       showLoader: showLoader,
       fromJson: fromJson,
     );
+  }
+
+  Future<ApiResponse<T>> uploadFile<T>({
+    required String endpoint,
+    required String filePath,
+    String fieldName = 'file',
+    bool showLoader = true,
+    T Function(dynamic)? fromJson,
+  }) async {
+    try {
+      if (showLoader) {
+        //LoadingDialog.show();
+      }
+
+      final formData = FormData.fromMap({
+        fieldName: await MultipartFile.fromFile(filePath),
+      });
+      final response = await _dio.post(
+        endpoint,
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      if (showLoader) {
+        LoadingDialog.hide();
+      }
+
+      if (response.statusCode! >= 200 && response.statusCode! < 300) {
+        T? responseData;
+        if (fromJson != null && response.data != null) {
+          responseData = fromJson(response.data);
+        } else {
+          responseData = response.data as T?;
+        }
+
+        return ApiResponse<T>(
+          success: true,
+          data: responseData,
+          message: 'Success',
+          statusCode: response.statusCode!,
+        );
+      }
+
+      return ApiResponse<T>(
+        success: false,
+        message: response.data['message'] ?? 'Unknown error occurred',
+        statusCode: response.statusCode!,
+      );
+    } on DioException catch (e) {
+      if (showLoader) {
+        LoadingDialog.hide();
+      }
+      return ApiResponse<T>(
+        success: false,
+        message: _handleDioError(e),
+        statusCode: e.response?.statusCode ?? 0,
+      );
+    } catch (e) {
+      if (showLoader) {
+        LoadingDialog.hide();
+      }
+      return ApiResponse<T>(
+        success: false,
+        message: 'Unexpected error occurred: ${e.toString()}',
+        statusCode: 0,
+      );
+    }
   }
 
   ///PUT Request

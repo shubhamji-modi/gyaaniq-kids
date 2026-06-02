@@ -15,14 +15,56 @@ class LearnNotesViews extends StatefulWidget {
 class _LearnNotesViewsState extends State<LearnNotesViews> {
   String _selectedFilter = 'All Notes';
   String _query = '';
+  bool _isLoading = true;
+  String _error = '';
+  List<LearnNoteModel> _notes = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
+  }
+
+  Future<void> _loadNotes() async {
+    setState(() {
+      _isLoading = true;
+      _error = '';
+    });
+
+    final response = await LearnNotesRepository.fetchStudentNotes();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+      if (response.success) {
+        _notes = response.data ?? const [];
+      } else {
+        _notes = const [];
+        _error = response.message;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filteredNotes = LearnNotesRepository.notes.where((note) {
-      final matchesFilter = _selectedFilter == 'All Notes' ||
-          note.subject == _selectedFilter;
+    final filters = <String>{
+      'All Notes',
+      ..._notes
+          .map((note) => note.subject)
+          .where((subject) => subject.isNotEmpty),
+    }.toList();
+    if (!filters.contains(_selectedFilter)) {
+      _selectedFilter = 'All Notes';
+    }
+
+    final filteredNotes = _notes.where((note) {
+      final matchesFilter =
+          _selectedFilter == 'All Notes' || note.subject == _selectedFilter;
       final q = _query.trim().toLowerCase();
-      final matchesQuery = q.isEmpty ||
+      final matchesQuery =
+          q.isEmpty ||
           note.title.toLowerCase().contains(q) ||
           note.description.toLowerCase().contains(q) ||
           note.subject.toLowerCase().contains(q);
@@ -41,116 +83,214 @@ class _LearnNotesViewsState extends State<LearnNotesViews> {
           children: [
             const LearnTopBar(title: 'Notes'),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(14, 18, 14, 24),
-                children: [
-                  TextField(
-                    onChanged: (value) {
-                      setState(() {
-                        _query = value;
-                      });
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Search notes, chapters, or topics...',
-                      hintStyle: const TextStyle(
-                        color: Color(0xFF72788D),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFF7D8092),
-                        size: 20,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFC7CBE1)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFFC7CBE1)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4A4FD9),
-                          width: 1.5,
+              child: RefreshIndicator(
+                onRefresh: _loadNotes,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(14, 18, 14, 24),
+                  children: [
+                    TextField(
+                      onChanged: (value) {
+                        setState(() {
+                          _query = value;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search notes, chapters, or topics...',
+                        hintStyle: const TextStyle(
+                          color: Color(0xFF72788D),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: Color(0xFF7D8092),
+                          size: 20,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFC7CBE1),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFC7CBE1),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF4A4FD9),
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: LearnNotesRepository.filters.map((filter) {
-                        final isSelected = _selectedFilter == filter;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedFilter = filter;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 11,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFF4A4FD9)
-                                    : const Color(0xFFE6E7EC),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                children: [
-                                  if (filter == 'All Notes') ...[
-                                    Icon(
-                                      Icons.tune_rounded,
-                                      size: 14,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : const Color(0xFF474B5F),
+                    const SizedBox(height: 16),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: filters.map((filter) {
+                          final isSelected = _selectedFilter == filter;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedFilter = filter;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFF4A4FD9)
+                                      : const Color(0xFFE6E7EC),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (filter == 'All Notes') ...[
+                                      Icon(
+                                        Icons.tune_rounded,
+                                        size: 14,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : const Color(0xFF474B5F),
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Text(
+                                      filter,
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : const Color(0xFF474B5F),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                                    const SizedBox(width: 6),
                                   ],
-                                  Text(
-                                    filter,
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : const Color(0xFF474B5F),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  ...grouped.entries.map(
-                    (entry) => _NotesSection(
-                      subject: entry.key,
-                      fileLabel: entry.value.first.fileCountLabel,
-                      notes: entry.value,
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    if (_isLoading)
+                      const _NotesStateView(
+                        icon: Icons.hourglass_empty_rounded,
+                        title: 'Loading notes...',
+                        message: 'Please wait while notes are fetched.',
+                      )
+                    else if (_error.isNotEmpty)
+                      _NotesStateView(
+                        icon: Icons.error_outline_rounded,
+                        title: 'Unable to load notes',
+                        message: _error,
+                        actionLabel: 'Retry',
+                        onAction: _loadNotes,
+                      )
+                    else if (filteredNotes.isEmpty)
+                      const _NotesStateView(
+                        icon: Icons.note_alt_outlined,
+                        title: 'No notes found',
+                        message: 'No active notes are available right now.',
+                      )
+                    else
+                      ...grouped.entries.map(
+                        (entry) => _NotesSection(
+                          subject: entry.key,
+                          fileLabel: entry.value.first.fileCountLabel,
+                          notes: entry.value,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NotesStateView extends StatelessWidget {
+  const _NotesStateView({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 260),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1E4EC)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: const Color(0xFF4A4FD9), size: 34),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF1D2231),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF6F7588),
+              fontSize: 13,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onAction,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A4FD9),
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
+              child: Text(actionLabel!),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -302,8 +442,9 @@ class _SimpleNoteCard extends StatelessWidget {
                 backgroundColor: isPrimary
                     ? const Color(0xFF4A4FD9)
                     : const Color(0xFFE0E3E8),
-                foregroundColor:
-                    isPrimary ? Colors.white : const Color(0xFF1D2231),
+                foregroundColor: isPrimary
+                    ? Colors.white
+                    : const Color(0xFF1D2231),
                 elevation: 0,
                 minimumSize: const Size.fromHeight(45),
                 shape: RoundedRectangleBorder(
@@ -311,9 +452,12 @@ class _SimpleNoteCard extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.remove_red_eye_outlined, size: 19),
-              label: const Text(
-                'View Notes',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              label: Text(
+                note.pdfUrl.trim().isNotEmpty ? 'View PDF' : 'View Notes',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -350,9 +494,7 @@ class _FeaturedNoteCard extends StatelessWidget {
                 colors: [Color(0xFF153246), Color(0xFF0A1720)],
               ),
             ),
-            child: CustomPaint(
-              painter: _PhysicsBoardPainter(),
-            ),
+            child: CustomPaint(painter: _PhysicsBoardPainter()),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -554,7 +696,8 @@ class _AuthorNoteCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => Get.to(() => LearnNotesDiscriptionViews(note: note)),
+              onPressed: () =>
+                  Get.to(() => LearnNotesDiscriptionViews(note: note)),
               child: const Text(
                 'View ->',
                 style: TextStyle(
@@ -604,7 +747,8 @@ class _PhysicsBoardPainter extends CustomPainter {
       ..color = const Color(0xFF57C7FF).withValues(alpha: 0.55)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.3;
-    final glowPaint = Paint()..color = const Color(0xFF5FE2FF).withValues(alpha: 0.25);
+    final glowPaint = Paint()
+      ..color = const Color(0xFF5FE2FF).withValues(alpha: 0.25);
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(

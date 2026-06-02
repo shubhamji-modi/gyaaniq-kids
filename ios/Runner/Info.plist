@@ -7,7 +7,11 @@
 
 	<key>CFBundleDisplayName</key>
 	<string>Name of your app</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is required for video meetings</string>
 
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Microphone access is required for video meetings</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,6 +30,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera is used to capture your profile photo and join live classes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone is used to speak during live classes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library is used to choose your profile photo.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Photo library access is used to save and choose your profile photo.</string>
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

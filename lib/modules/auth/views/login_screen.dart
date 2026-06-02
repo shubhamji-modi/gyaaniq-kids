@@ -272,89 +272,89 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(
-                              color: Color(0xFFD6DCE8),
-                              thickness: 1,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            child: Text(
-                              'OR',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF98A2B3),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(
-                              color: Color(0xFFD6DCE8),
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF111827),
-                            side: const BorderSide(color: Color(0xFFD6DCE8)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          icon: Image.asset(
-                            'assets/images/google-icon.png',
-                            width: 22,
-                            height: 22,
-                            fit: BoxFit.contain,
-                          ),
-                          label: const Text(
-                            'Continue with Google',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
+                      // const SizedBox(height: 18),
+                      // Row(
+                      //   children: [
+                      //     const Expanded(
+                      //       child: Divider(
+                      //         color: Color(0xFFD6DCE8),
+                      //         thickness: 1,
+                      //       ),
+                      //     ),
+                      //     Padding(
+                      //       padding: const EdgeInsets.symmetric(horizontal: 14),
+                      //       child: Text(
+                      //         'OR',
+                      //         style: theme.textTheme.bodySmall?.copyWith(
+                      //           color: const Color(0xFF98A2B3),
+                      //           fontWeight: FontWeight.w600,
+                      //         ),
+                      //       ),
+                      //     ),
+                      //     const Expanded(
+                      //       child: Divider(
+                      //         color: Color(0xFFD6DCE8),
+                      //         thickness: 1,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
+                      // const SizedBox(height: 18),
+                      // SizedBox(
+                      //   width: double.infinity,
+                      //   height: 52,
+                      //   child: OutlinedButton.icon(
+                      //     onPressed: () {},
+                      //     style: OutlinedButton.styleFrom(
+                      //       foregroundColor: const Color(0xFF111827),
+                      //       side: const BorderSide(color: Color(0xFFD6DCE8)),
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(24),
+                      //       ),
+                      //     ),
+                      //     icon: Image.asset(
+                      //       'assets/images/google-icon.png',
+                      //       width: 22,
+                      //       height: 22,
+                      //       fit: BoxFit.contain,
+                      //     ),
+                      //     label: const Text(
+                      //       'Continue with Google',
+                      //       style: TextStyle(
+                      //         fontSize: 14,
+                      //         fontWeight: FontWeight.w600,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      'Don’t have an account? ',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF344054),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Get.toNamed(AppRoutes.createAccount),
-                      child: Text(
-                        'Sign Up',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF4F46E5),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
+                // Wrap(
+                //   alignment: WrapAlignment.center,
+                //   crossAxisAlignment: WrapCrossAlignment.center,
+                //   children: [
+                //     Text(
+                //       'Don’t have an account? ',
+                //       style: theme.textTheme.bodyMedium?.copyWith(
+                //         color: const Color(0xFF344054),
+                //         fontWeight: FontWeight.w500,
+                //       ),
+                //     ),
+                //     GestureDetector(
+                //       onTap: () => Get.toNamed(AppRoutes.createAccount),
+                //       child: Text(
+                //         'Sign Up',
+                //         style: theme.textTheme.bodyMedium?.copyWith(
+                //           color: const Color(0xFF4F46E5),
+                //           fontWeight: FontWeight.w700,
+                //         ),
+                //       ),
+                //     ),
+                //   ],
+                // ),
+                // const SizedBox(height: 18),
                 // const Row(
                 //   children: [
                 //     Expanded(

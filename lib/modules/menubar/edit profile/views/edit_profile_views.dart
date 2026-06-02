@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/data/user_profile_provider.dart';
@@ -15,7 +19,10 @@ class EditProfileViews extends StatefulWidget {
 class _EditProfileViewsState extends State<EditProfileViews> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
+  final ImagePicker _imagePicker = ImagePicker();
   String _selectedGrade = '8th';
+  String _profilePic = '';
+  File? _selectedImageFile;
   bool _isSaving = false;
 
   final List<String> _grades = const [
@@ -37,9 +44,106 @@ class _EditProfileViewsState extends State<EditProfileViews> {
     _nameController = TextEditingController(text: profileName);
     _phoneController = TextEditingController(text: profile?.mobile ?? '');
     _selectedGrade = classNumber;
+    _profilePic = profile?.profilePic ?? '';
     if (!_grades.contains(_selectedGrade)) {
       _selectedGrade = '8th';
     }
+  }
+
+  Future<void> _showImagePickerOptions() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD4D7E2),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _ImageSourceTile(
+                  icon: Icons.camera_alt_outlined,
+                  title: 'Camera',
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                const SizedBox(height: 10),
+                _ImageSourceTile(
+                  icon: Icons.photo_library_outlined,
+                  title: 'Gallery',
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await _pickProfileImage(source);
+  }
+
+  Future<void> _pickProfileImage(ImageSource source) async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 82,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        requestFullMetadata: false,
+      );
+      if (image == null || !mounted) {
+        return;
+      }
+
+      setState(() {
+        _selectedImageFile = File(image.path);
+        _profilePic = image.path;
+      });
+    } on PlatformException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = _pickerErrorMessage(error);
+      _showMessage(message, isError: true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showMessage('Unable to pick image. Please try again.', isError: true);
+    }
+  }
+
+  String _pickerErrorMessage(PlatformException error) {
+    final code = error.code.toLowerCase();
+    if (code.contains('permission') || code.contains('denied')) {
+      return 'Photo permission is denied. Please allow photo access from Settings.';
+    }
+    if (code.contains('camera')) {
+      return 'Camera is not available on this device.';
+    }
+    if (code.contains('missingplugin')) {
+      return 'Please restart the app once, then try again.';
+    }
+    return error.message?.trim().isNotEmpty == true
+        ? error.message!
+        : 'Unable to pick image. Please try again.';
   }
 
   @override
@@ -71,7 +175,7 @@ class _EditProfileViewsState extends State<EditProfileViews> {
         'instructionMedium': currentProfile.instructionMedium,
         'classLevel': _selectedGrade,
         'educationalBoard': currentProfile.educationBoard,
-        'profilePic': null,
+        'profilePic': _profilePic.trim().isEmpty ? null : _profilePic.trim(),
       },
       fromJson: (json) => json,
     );
@@ -99,8 +203,14 @@ class _EditProfileViewsState extends State<EditProfileViews> {
       return;
     }
 
+    final apiProfile = UserProfile.fromApi(data);
     provider.setProfile(
-      UserProfile.fromApi(data).copyWith(mobile: _phoneController.text.trim()),
+      apiProfile.copyWith(
+        mobile: _phoneController.text.trim(),
+        profilePic: apiProfile.profilePic.isEmpty
+            ? _profilePic.trim()
+            : apiProfile.profilePic,
+      ),
     );
 
     _showMessage(
@@ -141,7 +251,12 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
                 child: Column(
                   children: [
-                    _ProfileHeader(name: displayName),
+                    _ProfileHeader(
+                      name: displayName,
+                      profilePic: _profilePic,
+                      selectedImageFile: _selectedImageFile,
+                      onCameraTap: _showImagePickerOptions,
+                    ),
                     const SizedBox(height: 28),
                     _SectionCard(
                       title: 'Personal Details',
@@ -299,12 +414,30 @@ class _EditProfileTopBar extends StatelessWidget {
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.name});
+  const _ProfileHeader({
+    required this.name,
+    required this.profilePic,
+    required this.selectedImageFile,
+    required this.onCameraTap,
+  });
 
   final String name;
+  final String profilePic;
+  final File? selectedImageFile;
+  final VoidCallback onCameraTap;
 
   @override
   Widget build(BuildContext context) {
+    final trimmedProfilePic = profilePic.trim();
+    final localImage =
+        selectedImageFile ??
+        (trimmedProfilePic.isNotEmpty && !trimmedProfilePic.startsWith('http')
+            ? File(trimmedProfilePic)
+            : null);
+    final networkImage = trimmedProfilePic.startsWith('http')
+        ? trimmedProfilePic
+        : '';
+
     return Column(
       children: [
         Stack(
@@ -330,31 +463,45 @@ class _ProfileHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFFF7A30), width: 2),
                 ),
-                child: const CircleAvatar(
-                  backgroundColor: Color(0xFFFFD0AF),
-                  child: Icon(
-                    Icons.person_rounded,
-                    size: 45,
-                    color: Color(0xFF7D4B2C),
-                  ),
+                child: ClipOval(
+                  child: localImage != null
+                      ? Image.file(
+                          localImage,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      : networkImage.isNotEmpty
+                      ? Image.network(
+                          networkImage,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const _ProfileFallbackIcon(),
+                        )
+                      : const _ProfileFallbackIcon(),
                 ),
               ),
             ),
             Positioned(
               right: 12,
               bottom: 4,
-              child: Container(
-                width: 35,
-                height: 35,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF4B49E3),
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: const Icon(
-                  Icons.camera_alt_outlined,
-                  color: Colors.white,
-                  size: 20,
+              child: GestureDetector(
+                onTap: onCameraTap,
+                child: Container(
+                  width: 35,
+                  height: 35,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF4B49E3),
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -371,6 +518,60 @@ class _ProfileHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ProfileFallbackIcon extends StatelessWidget {
+  const _ProfileFallbackIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CircleAvatar(
+      backgroundColor: Color(0xFFFFD0AF),
+      child: Icon(Icons.person_rounded, size: 45, color: Color(0xFF7D4B2C)),
+    );
+  }
+}
+
+class _ImageSourceTile extends StatelessWidget {
+  const _ImageSourceTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F4F8),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF4B49E3), size: 24),
+            const SizedBox(width: 14),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF1D2231),
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -13,14 +13,16 @@ class LearnHomeworkViews extends StatefulWidget {
 }
 
 class _LearnHomeworkViewsState extends State<LearnHomeworkViews> {
-  LearnHomeworkStatus _selectedTab = LearnHomeworkStatus.pending;
+  late final LearnHomeworkController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = Get.put(LearnHomeworkController());
+  }
 
   @override
   Widget build(BuildContext context) {
-    final items = LearnHomeworkRepository.assignments
-        .where((item) => item.status == _selectedTab)
-        .toList();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
       body: SafeArea(
@@ -49,23 +51,51 @@ class _LearnHomeworkViewsState extends State<LearnHomeworkViews> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _HomeworkTabs(
-                    selectedTab: _selectedTab,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedTab = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  ...items.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: item.status == LearnHomeworkStatus.pending
-                          ? _PendingHomeworkCard(item: item)
-                          : _CompletedHomeworkCard(item: item),
+                  Obx(
+                    () => _HomeworkTabs(
+                      selectedTab: _controller.selectedTab.value,
+                      onChanged: _controller.changeTab,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  Obx(() {
+                    if (_controller.isLoading.value) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 44),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    if (_controller.errorMessage.value.isNotEmpty) {
+                      return _HomeworkStateCard(
+                        message: _controller.errorMessage.value,
+                        onRetry: _controller.fetchHomework,
+                      );
+                    }
+
+                    if (_controller.assignments.isEmpty) {
+                      return _HomeworkStateCard(
+                        message:
+                            'No ${_controller.selectedTab.value.label.toLowerCase()} homework found.',
+                        onRetry: _controller.fetchHomework,
+                      );
+                    }
+
+                    return Column(
+                      children: _controller.assignments
+                          .map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 18),
+                              child:
+                                  item.status == LearnHomeworkStatus.pending ||
+                                      item.status == LearnHomeworkStatus.overdue
+                                  ? _PendingHomeworkCard(item: item)
+                                  : _CompletedHomeworkCard(item: item),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -77,10 +107,7 @@ class _LearnHomeworkViewsState extends State<LearnHomeworkViews> {
 }
 
 class _HomeworkTabs extends StatelessWidget {
-  const _HomeworkTabs({
-    required this.selectedTab,
-    required this.onChanged,
-  });
+  const _HomeworkTabs({required this.selectedTab, required this.onChanged});
 
   final LearnHomeworkStatus selectedTab;
   final ValueChanged<LearnHomeworkStatus> onChanged;
@@ -95,20 +122,14 @@ class _HomeworkTabs extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: _TabButton(
-              label: 'Pending',
-              isSelected: selectedTab == LearnHomeworkStatus.pending,
-              onTap: () => onChanged(LearnHomeworkStatus.pending),
+          for (final status in LearnHomeworkStatus.values)
+            Expanded(
+              child: _TabButton(
+                label: status.label,
+                isSelected: selectedTab == status,
+                onTap: () => onChanged(status),
+              ),
             ),
-          ),
-          Expanded(
-            child: _TabButton(
-              label: 'Completed',
-              isSelected: selectedTab == LearnHomeworkStatus.completed,
-              onTap: () => onChanged(LearnHomeworkStatus.completed),
-            ),
-          ),
         ],
       ),
     );
@@ -170,7 +191,7 @@ class _PendingHomeworkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showDuration = item.id == 'quadratic_equations';
+    final showDuration = item.duration.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -269,8 +290,18 @@ class _PendingHomeworkCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () =>
-                  Get.to(() => LearnHomeworkSumbitViews(homework: item)),
+              onPressed: item.canSubmit
+                  ? () {
+                      Get.to<bool>(
+                        () => LearnHomeworkSumbitViews(homework: item),
+                      )?.then((didSubmit) {
+                        if (didSubmit == true &&
+                            Get.isRegistered<LearnHomeworkController>()) {
+                          Get.find<LearnHomeworkController>().fetchHomework();
+                        }
+                      });
+                    }
+                  : null,
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: const Color(0xFF4A4FD9),
@@ -280,18 +311,20 @@ class _PendingHomeworkCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(32),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Submit Assignment',
-                    style: TextStyle(
+                    item.status == LearnHomeworkStatus.overdue
+                        ? 'Submit Late'
+                        : 'Submit Assignment',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(width: 12),
-                  Icon(Icons.arrow_forward_rounded, size: 23),
+                  const SizedBox(width: 12),
+                  const Icon(Icons.arrow_forward_rounded, size: 23),
                 ],
               ),
             ),
@@ -322,7 +355,10 @@ class _CompletedHomeworkCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: item.chipBackground,
                   borderRadius: BorderRadius.circular(18),
@@ -388,17 +424,17 @@ class _CompletedHomeworkCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Row(
+                Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.verified_outlined,
                       color: Color(0xFF0AA84F),
                       size: 19,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      'Submitted',
-                      style: TextStyle(
+                      item.submissionState,
+                      style: const TextStyle(
                         color: Color(0xFF0AA84F),
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -411,7 +447,8 @@ class _CompletedHomeworkCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           OutlinedButton(
-            onPressed: () {},
+            onPressed: () =>
+                Get.to(() => LearnHomeworkSumbitViews(homework: item)),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(45),
               side: const BorderSide(color: Color(0xFF4A4FD9), width: 2),
@@ -428,6 +465,43 @@ class _CompletedHomeworkCard extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeworkStateCard extends StatelessWidget {
+  const _HomeworkStateCard({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE1E4EC)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF4C5164),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 14),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
         ],
       ),
     );
