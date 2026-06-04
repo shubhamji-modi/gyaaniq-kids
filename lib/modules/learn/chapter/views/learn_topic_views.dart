@@ -53,7 +53,8 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
 
     final responses = await Future.wait(
       widget.chapter.topics.map(
-        (topic) => LearnCatalogData.getLessonProgress(lessonId: topic.lesson.id),
+        (topic) =>
+            LearnCatalogData.getLessonProgress(lessonId: topic.lesson.id),
       ),
     );
 
@@ -82,7 +83,8 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
   }
 
   double _resolvedProgress(LearnTopicModel topic) {
-    return _progressByLessonId[topic.lesson.id]?.progressValue ?? topic.progress;
+    return _progressByLessonId[topic.lesson.id]?.progressValue ??
+        topic.progress;
   }
 
   double _chapterProgress(List<LearnTopicModel> topics) {
@@ -115,13 +117,6 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
 
     setState(() {
       _startingLessonId = null;
-      _progressByLessonId[topic.lesson.id] = LearnLessonProgress(
-        lessonId: topic.lesson.id,
-        status: LearnTopicStatus.inProgress,
-        startedAt: '',
-        completedAt: '',
-        lastAccessedAt: '',
-      );
     });
 
     if (!response.success) {
@@ -135,6 +130,16 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
       );
       return;
     }
+
+    setState(() {
+      _progressByLessonId[topic.lesson.id] = LearnLessonProgress(
+        lessonId: topic.lesson.id,
+        status: LearnTopicStatus.inProgress,
+        startedAt: '',
+        completedAt: '',
+        lastAccessedAt: '',
+      );
+    });
 
     Get.to(() => LearnLessonPlayerViews(topic: topic));
   }
@@ -199,8 +204,8 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
                                 color: const Color(0xFFFFA61E),
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: const Text(
-                                'Class 8 Math',
+                              child: Text(
+                                '${widget.subject.classLevel} ${widget.subject.title}',
                                 style: TextStyle(
                                   color: Color(0xFF6E4500),
                                   fontSize: 9,
@@ -260,7 +265,7 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
                   ),
                   const SizedBox(height: 18),
                   ...chapter.topics.map(
-                        (topic) => Padding(
+                    (topic) => Padding(
                       padding: const EdgeInsets.only(bottom: 18),
                       child: _TopicCard(
                         topic: topic,
@@ -320,12 +325,12 @@ class _TopicCard extends StatelessWidget {
             ),
             boxShadow: isInProgress
                 ? [
-              BoxShadow(
-                color: const Color(0xFF4A4FD9).withValues(alpha: 0.12),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ]
+                    BoxShadow(
+                      color: const Color(0xFF4A4FD9).withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
                 : null,
           ),
           child: Row(
@@ -337,19 +342,26 @@ class _TopicCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isLocked
                       ? const Color(0xFFF0F2F6)
-                      : (isInProgress
+                      : isCompleted
+                      ? const Color(0xFFDCAEFF)
+                      : isInProgress
                       ? const Color(0xFF6368F2)
-                      : const Color(0xFFDCAEFF)),
+                      : const Color(0xFFF1F3F8),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   isLocked
                       ? Icons.lock_outline_rounded
-                      : (isInProgress
-                            ? Icons.play_arrow_rounded
-                            : Icons.check_rounded),
-                  color:
-                      isLocked ? const Color(0xFFA5A8B5) : Colors.white,
+                      : isCompleted
+                      ? Icons.check_rounded
+                      : isInProgress
+                      ? Icons.play_arrow_rounded
+                      : Icons.menu_book_rounded,
+                  color: isLocked
+                      ? const Color(0xFFA5A8B5)
+                      : isCompleted || isInProgress
+                      ? Colors.white
+                      : const Color(0xFF8C8F9C),
                   size: 23,
                 ),
               ),
@@ -432,8 +444,8 @@ class _TopicCard extends StatelessWidget {
                           isLocked
                               ? const Color(0xFFD9DDE5)
                               : (isInProgress
-                              ? const Color(0xFF4A4FD9)
-                              : const Color(0xFF7D31E2)),
+                                    ? const Color(0xFF4A4FD9)
+                                    : const Color(0xFF7D31E2)),
                         ),
                       ),
                     ),

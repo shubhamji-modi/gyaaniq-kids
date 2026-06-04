@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/data/user_profile_provider.dart';
 import '../../../core/service/api_service.dart';
 import '../../../core/service/session_manager.dart';
+import '../../../core/theme/appcolors.dart';
 import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../../menubar/download/views/menubar_download_views.dart';
 import '../../learn/chapter/views/learn_chapter_views.dart';
@@ -18,9 +19,9 @@ import '../../learn/doubt_solve/views/learn_doubt_solve_views.dart';
 import '../../learn/e_book/views/learn_ebook_views.dart';
 import '../../learn/homework/views/learn_homework_views.dart';
 import '../../learn/notes/views/learn_notes_views.dart';
+import '../../menubar/xp_and_streak/xp_and_streak_show_views.dart';
 import '../../../core/values/constants.dart';
 import '../../../routes/app_routes.dart';
-import '../views/google_meet_webview_screen.dart';
 
 class DashboardTabbarController extends GetxController {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -31,10 +32,21 @@ class DashboardTabbarController extends GetxController {
   final RxString learnSubjectsError = ''.obs;
   final RxBool isLoadingMockTests = true.obs;
   final RxString mockTestsError = ''.obs;
+  final RxBool isLoadingDailyQuizAnalytics = true.obs;
+  final RxString dailyQuizAnalyticsError = ''.obs;
+  final RxBool isLoadingLeaderboardSummary = true.obs;
+  final RxString leaderboardSummaryError = ''.obs;
+  final RxBool isLoadingUserXp = true.obs;
+  final RxString userXpError = ''.obs;
   final RxBool isLoadingLiveClasses = true.obs;
   final RxString liveClassesError = ''.obs;
   final RxList<SubjectCardData> learnSubjects = <SubjectCardData>[].obs;
   final RxList<MockTestCardData> mockTests = <MockTestCardData>[].obs;
+  final RxList<DailyQuizAnalyticsDayData> dailyQuizAnalytics =
+      <DailyQuizAnalyticsDayData>[].obs;
+  final Rx<LeaderboardStripData> leaderboardSummary =
+      const LeaderboardStripData().obs;
+  final Rx<UserXpSummaryData> userXpSummary = const UserXpSummaryData().obs;
   final RxList<LiveClassScheduleData> liveClassSchedules =
       <LiveClassScheduleData>[].obs;
   final Rx<DashboardLessonSummary> lessonSummary =
@@ -43,7 +55,6 @@ class DashboardTabbarController extends GetxController {
 
   final String studentName = 'Sarah!';
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
-  final String streakText = '07 Days';
   final String appBuild = 'App Build: v1.0.2';
 
   final List<DashboardNavItemData> navItems = const [
@@ -131,6 +142,11 @@ class DashboardTabbarController extends GetxController {
       icon: Icons.verified_user_outlined,
     ),
     ProfileMenuData(
+      title: 'XP & Streak Settings',
+      icon: Icons.local_fire_department_outlined,
+      color: Color(0xFF4A4FD9),
+    ),
+    ProfileMenuData(
       title: 'Sign Out',
       icon: Icons.logout_rounded,
       color: Color(0xFFC81E1E),
@@ -172,7 +188,90 @@ class DashboardTabbarController extends GetxController {
     await _loadProgressSummary();
     await _loadLearnSubjects();
     await loadMockTests();
+    await loadDailyQuizAnalytics();
+    await loadLeaderboardSummary();
+    await loadUserXp();
     await loadLiveClasses();
+  }
+
+  Future<void> loadUserXp() async {
+    isLoadingUserXp.value = true;
+    userXpError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.USER_XP,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    isLoadingUserXp.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      userXpSummary.value = const UserXpSummaryData();
+      userXpError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    userXpSummary.value = UserXpSummaryData.fromApi(data);
+  }
+
+  Future<void> loadLeaderboardSummary() async {
+    isLoadingLeaderboardSummary.value = true;
+    leaderboardSummaryError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.USER_LEADERBOARD,
+      showLoader: false,
+      fromJson: (json) => json,
+      queryParameters: const {'topLimit': 3},
+    );
+
+    isLoadingLeaderboardSummary.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      leaderboardSummary.value = const LeaderboardStripData();
+      leaderboardSummaryError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    leaderboardSummary.value = LeaderboardStripData.fromApi(data);
+  }
+
+  Future<void> loadDailyQuizAnalytics() async {
+    isLoadingDailyQuizAnalytics.value = true;
+    dailyQuizAnalyticsError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.DAILY_QUIZZS_HISTORY,
+      showLoader: false,
+      fromJson: (json) => json,
+      queryParameters: const {'page': 1, 'limit': 50},
+    );
+
+    isLoadingDailyQuizAnalytics.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      dailyQuizAnalytics.assignAll(DailyQuizAnalyticsDayData.weekDefaults());
+      dailyQuizAnalyticsError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final attemptsJson = data['attempts'] as List<dynamic>? ?? const [];
+    final attempts = attemptsJson
+        .whereType<Map<String, dynamic>>()
+        .map(DailyQuizAttemptData.fromApi)
+        .where((attempt) => attempt.date != null)
+        .toList();
+
+    dailyQuizAnalytics.assignAll(
+      DailyQuizAnalyticsDayData.fromAttempts(attempts),
+    );
   }
 
   Future<void> loadLiveClasses({String? phase}) async {
@@ -242,26 +341,6 @@ class DashboardTabbarController extends GetxController {
       );
       return;
     }
-
-    final meetUri = Uri.tryParse(item.meetLink);
-    if (meetUri == null) {
-      Get.snackbar(
-        'Error',
-        'Invalid Meet link.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFB42318),
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(16),
-      );
-      return;
-    }
-
-    Get.to(
-      () => GoogleMeetWebViewScreen(
-        meetUrl: meetUri.toString(),
-        title: item.title,
-      ),
-    );
   }
 
   Future<void> loadMockTests() async {
@@ -436,6 +515,11 @@ class DashboardTabbarController extends GetxController {
 
     if (item.title == 'Downloads') {
       Get.to(() => const MenubarDownloadViews());
+      return;
+    }
+
+    if (item.title == 'XP & Streak Settings') {
+      Get.to(() => const XpAndStreakShowViews());
       return;
     }
 
@@ -658,6 +742,99 @@ class DashboardLessonSummary {
       '$total Active Lesson${total == 1 ? '' : 's'}';
 }
 
+class LeaderboardStripData {
+  const LeaderboardStripData({
+    this.myRank = 0,
+    this.totalStudents = 0,
+    this.topStudents = const [],
+  });
+
+  final int myRank;
+  final int totalStudents;
+  final List<LeaderboardStripStudent> topStudents;
+
+  factory LeaderboardStripData.fromApi(Map<String, dynamic> json) {
+    final topJson = json['top'] as List<dynamic>? ?? const [];
+    return LeaderboardStripData(
+      myRank: (json['myRank'] as num?)?.toInt() ?? 0,
+      totalStudents: (json['totalStudents'] as num?)?.toInt() ?? 0,
+      topStudents: topJson
+          .whereType<Map<String, dynamic>>()
+          .map(LeaderboardStripStudent.fromApi)
+          .take(3)
+          .toList(),
+    );
+  }
+
+  String get rankText => myRank > 0 ? '#${_formatCompactNumber(myRank)}' : '--';
+
+  int get remainingStudents {
+    final remaining = totalStudents - topStudents.length;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  String get remainingText => '+${_formatCompactNumber(remainingStudents)}';
+}
+
+class LeaderboardStripStudent {
+  const LeaderboardStripStudent({
+    required this.rank,
+    required this.name,
+    required this.initials,
+    required this.color,
+  });
+
+  final int rank;
+  final String name;
+  final String initials;
+  final Color color;
+
+  factory LeaderboardStripStudent.fromApi(Map<String, dynamic> json) {
+    final student = _safeMap(json['student']);
+    final rank = (json['rank'] as num?)?.toInt() ?? 0;
+    final name = _safeText(student['name'], fallback: 'Student');
+
+    return LeaderboardStripStudent(
+      rank: rank,
+      name: name,
+      initials: _initials(name),
+      color: _leaderboardAvatarColor(rank),
+    );
+  }
+}
+
+class UserXpSummaryData {
+  const UserXpSummaryData({
+    this.xp = 0,
+    this.streakCount = 0,
+    this.lastIncrementedAt,
+  });
+
+  final int xp;
+  final int streakCount;
+  final DateTime? lastIncrementedAt;
+
+  factory UserXpSummaryData.fromApi(Map<String, dynamic> json) {
+    final streak = _safeMap(json['streak']);
+    return UserXpSummaryData(
+      xp: (json['xp'] as num?)?.toInt() ?? 0,
+      streakCount: (streak['count'] as num?)?.toInt() ?? 0,
+      lastIncrementedAt: _parseApiDate(streak['lastIncrementedAt']),
+    );
+  }
+
+  String get xpText => _formatCompactNumber(xp);
+
+  String get streakText {
+    final value = streakCount.toString().padLeft(2, '0');
+    return '$value Days';
+  }
+
+  String get profileStreakText {
+    return '$streakCount Day${streakCount == 1 ? '' : 's'}';
+  }
+}
+
 class _SubjectPalette {
   final IconData icon;
   final Color accent;
@@ -799,7 +976,7 @@ class LiveClassScheduleData {
     return 'live';
   }
 
-  bool get canJoin => meetLink.isNotEmpty && computedPhase == 'live';
+  bool get canJoin => computedPhase == 'live';
 
   int get phasePriority {
     final status = computedPhase;
@@ -920,6 +1097,157 @@ class MockTestCardData {
   }
 }
 
+class DailyQuizAttemptData {
+  const DailyQuizAttemptData({
+    required this.date,
+    required this.totalScore,
+    required this.maxScore,
+    required this.percentage,
+    required this.passed,
+  });
+
+  final DateTime? date;
+  final int totalScore;
+  final int maxScore;
+  final double percentage;
+  final bool passed;
+
+  factory DailyQuizAttemptData.fromApi(Map<String, dynamic> json) {
+    final dailyQuiz = _safeMap(json['dailyQuiz']);
+    return DailyQuizAttemptData(
+      date:
+          _parseApiDate(json['date'] ?? dailyQuiz['date']) ??
+          _parseApiDate(json['createdAt']),
+      totalScore: (json['totalScore'] as num?)?.toInt() ?? 0,
+      maxScore:
+          (json['maxScore'] as num?)?.toInt() ??
+          (dailyQuiz['totalMarks'] as num?)?.toInt() ??
+          0,
+      percentage: (json['percentage'] as num?)?.toDouble() ?? 0,
+      passed: json['passed'] == true,
+    );
+  }
+}
+
+class DailyQuizAnalyticsDayData {
+  const DailyQuizAnalyticsDayData({
+    required this.label,
+    required this.date,
+    required this.attempt,
+  });
+
+  final String label;
+  final DateTime date;
+  final DailyQuizAttemptData? attempt;
+
+  bool get isAttempted => attempt != null;
+
+  bool get isComingSoon {
+    if (isAttempted) {
+      return false;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return date.isAfter(today);
+  }
+
+  double get percentage => attempt?.percentage.clamp(0, 100).toDouble() ?? 0;
+
+  double get barValue => isAttempted ? (percentage / 100).clamp(0.08, 1.0) : 0;
+
+  String get statusText {
+    if (isAttempted) {
+      return '${percentage.round()}%';
+    }
+    return isComingSoon ? 'Coming Soon' : 'Not Attempt';
+  }
+
+  String get scoreText {
+    final data = attempt;
+    if (data == null) {
+      return '-';
+    }
+    return '${data.totalScore}/${data.maxScore}';
+  }
+
+  Color get accent {
+    if (isComingSoon) {
+      return const Color(0xFF4A4FD9);
+    }
+    if (!isAttempted) {
+      return const Color(0xFF9AA3B2);
+    }
+    if (attempt!.passed) {
+      return const Color(0xFF12B76A);
+    }
+    return const Color(0xFFF97316);
+  }
+
+  Color get barColor {
+    if (isComingSoon) {
+      return const Color(0xFFE2E7FF);
+    }
+    if (!isAttempted) {
+      return const Color(0xFFE6EAF0);
+    }
+    if (percentage >= 80) {
+      return AppColors.analyticsHighlight;
+    }
+    if (percentage >= 60) {
+      return AppColors.primaryTint5;
+    }
+    if (percentage >= 40) {
+      return AppColors.primaryTint3;
+    }
+    return AppColors.primaryTint;
+  }
+
+  static List<DailyQuizAnalyticsDayData> weekDefaults() {
+    final weekStart = _currentWeekStart();
+    return List.generate(6, (index) {
+      return DailyQuizAnalyticsDayData(
+        label: _weekdayLabels[index],
+        date: weekStart.add(Duration(days: index)),
+        attempt: null,
+      );
+    });
+  }
+
+  static List<DailyQuizAnalyticsDayData> fromAttempts(
+    List<DailyQuizAttemptData> attempts,
+  ) {
+    final weekStart = _currentWeekStart();
+    final attemptByDate = <DateTime, DailyQuizAttemptData>{};
+
+    for (final attempt in attempts) {
+      final date = attempt.date;
+      if (date == null) {
+        continue;
+      }
+      final local = date.toLocal();
+      final day = DateTime(local.year, local.month, local.day);
+      if (day.isBefore(weekStart) ||
+          day.isAfter(weekStart.add(const Duration(days: 5)))) {
+        continue;
+      }
+
+      final existing = attemptByDate[day];
+      if (existing == null || date.isAfter(existing.date ?? date)) {
+        attemptByDate[day] = attempt;
+      }
+    }
+
+    return List.generate(6, (index) {
+      final date = weekStart.add(Duration(days: index));
+      return DailyQuizAnalyticsDayData(
+        label: _weekdayLabels[index],
+        date: date,
+        attempt: attemptByDate[date],
+      );
+    });
+  }
+}
+
 class ProfileMenuData {
   final String title;
   final IconData icon;
@@ -937,6 +1265,43 @@ String _safeText(dynamic value, {String fallback = ''}) {
   return text.isEmpty ? fallback : text;
 }
 
+String _formatCompactNumber(int value) {
+  final valueText = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < valueText.length; i++) {
+    final reverseIndex = valueText.length - i;
+    buffer.write(valueText[i]);
+    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
+      buffer.write(',');
+    }
+  }
+  return buffer.toString();
+}
+
+String _initials(String name) {
+  final parts = name
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .toList();
+  if (parts.isEmpty) {
+    return 'ST';
+  }
+  return parts.take(2).map((part) => part[0].toUpperCase()).join();
+}
+
+Color _leaderboardAvatarColor(int rank) {
+  switch (rank) {
+    case 1:
+      return AppColors.avatarGray;
+    case 2:
+      return AppColors.avatarPink;
+    case 3:
+      return AppColors.avatarBrown;
+    default:
+      return AppColors.avatarLight;
+  }
+}
+
 Map<String, dynamic> _safeMap(dynamic value) {
   if (value is Map<String, dynamic>) {
     return value;
@@ -949,6 +1314,14 @@ Map<String, dynamic> _safeMap(dynamic value) {
 
 DateTime? _parseApiDate(dynamic value) {
   return DateTime.tryParse(value?.toString() ?? '');
+}
+
+const _weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+DateTime _currentWeekStart() {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return today.subtract(Duration(days: today.weekday - DateTime.monday));
 }
 
 DateTime? _todayTimeAsDate(dynamic value) {

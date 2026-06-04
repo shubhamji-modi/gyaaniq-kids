@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'core/service/api_service.dart';
 import 'core/service/session_manager.dart';
 import 'modules/auth/views/create_account_screen.dart';
+import 'modules/auth/views/forgot_password_views.dart';
 import 'modules/auth/views/login_screen.dart';
 import 'modules/dashboard_vc/views/dashboard_tabbar_views_screen.dart';
 import 'modules/leaderboard/views/leaderboard_views.dart';
@@ -41,6 +42,10 @@ class EduPathApp extends StatelessWidget {
       getPages: [
         GetPage(name: AppRoutes.splash, page: () => const SplashView()),
         GetPage(name: AppRoutes.login, page: () => const LoginScreen()),
+        GetPage(
+          name: AppRoutes.forgotPassword,
+          page: () => const ForgotPasswordViews(),
+        ),
         GetPage(
           name: AppRoutes.createAccount,
           page: () => const CreateAccountScreen(),

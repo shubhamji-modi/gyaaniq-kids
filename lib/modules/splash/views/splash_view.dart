@@ -93,7 +93,7 @@ class _SplashViewState extends State<SplashView> {
                           ),
                           SizedBox(height: height * 0.04),
                           Text(
-                            'EduPath',
+                            'GyaanIQ Kids',
                             style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(
                                   color: Colors.white,
@@ -165,7 +165,7 @@ class _BrandMark extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
@@ -181,10 +181,13 @@ class _BrandMark extends StatelessWidget {
         ],
       ),
       child: const Center(
-        child: Icon(
-          Icons.menu_book_rounded,
-          size: 38,
-          color: Color(0xFF514BEF),
+        child: SizedBox(
+          width: 110,
+          height: 110,
+          child: Image(
+            image: AssetImage('assets/icon/app_icon.png'),
+            fit: BoxFit.contain,
+          ),
         ),
       ),
     );

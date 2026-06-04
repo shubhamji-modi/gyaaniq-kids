@@ -57,34 +57,34 @@ class _GoogleMeetWebViewScreenState extends State<GoogleMeetWebViewScreen> {
     }
 
     final controller =
-        WebViewController(
-            onPermissionRequest: (request) {
-              request.grant();
+    WebViewController(
+      onPermissionRequest: (request) {
+        request.grant();
+      },
+    )
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    // ..setUserAgent(
+    //   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+    //   '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    // )
+      ..setNavigationDelegate(
+          NavigationDelegate(
+            onPageStarted: (url) {
+              print("PAGE STARTED => $url");
+            },
+            onPageFinished: (url) {
+              print("PAGE FINISHED => $url");
+            },
+            onNavigationRequest: (request) {
+              print("NAVIGATION => ${request.url}");
+              return NavigationDecision.navigate;
+            },
+            onWebResourceError: (error) {
+              print("ERROR CODE => ${error.errorCode}");
+              print("ERROR DESC => ${error.description}");
             },
           )
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          // ..setUserAgent(
-          //   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-          //   '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          // )
-          ..setNavigationDelegate(
-              NavigationDelegate(
-                onPageStarted: (url) {
-                  print("PAGE STARTED => $url");
-                },
-                onPageFinished: (url) {
-                  print("PAGE FINISHED => $url");
-                },
-                onNavigationRequest: (request) {
-                  print("NAVIGATION => ${request.url}");
-                  return NavigationDecision.navigate;
-                },
-                onWebResourceError: (error) {
-                  print("ERROR CODE => ${error.errorCode}");
-                  print("ERROR DESC => ${error.description}");
-                },
-              )
-          );
+      );
 
     setState(() {
       _controller = controller;

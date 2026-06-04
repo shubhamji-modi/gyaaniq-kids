@@ -75,19 +75,38 @@ class LearnCatalogData {
             as List<dynamic>? ??
         const [];
 
-    final chapters =
-        lessonsJson
-            .asMap()
-            .entries
-            .map(
-              (entry) => LearnChapterModel.fromApiLesson(
-                entry.value as Map<String, dynamic>,
-                subject: subject,
-                fallbackNumber: entry.key + 1,
-              ),
-            )
-            .toList()
-          ..sort((a, b) => a.chapterNumber.compareTo(b.chapterNumber));
+    final lessons = lessonsJson.whereType<Map<String, dynamic>>().toList();
+    final progressResponses = await Future.wait(
+      lessons.map((lesson) {
+        final lessonId = _safeText(lesson['_id']);
+        return lessonId.isEmpty
+            ? Future.value(
+                ApiResponse<LearnLessonProgress>(
+                  success: false,
+                  message: 'Missing lesson id',
+                  statusCode: 0,
+                ),
+              )
+            : getLessonProgress(lessonId: lessonId);
+      }),
+    );
+    final progressByLessonId = <String, LearnLessonProgress>{};
+    for (final response in progressResponses) {
+      final progress = response.data;
+      if (response.success && progress != null) {
+        progressByLessonId[progress.lessonId] = progress;
+      }
+    }
+
+    final chapters = lessons.asMap().entries.map((entry) {
+      final lesson = entry.value;
+      return LearnChapterModel.fromApiLesson(
+        lesson,
+        subject: subject,
+        fallbackNumber: entry.key + 1,
+        progress: progressByLessonId[_safeText(lesson['_id'])],
+      );
+    }).toList()..sort((a, b) => a.chapterNumber.compareTo(b.chapterNumber));
 
     return ApiResponse<List<LearnChapterModel>>(
       success: true,
@@ -336,6 +355,7 @@ class LearnChapterModel {
   final LearnChapterStatus status;
   final int completedLessons;
   final int totalLessons;
+  final double progressValue;
   final int quizCount;
   final Color accent;
   final String summary;
@@ -348,6 +368,7 @@ class LearnChapterModel {
     required this.status,
     required this.completedLessons,
     required this.totalLessons,
+    required this.progressValue,
     required this.quizCount,
     required this.accent,
     required this.summary,
@@ -358,21 +379,31 @@ class LearnChapterModel {
     Map<String, dynamic> json, {
     required LearnSubjectModel subject,
     required int fallbackNumber,
+    LearnLessonProgress? progress,
   }) {
     final order = (json['order'] as num?)?.toInt() ?? fallbackNumber;
     final lesson = LearnLessonModel.fromApi(
       json,
       subject: subject,
       order: order,
+      progress: progress?.progressValue ?? 0,
     );
+    final topicStatus = progress?.status ?? LearnTopicStatus.notStarted;
+    final isCompleted = topicStatus == LearnTopicStatus.completed;
+    final chapterStatus = topicStatus == LearnTopicStatus.locked
+        ? LearnChapterStatus.locked
+        : isCompleted
+        ? LearnChapterStatus.completed
+        : LearnChapterStatus.inProgress;
 
     return LearnChapterModel(
       id: _safeText(json['_id']),
       chapterNumber: order,
       title: _safeText(json['title'], fallback: 'Untitled Lesson'),
-      status: LearnChapterStatus.inProgress,
-      completedLessons: 0,
+      status: chapterStatus,
+      completedLessons: isCompleted ? 1 : 0,
       totalLessons: 1,
+      progressValue: progress?.progressValue ?? 0,
       quizCount: 0,
       accent: subject.accent,
       summary: lesson.description,
@@ -380,8 +411,8 @@ class LearnChapterModel {
         LearnTopicModel(
           id: lesson.id,
           title: lesson.title,
-          status: LearnTopicStatus.inProgress,
-          progress: 0,
+          status: topicStatus,
+          progress: progress?.progressValue ?? 0,
           hasVideo: lesson.videoUrl.isNotEmpty,
           hasNotes: lesson.notes.isNotEmpty,
           hasWorksheet: lesson.pdfUrl.isNotEmpty,
@@ -391,8 +422,7 @@ class LearnChapterModel {
     );
   }
 
-  double get progress =>
-      totalLessons == 0 ? 0 : completedLessons / totalLessons;
+  double get progress => progressValue.clamp(0, 1).toDouble();
 
   String get progressPercentage => '${(progress * 100).round()}%';
 
@@ -521,6 +551,7 @@ class LearnLessonModel {
     Map<String, dynamic> json, {
     required LearnSubjectModel subject,
     required int order,
+    double progress = 0,
   }) {
     final title = _safeText(json['title'], fallback: 'Untitled Lesson');
     final description = _safeText(json['description']);
@@ -560,7 +591,7 @@ class LearnLessonModel {
           : (plainContent.isNotEmpty
                 ? plainContent
                 : 'Lesson description will be available soon.'),
-      progress: 0,
+      progress: progress,
       currentTime: '00:00',
       totalTime: '00:00',
       notes: teacherName.isEmpty ? notes : '$notes\n\nTeacher: $teacherName',

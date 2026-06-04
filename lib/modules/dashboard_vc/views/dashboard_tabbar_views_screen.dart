@@ -324,23 +324,25 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                   size: 15,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  controller.streakText,
-                  style: const TextStyle(
-                    color: AppColors.streakText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                Obx(
+                  () => Text(
+                    controller.userXpSummary.value.streakText,
+                    style: const TextStyle(
+                      color: AppColors.streakText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          const Icon(
-            Icons.notifications_none_rounded,
-            color: AppColors.iconMuted,
-            size: 20,
-          ),
+          // const SizedBox(width: 12),
+          // const Icon(
+          //   Icons.notifications_none_rounded,
+          //   color: AppColors.iconMuted,
+          //   size: 20,
+          // ),
         ],
       ),
     );
@@ -466,30 +468,7 @@ class _HomeTab extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             const _LeaderboardStripCard(),
-            const SizedBox(height: 18),
-            Row(
-              children: const [
-                Text(
-                  'Live Classes',
-                  style: TextStyle(
-                    color: AppColors.textPrimaryNavy,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Spacer(),
-                Text(
-                  '● LIVE NOW',
-                  style: TextStyle(
-                    color: AppColors.live,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const _LiveHeroCard(),
+            const _HomeLiveClassesSection(),
             const SizedBox(height: 18),
             const _SpokenEnglishCard(),
             // const SizedBox(height: 18),
@@ -591,8 +570,8 @@ class _QuizTab extends GetView<DashboardTabbarController> {
           const _AnalyticsCard(),
           const SizedBox(height: 18),
           const _PreviousResultsCard(),
-          const SizedBox(height: 18),
-          const _RecentBadgesCard(),
+          // const SizedBox(height: 18),
+          // const _RecentBadgesCard(),
         ],
       ),
     );
@@ -663,27 +642,30 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
           const SizedBox(height: 18),
           const _ProfileAvatarSection(),
           const SizedBox(height: 18),
-          Row(
-            children: const [
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.auto_awesome,
-                  iconColor: AppColors.purpleDark2,
-                  title: '2,450',
-                  subtitle: 'Total XP',
+          Obx(() {
+            final xpSummary = controller.userXpSummary.value;
+            return Row(
+              children: [
+                Expanded(
+                  child: _StatCard(
+                    icon: Icons.auto_awesome,
+                    iconColor: AppColors.purpleDark2,
+                    title: xpSummary.xpText,
+                    subtitle: 'Total XP',
+                  ),
                 ),
-              ),
-              SizedBox(width: 14),
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.local_fire_department,
-                  iconColor: AppColors.warningText,
-                  title: '12 Days',
-                  subtitle: 'Streak',
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _StatCard(
+                    icon: Icons.local_fire_department,
+                    iconColor: AppColors.warningText,
+                    title: xpSummary.profileStreakText,
+                    subtitle: 'Streak',
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          }),
           const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
@@ -991,216 +973,117 @@ class _LeaderboardStripCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<DashboardTabbarController>();
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.emoji_events_outlined,
-                      color: AppColors.warning2,
-                      size: 20,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Leaderboard',
-                      style: TextStyle(
-                        color: AppColors.textPrimaryNavy,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+    return Obx(() {
+      final summary = controller.leaderboardSummary.value;
+
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: _cardDecoration(),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.emoji_events_outlined,
+                        color: AppColors.warning2,
+                        size: 20,
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 14),
-                _AvatarStack(),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'Global Rank: #1,240',
-                style: TextStyle(
-                  color: AppColors.textMuted6,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 22),
-              InkWell(
-                onTap: controller.openLeaderboard,
-                borderRadius: BorderRadius.circular(26),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 15,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryDeeper,
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                  child: const Text(
-                    'View Ranking',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LiveHeroCard extends StatelessWidget {
-  const _LiveHeroCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: _cardDecoration(),
-      child: Column(
-        children: [
-          Container(
-            height: 140,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppColors.liveHeroStart, AppColors.liveHeroEnd],
-              ),
-            ),
-            child: Stack(
-              children: [
-                const Positioned(
-                  left: 18,
-                  top: 16,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.live,
-                      borderRadius: BorderRadius.all(Radius.circular(20)),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      child: Text(
-                        'LIVE',
+                      SizedBox(width: 8),
+                      Text(
+                        'Leaderboard',
                         style: TextStyle(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 10,
+                          color: AppColors.textPrimaryNavy,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-                const Center(
-                  child: CircleAvatar(
-                    radius: 64,
-                    backgroundColor: AppColors.liveHeroCircle,
-                    child: Icon(
-                      Icons.public_rounded,
-                      color: AppColors.liveHeroIcon,
-                      size: 84,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 18,
-                  right: 18,
-                  bottom: 14,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          AppColors.black.withValues(alpha: 0),
-                          AppColors.black.withValues(alpha: 0.65),
-                        ],
-                      ),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Integration & Calculus Mastery',
-                          style: TextStyle(
-                            color: AppColors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Dr. Aris Thorne • 1.2k watching',
-                          style: TextStyle(
-                            color: AppColors.white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  _AvatarStack(summary: summary),
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Icon(
-                  Icons.schedule_outlined,
-                  color: AppColors.liveIconMuted,
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'Ends in 25 mins',
-                  style: TextStyle(
-                    color: AppColors.liveTextMuted,
-                    fontSize: 14,
+                Text(
+                  controller.isLoadingLeaderboardSummary.value
+                      ? 'Global Rank: ...'
+                      : 'Global Rank: ${summary.rankText}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted6,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryDark,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Text(
-                    'Join Class',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                const SizedBox(height: 22),
+                InkWell(
+                  onTap: controller.openLeaderboard,
+                  borderRadius: BorderRadius.circular(26),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryDeeper,
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    child: const Text(
+                      'View Ranking',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _HomeLiveClassesSection extends GetView<DashboardTabbarController> {
+  const _HomeLiveClassesSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final featuredClass = controller.featuredLiveClass;
+      if (controller.isLoadingLiveClasses.value ||
+          controller.liveClassesError.value.isNotEmpty ||
+          featuredClass == null ||
+          featuredClass.computedPhase != 'live') {
+        return const SizedBox.shrink();
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 18),
+          const Text(
+            'Live Classes',
+            style: TextStyle(
+              color: AppColors.textPrimaryNavy,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
           ),
+          const SizedBox(height: 16),
+          _LiveFeaturedCard(item: featuredClass),
         ],
-      ),
-    );
+      );
+    });
   }
 }
 
@@ -1857,85 +1740,174 @@ class _MockTestCard extends StatelessWidget {
   }
 }
 
-class _AnalyticsCard extends StatelessWidget {
+class _AnalyticsCard extends GetView<DashboardTabbarController> {
   const _AnalyticsCard();
 
   @override
   Widget build(BuildContext context) {
-    const heights = [52.0, 72.0, 60.0, 96.0, 86.0, 108.0];
-    const colors = [
-      AppColors.primaryTint,
-      AppColors.primaryTint2,
-      AppColors.primaryTint3,
-      AppColors.primaryTint4,
-      AppColors.primaryTint5,
-      AppColors.analyticsHighlight,
-    ];
-    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Text(
-                'Test Analytics',
+              const Text(
+                'Daily Quiz Analytics',
                 style: TextStyle(
                   color: AppColors.textHeading,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              Spacer(),
-              // Icon(Icons.query_stats_rounded, color: Color(0xFF4A4FD9)),
+              const Spacer(),
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: IconButton(
+                  onPressed: controller.loadDailyQuizAnalytics,
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
+          Obx(() {
+            if (controller.isLoadingDailyQuizAnalytics.value) {
+              return const SizedBox(
+                height: 150,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            if (controller.dailyQuizAnalyticsError.value.isNotEmpty) {
+              return _DashboardInlineState(
+                message: controller.dailyQuizAnalyticsError.value,
+                onRetry: controller.loadDailyQuizAnalytics,
+              );
+            }
+
+            final days = controller.dailyQuizAnalytics.isEmpty
+                ? DailyQuizAnalyticsDayData.weekDefaults()
+                : controller.dailyQuizAnalytics.toList();
+            final attemptedCount = days.where((day) => day.isAttempted).length;
+            final average = attemptedCount == 0
+                ? 0
+                : (days
+                              .where((day) => day.isAttempted)
+                              .fold<double>(
+                                0,
+                                (sum, day) => sum + day.percentage,
+                              ) /
+                          attemptedCount)
+                      .round();
+
+            return Column(
+              children: [
+                SizedBox(
+                  height: 144,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: days
+                        .map(
+                          (day) =>
+                              Expanded(child: _DailyQuizAnalyticsBar(day: day)),
+                        )
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  attemptedCount == 0
+                      ? 'No daily quiz attempted this week.'
+                      : '$attemptedCount/6 attempted • Average $average%',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.neutralText3,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _DailyQuizAnalyticsBar extends StatelessWidget {
+  const _DailyQuizAnalyticsBar({required this.day});
+
+  final DailyQuizAnalyticsDayData day;
+
+  @override
+  Widget build(BuildContext context) {
+    const maxBarHeight = 72.0;
+    final barHeight = day.isAttempted ? maxBarHeight * day.barValue : 18.0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
           SizedBox(
-            height: 150,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(heights.length, (index) {
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      width: 48,
-                      height: heights[index],
-                      decoration: BoxDecoration(
-                        color: colors[index],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      labels[index],
-                      style: const TextStyle(
-                        color: AppColors.analyticsLabel,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                );
-              }),
+            height: 30,
+            child: Center(
+              child: Text(
+                day.statusText,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: day.accent,
+                  fontSize: day.isAttempted ? 11 : 8.5,
+                  fontWeight: FontWeight.w800,
+                  height: 1.12,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 18),
-          const Center(
-            child: Text(
-              'Your accuracy increased by 12% this\nweek!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.neutralText3,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 1.45,
-              ),
+          const SizedBox(height: 5),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            width: 34,
+            height: barHeight,
+            decoration: BoxDecoration(
+              color: day.barColor,
+              borderRadius: BorderRadius.circular(9),
+              border: day.isAttempted
+                  ? null
+                  : Border.all(color: const Color(0xFFD4DAE4)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            day.label,
+            style: const TextStyle(
+              color: AppColors.analyticsLabel,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            day.scoreText,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.resultMeta,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -2612,50 +2584,56 @@ class _ProfileMenuTile extends StatelessWidget {
 }
 
 class _AvatarStack extends StatelessWidget {
-  const _AvatarStack();
+  const _AvatarStack({required this.summary});
+
+  final LeaderboardStripData summary;
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    final students = summary.topStudents;
+    final showRemaining = summary.remainingStudents > 0;
+    final width = students.isEmpty
+        ? 0.0
+        : ((students.length - 1) * 20 + 34 + (showRemaining ? 20 : 0))
+              .toDouble();
+
+    return SizedBox(
+      width: width,
       height: 34,
       child: Stack(
         children: [
-          Positioned(
-            left: 0,
-            child: CircleAvatar(
-              radius: 17,
-              backgroundColor: AppColors.avatarGray,
-            ),
-          ),
-          Positioned(
-            left: 20,
-            child: CircleAvatar(
-              radius: 17,
-              backgroundColor: AppColors.avatarPink,
-            ),
-          ),
-          Positioned(
-            left: 40,
-            child: CircleAvatar(
-              radius: 17,
-              backgroundColor: AppColors.avatarBrown,
-            ),
-          ),
-          Positioned(
-            left: 60,
-            child: CircleAvatar(
-              radius: 17,
-              backgroundColor: AppColors.avatarLight,
-              child: Text(
-                '+42',
-                style: TextStyle(
-                  color: AppColors.neutralText9,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+          for (var index = 0; index < students.length; index++)
+            Positioned(
+              left: index * 20,
+              child: CircleAvatar(
+                radius: 17,
+                backgroundColor: students[index].color,
+                child: Text(
+                  students[index].initials,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),
-          ),
+          if (showRemaining)
+            Positioned(
+              left: students.length * 20,
+              child: CircleAvatar(
+                radius: 17,
+                backgroundColor: AppColors.avatarLight,
+                child: Text(
+                  summary.remainingText,
+                  style: const TextStyle(
+                    color: AppColors.neutralText9,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

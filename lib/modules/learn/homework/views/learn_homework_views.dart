@@ -109,8 +109,8 @@ class _LearnHomeworkViewsState extends State<LearnHomeworkViews> {
 class _HomeworkTabs extends StatelessWidget {
   const _HomeworkTabs({required this.selectedTab, required this.onChanged});
 
-  final LearnHomeworkStatus selectedTab;
-  final ValueChanged<LearnHomeworkStatus> onChanged;
+  final LearnHomeworkTab selectedTab;
+  final ValueChanged<LearnHomeworkTab> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -122,14 +122,20 @@ class _HomeworkTabs extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final status in LearnHomeworkStatus.values)
-            Expanded(
-              child: _TabButton(
-                label: status.label,
-                isSelected: selectedTab == status,
-                onTap: () => onChanged(status),
-              ),
+          Expanded(
+            child: _TabButton(
+              label: 'Pending',
+              isSelected: selectedTab == LearnHomeworkTab.pending,
+              onTap: () => onChanged(LearnHomeworkTab.pending),
             ),
+          ),
+          Expanded(
+            child: _TabButton(
+              label: 'Completed',
+              isSelected: selectedTab == LearnHomeworkTab.completed,
+              onTap: () => onChanged(LearnHomeworkTab.completed),
+            ),
+          ),
         ],
       ),
     );

@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import '../../../../core/service/api_service.dart';
 
 class LearnHomeworkController extends GetxController {
-  final Rx<LearnHomeworkStatus> selectedTab = LearnHomeworkStatus.pending.obs;
+  final Rx<LearnHomeworkTab> selectedTab = LearnHomeworkTab.pending.obs;
   final RxBool isLoading = false.obs;
   final RxString errorMessage = ''.obs;
   final RxList<LearnHomeworkModel> assignments = <LearnHomeworkModel>[].obs;
@@ -15,11 +15,11 @@ class LearnHomeworkController extends GetxController {
     fetchHomework();
   }
 
-  void changeTab(LearnHomeworkStatus status) {
-    if (selectedTab.value == status) {
+  void changeTab(LearnHomeworkTab tab) {
+    if (selectedTab.value == tab) {
       return;
     }
-    selectedTab.value = status;
+    selectedTab.value = tab;
     fetchHomework();
   }
 
@@ -27,8 +27,8 @@ class LearnHomeworkController extends GetxController {
     isLoading.value = true;
     errorMessage.value = '';
 
-    final response = await LearnHomeworkRepository.fetchHomework(
-      status: selectedTab.value.apiValue,
+    final response = await LearnHomeworkRepository.fetchHomeworkByTab(
+      selectedTab.value,
     );
 
     isLoading.value = false;
@@ -44,6 +44,30 @@ class LearnHomeworkController extends GetxController {
 }
 
 class LearnHomeworkRepository {
+  static Future<ApiResponse<List<LearnHomeworkModel>>> fetchHomeworkByTab(
+    LearnHomeworkTab tab,
+  ) async {
+    final statuses = tab == LearnHomeworkTab.pending
+        ? const ['pending', 'overdue']
+        : const ['submitted', 'graded'];
+    final allItems = <LearnHomeworkModel>[];
+
+    for (final status in statuses) {
+      final response = await fetchHomework(status: status);
+      if (!response.success) {
+        return response;
+      }
+      allItems.addAll(response.data ?? const <LearnHomeworkModel>[]);
+    }
+
+    return ApiResponse<List<LearnHomeworkModel>>(
+      success: true,
+      data: allItems,
+      message: 'Success',
+      statusCode: 200,
+    );
+  }
+
   static Future<ApiResponse<List<LearnHomeworkModel>>> fetchHomework({
     String? status,
     int page = 1,
@@ -188,6 +212,20 @@ class LearnHomeworkRepository {
       message: body['message']?.toString() ?? 'Homework submitted',
       statusCode: response.statusCode,
     );
+  }
+}
+
+enum LearnHomeworkTab {
+  pending,
+  completed;
+
+  String get label {
+    switch (this) {
+      case LearnHomeworkTab.pending:
+        return 'Pending';
+      case LearnHomeworkTab.completed:
+        return 'Completed';
+    }
   }
 }
 

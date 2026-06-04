@@ -380,7 +380,7 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            _isUploading ? 'Uploading...' : 'Upload Image',
+                            _isUploading ? 'Uploading...' : 'Upload File',
                             style: const TextStyle(
                               color: Color(0xFF4A4FD9),
                               fontSize: 16,
@@ -389,7 +389,7 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                           ),
                           const SizedBox(height: 5),
                           const Text(
-                            'JPG or PNG, Max 20MB',
+                            'PDF, JPG, or PNG, Max 10MB',
                             style: TextStyle(
                               color: Color(0xFF4C5164),
                               fontSize: 12,

@@ -165,6 +165,7 @@ class _ChapterCard extends StatelessWidget {
     final isCompleted = chapter.status == LearnChapterStatus.completed;
     final isInProgress = chapter.status == LearnChapterStatus.inProgress;
     final isLocked = chapter.status == LearnChapterStatus.locked;
+    final hasStarted = chapter.progress > 0 && !isCompleted;
 
     return InkWell(
       onTap: isLocked
@@ -210,7 +211,7 @@ class _ChapterCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isLocked
                           ? const Color(0xFFF0F2F6)
-                          : (isInProgress
+                          : (hasStarted
                                 ? const Color(0xFFDCD9FF)
                                 : const Color(0xFFFFE8C8)),
                       borderRadius: BorderRadius.circular(10),
@@ -350,22 +351,25 @@ class _ChapterBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = chapter.status == LearnChapterStatus.completed;
     final isInProgress = chapter.status == LearnChapterStatus.inProgress;
+    final hasStarted = chapter.progress > 0 && !isCompleted;
 
     final background = isCompleted
         ? const Color(0xFFFFA61E)
-        : isInProgress
+        : hasStarted
         ? const Color(0xFF6368F2)
         : const Color(0xFFE7EAEE);
 
     final label = isCompleted
         ? 'Completed'
+        : hasStarted
+        ? 'In Progress'
         : isInProgress
         ? 'Available'
         : 'Locked';
 
     final textColor = isCompleted
         ? Colors.white
-        : isInProgress
+        : hasStarted
         ? Colors.white
         : const Color(0xFF7D8090);
 

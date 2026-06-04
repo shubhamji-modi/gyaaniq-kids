@@ -14,8 +14,8 @@ class ApiService extends GetxService {
   late Dio _dio;
 
   ///BASE URL
-  static String baseUrl =
-      'https://c78a-2405-201-301c-203c-250a-998-3f5-2a68.ngrok-free.app/api/v1/';
+  // static String baseUrl = 'https://f5d4-2405-201-301c-203c-f859-c654-86d-16f4.ngrok-free.app/api/v1/';
+  static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
 
   ///End points
   static const String REGISTER = 'auth/register';
@@ -27,8 +27,7 @@ class ApiService extends GetxService {
   static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
   static const String GET_USER_SUBJECT = 'user/subjects';
   static const String GET_USER_LESSON = 'user/lessons/by-class-subject';
-  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT =
-      'user/ebooks/by-class-subject';
+  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT = 'user/ebooks/by-class-subject';
   static const String FETCH_NOTES_BY_LESSON = 'user/notes/by-lesson';
   static const String FETCH_QUIZZES = 'user/quizzes/by-lesson';
   static const String FETCH_SINGLE_QUIZZES = 'user/quizzes/:id';
@@ -53,9 +52,13 @@ class ApiService extends GetxService {
   static const String HOMEWORK = 'user/homework';
   static const String HOMEWORK_DETAIL = 'user/homework/:id';
   static const String HOMEWORK_SUBMIT = 'user/homework/:id/submit';
-  static const String HOMEWORK_UPLOAD_ATTACHMENT =
-      'user/homework/upload-attachment';
+  static const String HOMEWORK_UPLOAD_ATTACHMENT = 'user/homework/upload-attachment';
   static const String HOMEWORK_MY_SUBMISSIONS = 'user/homework/my-submissions';
+  static const String FORGOT_PASSWORD = 'auth/forgot-password';
+  static const String VERIFY_RESET_CODE = 'auth/verify-reset-code';
+  static const String RESET_PASSWORD = 'auth/reset-password';
+  static const String GET_ADMIN_XP = 'xp/config';
+  static const String USER_XP = 'user/xp';
 
   @override
   void onInit() {
@@ -84,7 +87,8 @@ class ApiService extends GetxService {
         onRequest: (options, handler) async {
           // Add authorization token if available
           final token = SessionManager.instance.userToken;
-          if (token.isNotEmpty) {
+          final includeAuth = options.extra['includeAuth'] != false;
+          if (includeAuth && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
 
@@ -146,6 +150,7 @@ class ApiService extends GetxService {
     required String endpoint,
     Map<String, dynamic>? data,
     Map<String, dynamic>? queryParameters,
+    bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
@@ -157,7 +162,11 @@ class ApiService extends GetxService {
       Response response;
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await _dio.get(endpoint, queryParameters: queryParameters);
+          response = await _dio.get(
+            endpoint,
+            queryParameters: queryParameters,
+            options: Options(extra: {'includeAuth': includeAuth}),
+          );
           print('GET API SERVICE RES $endpoint');
           print('$response');
           break;
@@ -166,6 +175,7 @@ class ApiService extends GetxService {
             endpoint,
             data: data,
             queryParameters: queryParameters,
+            options: Options(extra: {'includeAuth': includeAuth}),
           );
           print('POST API SERVICE RES $endpoint');
           print('$response');
@@ -175,12 +185,14 @@ class ApiService extends GetxService {
             endpoint,
             data: data,
             queryParameters: queryParameters,
+            options: Options(extra: {'includeAuth': includeAuth}),
           );
           break;
         case 'DELETE':
           response = await _dio.delete(
             endpoint,
             queryParameters: queryParameters,
+            options: Options(extra: {'includeAuth': includeAuth}),
           );
           break;
         default:
@@ -221,8 +233,19 @@ class ApiService extends GetxService {
       }
       print('=========== DioException ===========');
       print(stack);
+      T? responseData;
+      if (fromJson != null && e.response?.data != null) {
+        responseData = fromJson(e.response?.data);
+      } else {
+        try {
+          responseData = e.response?.data as T?;
+        } catch (_) {
+          responseData = null;
+        }
+      }
       return ApiResponse<T>(
         success: false,
+        data: responseData,
         message: _handleDioError(e),
         statusCode: e.response?.statusCode ?? 0,
       );
@@ -265,6 +288,7 @@ class ApiService extends GetxService {
   Future<ApiResponse<T>> get<T>({
     required String endpoint,
     Map<String, dynamic>? queryParameters,
+    bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
@@ -272,6 +296,7 @@ class ApiService extends GetxService {
       method: 'GET',
       endpoint: endpoint,
       queryParameters: queryParameters,
+      includeAuth: includeAuth,
       showLoader: showLoader,
       fromJson: fromJson,
     );
@@ -282,6 +307,7 @@ class ApiService extends GetxService {
     required String endpoint,
     Map<String, dynamic>? data,
     Map<String, dynamic>? queryParameters,
+    bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
@@ -290,6 +316,7 @@ class ApiService extends GetxService {
       endpoint: endpoint,
       data: data,
       queryParameters: queryParameters,
+      includeAuth: includeAuth,
       showLoader: showLoader,
       fromJson: fromJson,
     );
@@ -367,6 +394,7 @@ class ApiService extends GetxService {
     required String endpoint,
     Map<String, dynamic>? data,
     Map<String, dynamic>? queryParameters,
+    bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
@@ -375,6 +403,7 @@ class ApiService extends GetxService {
       endpoint: endpoint,
       data: data,
       queryParameters: queryParameters,
+      includeAuth: includeAuth,
       showLoader: showLoader,
       fromJson: fromJson,
     );
@@ -384,6 +413,7 @@ class ApiService extends GetxService {
   Future<ApiResponse<T>> delete<T>({
     required String endpoint,
     Map<String, dynamic>? queryParameters,
+    bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
@@ -391,6 +421,7 @@ class ApiService extends GetxService {
       method: 'DELETE',
       endpoint: endpoint,
       queryParameters: queryParameters,
+      includeAuth: includeAuth,
       showLoader: showLoader,
       fromJson: fromJson,
     );

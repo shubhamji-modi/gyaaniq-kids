@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -164,6 +165,11 @@ class _EditProfileViewsState extends State<EditProfileViews> {
       return;
     }
 
+    final profilePicPayload = await _buildProfilePicPayload();
+    if (!mounted || profilePicPayload == _invalidProfilePicPayload) {
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -175,7 +181,7 @@ class _EditProfileViewsState extends State<EditProfileViews> {
         'instructionMedium': currentProfile.instructionMedium,
         'classLevel': _selectedGrade,
         'educationalBoard': currentProfile.educationBoard,
-        'profilePic': _profilePic.trim().isEmpty ? null : _profilePic.trim(),
+        'profilePic': profilePicPayload,
       },
       fromJson: (json) => json,
     );
@@ -217,6 +223,58 @@ class _EditProfileViewsState extends State<EditProfileViews> {
       body['message']?.toString() ??
           'Your profile changes have been saved successfully.',
     );
+  }
+
+  static const String _invalidProfilePicPayload = '__invalid_profile_pic__';
+
+  Future<String?> _buildProfilePicPayload() async {
+    final selectedFile = _selectedImageFile;
+    if (selectedFile == null) {
+      final currentValue = _profilePic.trim();
+      return currentValue.isEmpty ? null : currentValue;
+    }
+
+    try {
+      final bytes = await selectedFile.readAsBytes();
+      if (bytes.length > 5 * 1024 * 1024) {
+        _showMessage('Image is too large. Max 5 MB allowed.', isError: true);
+        return _invalidProfilePicPayload;
+      }
+
+      final mimeType = _imageMimeType(selectedFile.path);
+      if (mimeType == null) {
+        _showMessage(
+          'Unsupported image type. Please choose JPEG, PNG, WEBP, or GIF.',
+          isError: true,
+        );
+        return _invalidProfilePicPayload;
+      }
+
+      return 'data:$mimeType;base64,${base64Encode(bytes)}';
+    } catch (_) {
+      _showMessage(
+        'Unable to prepare profile picture. Please try again.',
+        isError: true,
+      );
+      return _invalidProfilePicPayload;
+    }
+  }
+
+  String? _imageMimeType(String path) {
+    final lowerPath = path.toLowerCase();
+    if (lowerPath.endsWith('.jpg') || lowerPath.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lowerPath.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (lowerPath.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lowerPath.endsWith('.gif')) {
+      return 'image/gif';
+    }
+    return null;
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -280,6 +338,7 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                           _InputField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
+                            hintText: 'Enter phone number',
                           ),
                         ],
                       ),
@@ -291,17 +350,13 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const _FieldLabel(title: 'Current Grade'),
-                          _GradeDropdown(
+                          _ReadOnlyField(
                             value: _selectedGrade,
-                            items: _grades,
-                            onChanged: (value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() {
-                                _selectedGrade = value;
-                              });
-                            },
+                            trailing: const Icon(
+                              Icons.lock_rounded,
+                              color: Color(0xFF7B7C91),
+                              size: 20,
+                            ),
                           ),
                         ],
                       ),
@@ -639,10 +694,15 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _InputField extends StatelessWidget {
-  const _InputField({required this.controller, this.keyboardType});
+  const _InputField({
+    required this.controller,
+    this.keyboardType,
+    this.hintText,
+  });
 
   final TextEditingController controller;
   final TextInputType? keyboardType;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -657,6 +717,12 @@ class _InputField extends StatelessWidget {
       decoration: InputDecoration(
         filled: true,
         fillColor: const Color(0xFFF3F4F8),
+        hintText: hintText,
+        hintStyle: const TextStyle(
+          color: Color(0xFFADB3C1),
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 22,
           vertical: 16,
@@ -706,52 +772,6 @@ class _ReadOnlyField extends StatelessWidget {
           ),
           trailing ?? const SizedBox.shrink(),
         ],
-      ),
-    );
-  }
-}
-
-class _GradeDropdown extends StatelessWidget {
-  const _GradeDropdown({
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  final String value;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F8),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: Color(0xFF7B7C91),
-            size: 25,
-          ),
-          style: const TextStyle(
-            color: Color(0xFF1D2231),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-          items: items
-              .map(
-                (grade) =>
-                    DropdownMenuItem<String>(value: grade, child: Text(grade)),
-              )
-              .toList(),
-          onChanged: onChanged,
-        ),
       ),
     );
   }
