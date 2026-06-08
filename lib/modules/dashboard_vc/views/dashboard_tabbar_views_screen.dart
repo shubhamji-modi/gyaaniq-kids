@@ -2545,7 +2545,29 @@ class _ProfileMenuTile extends StatelessWidget {
     final controller = Get.find<DashboardTabbarController>();
 
     return InkWell(
-      onTap: () => controller.handleProfileMenuTap(item, context),
+      onTap: () {
+        if (item.title == 'Terms of Service') {
+          Get.to(
+            () => const _ProfilePolicyScreen(
+              title: 'Terms of Service',
+              sections: _termsOfServiceSections,
+            ),
+          );
+          return;
+        }
+
+        if (item.title == 'Privacy Shield') {
+          Get.to(
+            () => const _ProfilePolicyScreen(
+              title: 'Privacy Shield',
+              sections: _privacyShieldSections,
+            ),
+          );
+          return;
+        }
+
+        controller.handleProfileMenuTap(item, context);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
         decoration: const BoxDecoration(
@@ -2582,6 +2604,231 @@ class _ProfileMenuTile extends StatelessWidget {
     );
   }
 }
+
+class _ProfilePolicyScreen extends StatelessWidget {
+  const _ProfilePolicyScreen({required this.title, required this.sections});
+
+  final String title;
+  final List<_PolicySectionData> sections;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBackground,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  bottom: BorderSide(color: AppColors.headerBorder),
+                ),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: Get.back,
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.textBlueDark,
+                      size: 22,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textBlueDark,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.cardShadow.withValues(alpha: 0.20),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (
+                          var index = 0;
+                          index < sections.length;
+                          index++
+                        ) ...[
+                          _PolicySection(section: sections[index]),
+                          if (index != sections.length - 1)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 18),
+                              child: Divider(
+                                color: AppColors.profileMenuBorder,
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PolicySection extends StatelessWidget {
+  const _PolicySection({required this.section});
+
+  final _PolicySectionData section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                section.icon,
+                color: AppColors.primaryBright,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                section.title,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          section.body,
+          style: const TextStyle(
+            color: AppColors.neutralText5,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            height: 1.55,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PolicySectionData {
+  const _PolicySectionData({
+    required this.title,
+    required this.body,
+    required this.icon,
+  });
+
+  final String title;
+  final String body;
+  final IconData icon;
+}
+
+const _termsOfServiceSections = [
+  _PolicySectionData(
+    title: 'Learning Account',
+    body:
+        'EduPath Learning is built for student learning, practice, live classes, homework, notes, e-books, attendance, XP and leaderboard features. Use your own account only, keep your login details private, and make sure profile details such as class, board and school information are accurate.',
+    icon: Icons.person_outline_rounded,
+  ),
+  _PolicySectionData(
+    title: 'Classroom Conduct',
+    body:
+        'Join live classes on time, use respectful language with teachers and classmates, and do not share Meet links, lesson content, homework answers or private class material outside the app. Misuse of chat, doubt solving, calls, uploads or downloads may lead to restricted access.',
+    icon: Icons.school_outlined,
+  ),
+  _PolicySectionData(
+    title: 'Study Content',
+    body:
+        'Videos, PDFs, notes, quizzes, mock tests, e-books and worksheets are provided for personal study. You may save available files for offline learning inside the app, but you should not copy, resell, publish or redistribute the material without permission.',
+    icon: Icons.menu_book_outlined,
+  ),
+  _PolicySectionData(
+    title: 'Progress And Results',
+    body:
+        'Quiz scores, mock test attempts, lesson progress, XP, streaks, attendance and leaderboard rankings are shown to help you improve. Results depend on submitted answers, attendance records and teacher/admin updates, so occasional corrections or sync delays may happen.',
+    icon: Icons.query_stats_rounded,
+  ),
+  _PolicySectionData(
+    title: 'Safe Use',
+    body:
+        'Keep the app updated, use a stable internet connection for tests and live classes, and report any incorrect content or technical issue to support. The app can update features, learning rules or access controls to keep the platform reliable and safe.',
+    icon: Icons.verified_user_outlined,
+  ),
+];
+
+const _privacyShieldSections = [
+  _PolicySectionData(
+    title: 'Information We Use',
+    body:
+        'The app may use your name, mobile/email login details, class, board, profile photo, selected subjects, lesson progress, quiz attempts, homework submissions, attendance, XP, streaks, downloads and live class participation to personalize your learning experience.',
+    icon: Icons.badge_outlined,
+  ),
+  _PolicySectionData(
+    title: 'Why It Is Needed',
+    body:
+        'Your data helps show the right subjects, unlock chapters, save progress, display marks, manage attendance, recommend practice, support teacher doubt solving, maintain downloads, and keep your account secure across app sessions.',
+    icon: Icons.tune_rounded,
+  ),
+  _PolicySectionData(
+    title: 'Student Safety',
+    body:
+        'Student information is used only for learning, support, classroom management and platform safety. We avoid asking for unnecessary personal details, and sensitive actions such as profile updates, sign out and account deletion stay under account control.',
+    icon: Icons.shield_outlined,
+  ),
+  _PolicySectionData(
+    title: 'Storage And Downloads',
+    body:
+        'Offline PDFs and learning files are saved on your device for study access. You can remove individual downloads or clear all downloads from the Downloads screen. Deleting downloads removes local files but does not erase your account progress.',
+    icon: Icons.download_done_outlined,
+  ),
+  _PolicySectionData(
+    title: 'Your Choices',
+    body:
+        'You can update profile details, sign out, clear downloads, or request account deletion from the profile area. If something looks wrong in your profile, attendance, progress or results, contact your school or app support for correction.',
+    icon: Icons.settings_outlined,
+  ),
+];
 
 class _AvatarStack extends StatelessWidget {
   const _AvatarStack({required this.summary});

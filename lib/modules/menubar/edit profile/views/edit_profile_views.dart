@@ -333,13 +333,13 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                               size: 22,
                             ),
                           ),
-                          const SizedBox(height: 22),
-                          const _FieldLabel(title: 'Phone Number'),
-                          _InputField(
-                            controller: _phoneController,
-                            keyboardType: TextInputType.phone,
-                            hintText: 'Enter phone number',
-                          ),
+                          // const SizedBox(height: 22),
+                          // const _FieldLabel(title: 'Phone Number'),
+                          // _InputField(
+                          //   controller: _phoneController,
+                          //   keyboardType: TextInputType.phone,
+                          //   hintText: 'Enter phone number',
+                          // ),
                         ],
                       ),
                     ),
@@ -372,7 +372,7 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                         ),
                         SizedBox(width: 10),
                         Text(
-                          'Premium Member since 2023',
+                          'Premium Member since 2026',
                           style: TextStyle(
                             color: Color(0xFF7B7C91),
                             fontSize: 12,

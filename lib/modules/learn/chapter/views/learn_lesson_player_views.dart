@@ -10,6 +10,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../../../core/service/learn_progress_refresh_service.dart';
+import '../../../../core/service/offline_download_service.dart';
 import '../controller/learn_chapter_controller.dart';
 import '../../../dashboard_vc/views/dashboard_tabbar_views_screen.dart';
 import 'learn_subject_views.dart';
@@ -129,6 +130,8 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _LessonDownloadActions(lesson: lesson),
                   const SizedBox(height: 22),
                   Text(
                     lesson.title,
@@ -442,6 +445,182 @@ class _NoPdfStateCard extends StatelessWidget {
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _LessonDownloadActions extends StatefulWidget {
+  const _LessonDownloadActions({required this.lesson});
+
+  final LearnLessonModel lesson;
+
+  @override
+  State<_LessonDownloadActions> createState() => _LessonDownloadActionsState();
+}
+
+class _LessonDownloadActionsState extends State<_LessonDownloadActions> {
+  bool _isPdfDownloaded = false;
+  bool _isDownloadingPdf = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshDownloadState();
+  }
+
+  Future<void> _refreshDownloadState() async {
+    final service = OfflineDownloadService.instance;
+    final pdfDownloaded = await service.isDownloaded(
+      sourceId: widget.lesson.id,
+      type: OfflineDownloadType.pdf,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isPdfDownloaded = pdfDownloaded;
+    });
+  }
+
+  Future<void> _downloadPdf() async {
+    if (_isDownloadingPdf || _isPdfDownloaded) {
+      return;
+    }
+
+    final pdfUrl = widget.lesson.pdfUrl.trim();
+    if (pdfUrl.isEmpty) {
+      _showDownloadSnack('PDF not found for this lesson.');
+      return;
+    }
+
+    setState(() => _isDownloadingPdf = true);
+    try {
+      await OfflineDownloadService.instance.download(
+        sourceId: widget.lesson.id,
+        title: '${widget.lesson.title} PDF',
+        sectionTitle: widget.lesson.subjectLabel,
+        badge: widget.lesson.chapterLabel,
+        sourceUrl: pdfUrl,
+        type: OfflineDownloadType.pdf,
+        headers: _pdfRequestHeaders,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isPdfDownloaded = true;
+        _isDownloadingPdf = false;
+      });
+      _showDownloadSnack('PDF saved for offline use.');
+    } catch (error) {
+      debugPrint('PDF download error: $error');
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isDownloadingPdf = false);
+      _showDownloadSnack(_pdfDownloadErrorMessage(error));
+    }
+  }
+
+  void _showDownloadSnack(String message) {
+    Get.snackbar(
+      'Downloads',
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.white,
+      colorText: const Color(0xFF1A1D27),
+      margin: const EdgeInsets.all(12),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPdf = widget.lesson.pdfUrl.trim().isNotEmpty;
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _DownloadActionButton(
+          label: _isPdfDownloaded ? 'PDF Offline' : 'Download PDF',
+          icon: _isPdfDownloaded
+              ? Icons.download_done_rounded
+              : Icons.picture_as_pdf_outlined,
+          isLoading: _isDownloadingPdf,
+          isDisabled: !hasPdf || _isPdfDownloaded,
+          onTap: _downloadPdf,
+        ),
+      ],
+    );
+  }
+}
+
+String _pdfDownloadErrorMessage(Object error) {
+  final message = error.toString();
+  if (message.contains('HTTP 401') || message.contains('HTTP 403')) {
+    return 'PDF access denied. Please login again and retry.';
+  }
+  if (message.contains('HTTP 404')) {
+    return 'PDF file not found on server.';
+  }
+  if (message.contains('TimeoutException')) {
+    return 'PDF download timed out. Please check internet and retry.';
+  }
+  return 'Unable to download PDF: ${_shortErrorText(message)}';
+}
+
+String _shortErrorText(String message) {
+  final cleaned = message
+      .replaceFirst('Exception: ', '')
+      .replaceFirst('Invalid argument(s): ', '')
+      .trim();
+  if (cleaned.length <= 90) {
+    return cleaned;
+  }
+  return '${cleaned.substring(0, 90)}...';
+}
+
+class _DownloadActionButton extends StatelessWidget {
+  const _DownloadActionButton({
+    required this.label,
+    required this.icon,
+    required this.isLoading,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isLoading;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = isDisabled
+        ? const Color(0xFF777B8E)
+        : const Color(0xFF4A4FD9);
+
+    return OutlinedButton.icon(
+      onPressed: isLoading || isDisabled ? null : onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: foreground,
+        side: BorderSide(color: foreground.withValues(alpha: 0.35)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      ),
+      icon: isLoading
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(icon, size: 18),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }

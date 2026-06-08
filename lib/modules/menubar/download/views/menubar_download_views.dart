@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:get/get.dart';
+
+import '../../../../core/service/offline_download_service.dart';
 
 class MenubarDownloadViews extends StatefulWidget {
   const MenubarDownloadViews({super.key});
@@ -9,12 +12,13 @@ class MenubarDownloadViews extends StatefulWidget {
 }
 
 class _MenubarDownloadViewsState extends State<MenubarDownloadViews> {
-  late List<DownloadSectionModel> _sections;
+  List<DownloadSectionModel> _sections = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _sections = _demoSections();
+    _loadDownloads();
   }
 
   @override
@@ -33,7 +37,18 @@ class _MenubarDownloadViewsState extends State<MenubarDownloadViews> {
                 children: [
                   _StorageCard(summary: summary),
                   const SizedBox(height: 24),
-                  if (_sections.isEmpty)
+                  if (_isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(28),
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF4B49E3),
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (_sections.isEmpty)
                     const _EmptyDownloadsView()
                   else ...[
                     ..._sections.map(
@@ -79,36 +94,64 @@ class _MenubarDownloadViewsState extends State<MenubarDownloadViews> {
   }
 
   StorageSummary _buildSummary() {
-    double videoGb = 0;
-    double pdfGb = 0;
+    var pdfBytes = 0;
 
     for (final section in _sections) {
       for (final item in section.items) {
-        final sizeGb = _sizeToGb(item.sizeMb);
-        if (item.type == DownloadType.video) {
-          videoGb += sizeGb;
-        } else {
-          pdfGb += sizeGb;
-        }
+        pdfBytes += item.offlineItem.sizeBytes;
       }
     }
 
-    const totalStorageGb = 64.0;
-    final usedGb = videoGb + pdfGb;
+    const totalStorageBytes = 64 * 1024 * 1024 * 1024;
 
     return StorageSummary(
-      totalStorageGb: totalStorageGb,
-      usedStorageGb: usedGb,
-      videoGb: videoGb,
-      pdfGb: pdfGb,
+      totalStorageBytes: totalStorageBytes,
+      usedStorageBytes: pdfBytes,
+      pdfBytes: pdfBytes,
     );
   }
 
-  double _sizeToGb(int sizeMb) {
-    return sizeMb / 1024;
+  Future<void> _loadDownloads() async {
+    final items = (await OfflineDownloadService.instance.getItems())
+        .where((item) => item.type == OfflineDownloadType.pdf)
+        .toList();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _sections = _buildSections(items);
+      _isLoading = false;
+    });
   }
 
-  void _removeItem(DownloadSectionModel section, DownloadItemModel item) {
+  List<DownloadSectionModel> _buildSections(List<OfflineDownloadItem> items) {
+    final sectionsByTitle = <String, DownloadSectionModel>{};
+
+    for (final item in items) {
+      final title = item.sectionTitle.isEmpty ? 'Downloads' : item.sectionTitle;
+      final section = sectionsByTitle.putIfAbsent(
+        title,
+        () => DownloadSectionModel(
+          id: title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_'),
+          title: title,
+          icon: Icons.school_outlined,
+          color: const Color(0xFF4B49E3),
+          items: [],
+        ),
+      );
+      section.items.add(DownloadItemModel.fromOffline(item));
+    }
+
+    return sectionsByTitle.values.toList();
+  }
+
+  Future<void> _removeItem(
+    DownloadSectionModel section,
+    DownloadItemModel item,
+  ) async {
+    await OfflineDownloadService.instance.deleteItem(item.offlineItem);
+
     setState(() {
       final targetSection = _sections.firstWhere(
         (entry) => entry.id == section.id,
@@ -127,10 +170,12 @@ class _MenubarDownloadViewsState extends State<MenubarDownloadViews> {
     );
   }
 
-  void _clearAllDownloads() {
+  Future<void> _clearAllDownloads() async {
     if (_sections.isEmpty) {
       return;
     }
+
+    await OfflineDownloadService.instance.clearAll();
 
     setState(() {
       _sections = [];
@@ -144,63 +189,6 @@ class _MenubarDownloadViewsState extends State<MenubarDownloadViews> {
       colorText: const Color(0xFF1A1D27),
       margin: const EdgeInsets.all(12),
     );
-  }
-
-  List<DownloadSectionModel> _demoSections() {
-    return [
-      DownloadSectionModel(
-        id: 'mathematics',
-        title: 'Mathematics',
-        icon: Icons.functions_rounded,
-        color: const Color(0xFF4B49E3),
-        items: [
-          DownloadItemModel(
-            id: 'geometry_video',
-            title: 'Intro to Geometry: Angles',
-            subtitle: 'Video • 450 MB',
-            badge: 'GRADE 8',
-            type: DownloadType.video,
-            sizeMb: 450,
-            accentColor: const Color(0xFF4B49E3),
-            previewType: DownloadPreviewType.video,
-            previewColors: const [Color(0xFF041119), Color(0xFF172730)],
-            previewIcon: Icons.play_circle_outline_rounded,
-          ),
-          DownloadItemModel(
-            id: 'quadratic_pdf',
-            title: 'Quadratic Formulas Sheet',
-            subtitle: 'PDF • 12 MB',
-            badge: 'RESOURCES',
-            type: DownloadType.pdf,
-            sizeMb: 12,
-            accentColor: const Color(0xFF8A2CD5),
-            previewType: DownloadPreviewType.pdf,
-            previewColors: const [Color(0xFFE7D2FF), Color(0xFFE7D2FF)],
-            previewIcon: Icons.picture_as_pdf_outlined,
-          ),
-        ],
-      ),
-      DownloadSectionModel(
-        id: 'science',
-        title: 'Science',
-        icon: Icons.science_outlined,
-        color: const Color(0xFF8A2CD5),
-        items: [
-          DownloadItemModel(
-            id: 'helix_video',
-            title: 'The Double Helix\nStructure',
-            subtitle: 'Video • 820 MB',
-            badge: 'BIOLOGY',
-            type: DownloadType.video,
-            sizeMb: 820,
-            accentColor: const Color(0xFF8A2CD5),
-            previewType: DownloadPreviewType.video,
-            previewColors: const [Color(0xFF111320), Color(0xFF3C2A62)],
-            previewIcon: Icons.play_circle_outline_rounded,
-          ),
-        ],
-      ),
-    ];
   }
 }
 
@@ -265,11 +253,12 @@ class _StorageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final usedFraction = summary.usedStorageGb / summary.totalStorageGb;
-    final videoFraction = summary.videoGb / summary.totalStorageGb;
-    final pdfFraction = summary.pdfGb / summary.totalStorageGb;
+    final usedFraction = summary.usedStorageBytes / summary.totalStorageBytes;
+    final pdfFraction = summary.pdfBytes / summary.totalStorageBytes;
     final remainingFraction = (1 - usedFraction).clamp(0.0, 1.0);
-    final percent = (usedFraction * 100).round();
+    final percentLabel = usedFraction > 0 && usedFraction < 0.01
+        ? '<1% Full'
+        : '${(usedFraction * 100).round()}% Full';
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -300,7 +289,7 @@ class _StorageCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${summary.usedStorageGb.toStringAsFixed(1)} GB used of ${summary.totalStorageGb.toStringAsFixed(0)} GB available',
+                  '${_formatStorageSize(summary.usedStorageBytes)} used of ${_formatStorageSize(summary.totalStorageBytes)} available',
                   style: const TextStyle(
                     color: Color(0xFF54586B),
                     fontSize: 13,
@@ -319,7 +308,7 @@ class _StorageCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  '$percent% Full',
+                  percentLabel,
                   style: const TextStyle(
                     color: Color(0xFF4B49E3),
                     fontSize: 12,
@@ -336,20 +325,9 @@ class _StorageCard extends StatelessWidget {
               height: 8,
               child: Row(
                 children: [
-                  if (videoFraction > 0)
-                    Expanded(
-                      flex: (videoFraction * 1000).round(),
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF4E57E8), Color(0xFF4B49E3)],
-                          ),
-                        ),
-                      ),
-                    ),
                   if (pdfFraction > 0)
                     Expanded(
-                      flex: (pdfFraction * 1000).round(),
+                      flex: ((pdfFraction * 1000).round()).clamp(1, 1000),
                       child: Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
@@ -373,12 +351,8 @@ class _StorageCard extends StatelessWidget {
             runSpacing: 12,
             children: [
               _StorageLegend(
-                color: const Color(0xFF4B49E3),
-                label: 'Videos (${summary.videoGb.toStringAsFixed(1)} GB)',
-              ),
-              _StorageLegend(
                 color: const Color(0xFF7D1FD0),
-                label: 'PDFs (${summary.pdfGb.toStringAsFixed(1)} GB)',
+                label: 'PDFs (${_formatStorageSize(summary.pdfBytes)})',
               ),
             ],
           ),
@@ -463,81 +437,94 @@ class _DownloadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF616A88).withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _DownloadPreview(item: item),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    color: Color(0xFF1D212B),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    height: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  item.subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF55596C),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F1F5),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    item.badge,
+    return InkWell(
+      onTap: () => _openOfflineItem(context),
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF616A88).withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _DownloadPreview(item: item),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
                     style: const TextStyle(
-                      color: Color(0xFF55596C),
-                      fontSize: 11,
+                      color: Color(0xFF1D212B),
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
+                      height: 1.25,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: onDelete,
-            borderRadius: BorderRadius.circular(18),
-            child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(
-                Icons.delete_outline_rounded,
-                color: Color(0xFF56596C),
-                size: 25,
+                  const SizedBox(height: 10),
+                  Text(
+                    item.subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF55596C),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F1F5),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      item.badge,
+                      style: const TextStyle(
+                        color: Color(0xFF55596C),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: onDelete,
+              borderRadius: BorderRadius.circular(18),
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFF56596C),
+                  size: 25,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openOfflineItem(BuildContext context) {
+    Get.to(
+      () => _OfflinePdfView(
+        title: item.title,
+        filePath: item.offlineItem.localPath,
       ),
     );
   }
@@ -550,8 +537,6 @@ class _DownloadPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPdf = item.previewType == DownloadPreviewType.pdf;
-
     return Container(
       width: 80,
       height: 80,
@@ -566,69 +551,25 @@ class _DownloadPreview extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (!isPdf)
-            CustomPaint(
-              size: const Size(118, 118),
-              painter: _PreviewPatternPainter(
-                color: Colors.white.withValues(alpha: 0.14),
-              ),
-            ),
           Icon(
-            isPdf
-                ? Icons.picture_as_pdf_outlined
-                : Icons.play_circle_outline_rounded,
-            color: isPdf ? item.accentColor : Colors.white,
-            size: isPdf ? 48 : 56,
+            Icons.picture_as_pdf_outlined,
+            color: item.accentColor,
+            size: 48,
           ),
-          if (isPdf)
-            Positioned(
-              bottom: 18,
-              child: Container(
-                width: 56,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: item.accentColor,
-                  borderRadius: BorderRadius.circular(999),
-                ),
+          Positioned(
+            bottom: 18,
+            child: Container(
+              width: 56,
+              height: 4,
+              decoration: BoxDecoration(
+                color: item.accentColor,
+                borderRadius: BorderRadius.circular(999),
               ),
             ),
+          ),
         ],
       ),
     );
-  }
-}
-
-class _PreviewPatternPainter extends CustomPainter {
-  const _PreviewPatternPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1;
-
-    canvas.drawCircle(Offset(size.width * 0.34, size.height * 0.34), 18, paint);
-    canvas.drawLine(
-      Offset(size.width * 0.16, size.height * 0.68),
-      Offset(size.width * 0.78, size.height * 0.26),
-      paint,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(size.width * 0.68, size.height * 0.66),
-        width: 34,
-        height: 20,
-      ),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _PreviewPatternPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }
 
@@ -672,6 +613,25 @@ class _EmptyDownloadsView extends StatelessWidget {
   }
 }
 
+class _OfflinePdfView extends StatelessWidget {
+  const _OfflinePdfView({required this.title, required this.filePath});
+
+  final String title;
+  final String filePath;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF10388F),
+        title: Text(title),
+      ),
+      body: PDFView(filePath: filePath, fitPolicy: FitPolicy.WIDTH),
+    );
+  }
+}
+
 class DownloadSectionModel {
   DownloadSectionModel({
     required this.id,
@@ -694,40 +654,66 @@ class DownloadItemModel {
     required this.title,
     required this.subtitle,
     required this.badge,
-    required this.type,
     required this.sizeMb,
     required this.accentColor,
-    required this.previewType,
     required this.previewColors,
     required this.previewIcon,
+    required this.offlineItem,
   });
 
   final String id;
   final String title;
   final String subtitle;
   final String badge;
-  final DownloadType type;
   final int sizeMb;
   final Color accentColor;
-  final DownloadPreviewType previewType;
   final List<Color> previewColors;
   final IconData previewIcon;
+  final OfflineDownloadItem offlineItem;
+
+  factory DownloadItemModel.fromOffline(OfflineDownloadItem item) {
+    return DownloadItemModel(
+      id: item.id,
+      title: item.title,
+      subtitle: 'PDF • ${item.sizeMb <= 0 ? 1 : item.sizeMb} MB',
+      badge: item.badge.isEmpty ? 'OFFLINE' : item.badge,
+      sizeMb: item.sizeMb <= 0 ? 1 : item.sizeMb,
+      accentColor: const Color(0xFF8A2CD5),
+      previewColors: const [Color(0xFFE7D2FF), Color(0xFFE7D2FF)],
+      previewIcon: Icons.picture_as_pdf_outlined,
+      offlineItem: item,
+    );
+  }
 }
 
 class StorageSummary {
   const StorageSummary({
-    required this.totalStorageGb,
-    required this.usedStorageGb,
-    required this.videoGb,
-    required this.pdfGb,
+    required this.totalStorageBytes,
+    required this.usedStorageBytes,
+    required this.pdfBytes,
   });
 
-  final double totalStorageGb;
-  final double usedStorageGb;
-  final double videoGb;
-  final double pdfGb;
+  final int totalStorageBytes;
+  final int usedStorageBytes;
+  final int pdfBytes;
 }
 
-enum DownloadType { video, pdf }
+String _formatStorageSize(int bytes) {
+  if (bytes <= 0) {
+    return '0 MB';
+  }
 
-enum DownloadPreviewType { video, pdf }
+  const mb = 1024 * 1024;
+  const gb = 1024 * mb;
+
+  if (bytes >= gb) {
+    final value = bytes / gb;
+    return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} GB';
+  }
+
+  final value = bytes / mb;
+  if (value < 1) {
+    return '<1 MB';
+  }
+  return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} MB';
+}

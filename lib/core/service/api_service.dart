@@ -14,7 +14,7 @@ class ApiService extends GetxService {
   late Dio _dio;
 
   ///BASE URL
-  // static String baseUrl = 'https://f5d4-2405-201-301c-203c-f859-c654-86d-16f4.ngrok-free.app/api/v1/';
+  // static String baseUrl = 'https://6346-2405-201-301c-203c-20a4-b319-62c0-ec62.ngrok-free.app/api/v1/';
   static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
 
   ///End points
@@ -27,7 +27,8 @@ class ApiService extends GetxService {
   static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
   static const String GET_USER_SUBJECT = 'user/subjects';
   static const String GET_USER_LESSON = 'user/lessons/by-class-subject';
-  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT = 'user/ebooks/by-class-subject';
+  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT =
+      'user/ebooks/by-class-subject';
   static const String FETCH_NOTES_BY_LESSON = 'user/notes/by-lesson';
   static const String FETCH_QUIZZES = 'user/quizzes/by-lesson';
   static const String FETCH_SINGLE_QUIZZES = 'user/quizzes/:id';
@@ -52,8 +53,11 @@ class ApiService extends GetxService {
   static const String HOMEWORK = 'user/homework';
   static const String HOMEWORK_DETAIL = 'user/homework/:id';
   static const String HOMEWORK_SUBMIT = 'user/homework/:id/submit';
-  static const String HOMEWORK_UPLOAD_ATTACHMENT = 'user/homework/upload-attachment';
+  static const String HOMEWORK_UPLOAD_ATTACHMENT =
+      'user/homework/upload-attachment';
   static const String HOMEWORK_MY_SUBMISSIONS = 'user/homework/my-submissions';
+  static const String USER_ATTENDANCE = 'user/attendance';
+  static const String USER_ATTENDANCE_SUMMARY = 'user/attendance/summary';
   static const String FORGOT_PASSWORD = 'auth/forgot-password';
   static const String VERIFY_RESET_CODE = 'auth/verify-reset-code';
   static const String RESET_PASSWORD = 'auth/reset-password';

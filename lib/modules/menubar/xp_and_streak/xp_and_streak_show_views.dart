@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/models/xp_config_data.dart';
 import '../../../core/service/api_service.dart';
 
 class XpAndStreakShowViews extends StatefulWidget {
@@ -518,55 +519,6 @@ class _XpStateCard extends StatelessWidget {
     );
   }
 }
-
-class XpConfigData {
-  const XpConfigData({
-    this.dailyLoginXp = 0,
-    this.dailyQuizAttemptXp = 0,
-    this.dailyQuizPassBonusXp = 0,
-    this.lessonCompleteXp = 0,
-    this.regularQuizAttemptXp = 0,
-    this.regularQuizPassBonusXp = 0,
-    this.mockTestAttemptXp = 0,
-    this.mockTestPassBonusXp = 0,
-    this.homeworkSubmitXp = 0,
-    this.homeworkGoodMarksBonusXp = 0,
-    this.homeworkGoodMarksThreshold = 0,
-    this.streakActivity = '',
-  });
-
-  final int dailyLoginXp;
-  final int dailyQuizAttemptXp;
-  final int dailyQuizPassBonusXp;
-  final int lessonCompleteXp;
-  final int regularQuizAttemptXp;
-  final int regularQuizPassBonusXp;
-  final int mockTestAttemptXp;
-  final int mockTestPassBonusXp;
-  final int homeworkSubmitXp;
-  final int homeworkGoodMarksBonusXp;
-  final int homeworkGoodMarksThreshold;
-  final String streakActivity;
-
-  factory XpConfigData.fromApi(Map<String, dynamic> json) {
-    return XpConfigData(
-      dailyLoginXp: _asInt(json['dailyLoginXp']),
-      dailyQuizAttemptXp: _asInt(json['dailyQuizAttemptXp']),
-      dailyQuizPassBonusXp: _asInt(json['dailyQuizPassBonusXp']),
-      lessonCompleteXp: _asInt(json['lessonCompleteXp']),
-      regularQuizAttemptXp: _asInt(json['regularQuizAttemptXp']),
-      regularQuizPassBonusXp: _asInt(json['regularQuizPassBonusXp']),
-      mockTestAttemptXp: _asInt(json['mockTestAttemptXp']),
-      mockTestPassBonusXp: _asInt(json['mockTestPassBonusXp']),
-      homeworkSubmitXp: _asInt(json['homeworkSubmitXp']),
-      homeworkGoodMarksBonusXp: _asInt(json['homeworkGoodMarksBonusXp']),
-      homeworkGoodMarksThreshold: _asInt(json['homeworkGoodMarksThreshold']),
-      streakActivity: json['streakActivity']?.toString() ?? '',
-    );
-  }
-}
-
-int _asInt(dynamic value) => (value as num?)?.toInt() ?? 0;
 
 String _streakActivityLabel(String value) {
   switch (value) {

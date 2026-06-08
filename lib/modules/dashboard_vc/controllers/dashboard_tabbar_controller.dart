@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/user_profile_provider.dart';
 import '../../../core/service/api_service.dart';
@@ -340,6 +341,41 @@ class DashboardTabbarController extends GetxController {
         margin: const EdgeInsets.all(16),
       );
       return;
+    }
+
+    final meetUri = _meetUriFromLink(item.meetLink);
+    if (meetUri == null) {
+      Get.snackbar(
+        'Live class',
+        'Meet link valid nahi hai.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFC81E1E),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
+    try {
+      var launched = await launchUrl(
+        meetUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        launched = await launchUrl(meetUri, mode: LaunchMode.platformDefault);
+      }
+      if (!launched) {
+        throw Exception('Unable to launch Meet link');
+      }
+    } catch (_) {
+      Get.snackbar(
+        'Live class',
+        'Browser me Meet link open nahi ho pa raha hai.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFC81E1E),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+      );
     }
   }
 
@@ -901,6 +937,7 @@ class LiveClassScheduleData {
   final String teacher;
   final String subject;
   final String phase;
+  final bool isLiveNow;
   final DateTime? startAt;
   final DateTime? endAt;
   final Color subjectColor;
@@ -917,6 +954,7 @@ class LiveClassScheduleData {
     required this.teacher,
     required this.subject,
     required this.phase,
+    required this.isLiveNow,
     required this.startAt,
     required this.endAt,
     required this.subjectColor,
@@ -952,6 +990,7 @@ class LiveClassScheduleData {
       phase: isLiveNow
           ? 'live'
           : _safeText(json['phase'], fallback: 'upcoming').toLowerCase(),
+      isLiveNow: isLiveNow,
       startAt: startAt,
       endAt: endAt,
       subjectColor: palette.subjectColor,
@@ -976,7 +1015,7 @@ class LiveClassScheduleData {
     return 'live';
   }
 
-  bool get canJoin => computedPhase == 'live';
+  bool get canJoin => isLiveNow || phase == 'live' || computedPhase == 'live';
 
   int get phasePriority {
     final status = computedPhase;
@@ -1416,6 +1455,20 @@ String _monthName(int month) {
     'Dec',
   ];
   return months[(month - 1).clamp(0, months.length - 1)];
+}
+
+Uri? _meetUriFromLink(String link) {
+  final trimmed = link.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+
+  final normalized = trimmed.contains('://') ? trimmed : 'https://$trimmed';
+  final uri = Uri.tryParse(normalized);
+  if (uri == null || uri.host.trim().isEmpty) {
+    return null;
+  }
+  return uri;
 }
 
 class _LiveClassPalette {

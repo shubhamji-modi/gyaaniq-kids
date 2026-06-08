@@ -1,4 +1,5 @@
 import '../../../core/service/api_service.dart';
+import '../../../core/models/xp_config_data.dart';
 import 'package:get/get.dart';
 
 import '../controller/quiz_daily_result_controller.dart';
@@ -273,6 +274,12 @@ class QuestionAnswerShowController extends GetxController {
         elapsedSeconds: elapsedSeconds.value,
         percentage: (attemptJson['percentage'] as num?)?.toDouble() ?? 0,
         passed: attemptJson['passed'] == true,
+        rewardSource: isDailyQuiz.value
+            ? QuizRewardSource.dailyQuiz
+            : isMockTest.value
+            ? QuizRewardSource.mockTest
+            : QuizRewardSource.practiceTest,
+        xpEarned: _readXpEarned(attemptJson) ?? _readXpEarned(body),
         hasAnswerKey: true,
         feedback: feedbackByQuestionId,
       ),
@@ -426,6 +433,18 @@ const List<QuizQuestion> _demoQuestions = [
 String _safeText(dynamic value, {String fallback = ''}) {
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? fallback : text;
+}
+
+int? _readXpEarned(Map<String, dynamic> json) {
+  const keys = ['xpEarned', 'earnedXp', 'xpAwarded', 'awardedXp', 'xp'];
+
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) {
+      return value.toInt();
+    }
+  }
+  return null;
 }
 
 String _stripHtml(String value) {

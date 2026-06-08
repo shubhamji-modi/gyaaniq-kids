@@ -42,18 +42,19 @@ class StartQuizController extends GetxController {
           'The clock starts as soon as you begin. Total time allocated is \n15 minutes.',
     ),
     QuizFeatureData(
-      icon: Icons.auto_awesome_outlined,
-      title: 'AI Assistance',
-      description:
-          'Need a nudge? Use the guide button for hints, but it may cost a few points!',
-    ),
-    QuizFeatureData(
       icon: Icons.workspace_premium_outlined,
       title: 'Win Badges',
       description:
           'Score above 80% to unlock the Algebra Ace badge for your profile.',
     ),
+    QuizFeatureData(
+      icon: Icons.calendar_today_outlined,
+      title: 'Daily Challenge',
+      description:
+      'A new quiz is available every day. Complete it to improve your knowledge and consistency.',
+    ),
   ];
+
 
   final List<String> instructions = const [
     'Read each question carefully before selecting your answer from the options provided.',
