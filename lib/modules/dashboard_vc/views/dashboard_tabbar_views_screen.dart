@@ -462,15 +462,24 @@ class _HomeTab extends StatelessWidget {
             const Row(
               children: [
                 Expanded(child: _DailyQuizMiniCard()),
-                SizedBox(width: 14),
-                Expanded(child: _AiTutorCard()),
+                // SizedBox(width: 14),
+                // Expanded(child: _AiTutorCard()),
               ],
             ),
             const SizedBox(height: 18),
             const _LeaderboardStripCard(),
-            const _HomeLiveClassesSection(),
             const SizedBox(height: 18),
-            const _SpokenEnglishCard(),
+            const Text(
+              'Improvement Area',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            // const _HomeLiveClassesSection(),
+            // const SizedBox(height: 18),
+            // const _SpokenEnglishCard(),
             // const SizedBox(height: 18),
             // InkWell(
             //   onTap: () => Get.to(() => const ExploreClassesViews()),
@@ -836,7 +845,7 @@ class _DailyQuizMiniCard extends StatelessWidget {
               top: 58,
               left: 0,
               child: Text(
-                'Daily\nQuiz',
+                'Daily Quiz',
                 style: TextStyle(
                   color: AppColors.white,
                   fontSize: 18,
