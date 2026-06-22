@@ -361,7 +361,17 @@ class LearnHomeworkModel {
     );
   }
 
-  bool get canSubmit => status != LearnHomeworkStatus.graded;
+  bool get canSubmit {
+    if (status == LearnHomeworkStatus.graded) {
+      return false;
+    }
+
+    if (status == LearnHomeworkStatus.overdue) {
+      return allowLateSubmission;
+    }
+
+    return true;
+  }
 }
 
 class HomeworkAttachment {

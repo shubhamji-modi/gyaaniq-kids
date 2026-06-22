@@ -311,7 +311,9 @@ class _PendingHomeworkCard extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: const Color(0xFF4A4FD9),
+                disabledBackgroundColor: const Color(0xFFD9DBE8),
                 foregroundColor: Colors.white,
+                disabledForegroundColor: const Color(0xFF8B90A3),
                 minimumSize: const Size.fromHeight(45),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(32),

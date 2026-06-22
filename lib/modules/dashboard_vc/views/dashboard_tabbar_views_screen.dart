@@ -442,7 +442,7 @@ class _HomeTab extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             const Text(
-              'Master your goals with interactive quests.',
+              'Master your goals with interactive question.',
               style: TextStyle(
                 color: AppColors.textMuted,
                 fontSize: 14,
@@ -1925,8 +1925,12 @@ class _PreviousResultsCard extends StatefulWidget {
 
 class _PreviousResultsCardState extends State<_PreviousResultsCard> {
   bool _isLoading = true;
-  String _errorMessage = '';
-  List<QuizSubmitResultItem> _results = const [];
+  String _dailyErrorMessage = '';
+  String _practiceErrorMessage = '';
+  String _mockErrorMessage = '';
+  List<QuizSubmitResultItem> _dailyResults = const [];
+  List<QuizSubmitResultItem> _practiceResults = const [];
+  List<QuizSubmitResultItem> _mockResults = const [];
 
   @override
   void initState() {
@@ -1937,19 +1941,44 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
   Future<void> _loadResults() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = '';
+      _dailyErrorMessage = '';
+      _practiceErrorMessage = '';
+      _mockErrorMessage = '';
     });
 
-    final response = await QuizSubmitResultRepository.fetchResults(limit: 2);
+    final responses = await Future.wait([
+      QuizSubmitResultRepository.fetchResults(
+        type: ResultHistoryType.daily,
+        limit: 2,
+      ),
+      QuizSubmitResultRepository.fetchResults(
+        type: ResultHistoryType.practice,
+        limit: 2,
+      ),
+      QuizSubmitResultRepository.fetchResults(
+        type: ResultHistoryType.mock,
+        limit: 2,
+      ),
+    ]);
 
     if (!mounted) {
       return;
     }
 
+    final dailyResponse = responses[0];
+    final practiceResponse = responses[1];
+    final mockResponse = responses[2];
+
     setState(() {
       _isLoading = false;
-      _results = response.data?.results ?? const [];
-      _errorMessage = response.success ? '' : response.message;
+      _dailyResults = dailyResponse.data?.results ?? const [];
+      _practiceResults = practiceResponse.data?.results ?? const [];
+      _mockResults = mockResponse.data?.results ?? const [];
+      _dailyErrorMessage = dailyResponse.success ? '' : dailyResponse.message;
+      _practiceErrorMessage = practiceResponse.success
+          ? ''
+          : practiceResponse.message;
+      _mockErrorMessage = mockResponse.success ? '' : mockResponse.message;
     });
   }
 
@@ -1963,23 +1992,11 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
           Row(
             children: [
               const Text(
-                'Previous Results',
+                'Quiz History',
                 style: TextStyle(
                   color: AppColors.textHeading,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => Get.to(() => const PreviewResultViews()),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
                 ),
               ),
             ],
@@ -1990,76 +2007,219 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
               padding: EdgeInsets.symmetric(vertical: 28),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (_errorMessage.isNotEmpty)
-            _PreviousResultState(message: _errorMessage, onRetry: _loadResults)
-          else if (_results.isEmpty)
-            const _PreviousResultState(
-              message: 'No previous results available yet.',
-            )
-          else
-            ..._results.map(
-              (result) => Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: result.iconBackground,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(result.icon, color: result.accent, size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            result.quizTitle,
-                            style: const TextStyle(
-                              color: AppColors.textDark,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${result.scoreText} • ${result.percentageText}',
-                            style: const TextStyle(
-                              color: AppColors.resultMeta,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: result.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(
-                        result.passed ? 'Passed' : 'Failed',
-                        style: TextStyle(
-                          color: result.accent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
+          else ...[
+            _DashboardResultSection(
+              title: 'Daily Quiz',
+              emptyMessage: 'No daily quiz result yet.',
+              errorMessage: _dailyErrorMessage,
+              results: _dailyResults,
+              backgroundColor: AppColors.primaryPale,
+              borderColor: AppColors.primaryTint,
+              onRetry: _loadResults,
+              onViewAll: () => Get.to(
+                () => const PreviewResultViews(
+                  initialType: ResultHistoryType.daily,
                 ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            _DashboardResultSection(
+              title: 'Practice Test',
+              emptyMessage: 'No practice test result yet.',
+              errorMessage: _practiceErrorMessage,
+              results: _practiceResults,
+              backgroundColor: AppColors.neutralSurface2,
+              borderColor: AppColors.softBorder,
+              onRetry: _loadResults,
+              onViewAll: () => Get.to(
+                () => const PreviewResultViews(
+                  initialType: ResultHistoryType.practice,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            _DashboardResultSection(
+              title: 'Mock Test',
+              emptyMessage: 'No mock test result yet.',
+              errorMessage: _mockErrorMessage,
+              results: _mockResults,
+              backgroundColor: const Color(0xFFFFF6E8),
+              borderColor: const Color(0xFFFFE0AE),
+              onRetry: _loadResults,
+              onViewAll: () => Get.to(
+                () => const PreviewResultViews(
+                  initialType: ResultHistoryType.mock,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardResultSection extends StatelessWidget {
+  const _DashboardResultSection({
+    required this.title,
+    required this.emptyMessage,
+    required this.errorMessage,
+    required this.results,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.onRetry,
+    required this.onViewAll,
+  });
+
+  final String title;
+  final String emptyMessage;
+  final String errorMessage;
+  final List<QuizSubmitResultItem> results;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Future<void> Function() onRetry;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: onViewAll,
+                child: const Text(
+                  'View All',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (errorMessage.isNotEmpty)
+            _PreviousResultState(message: errorMessage, onRetry: onRetry)
+          else if (results.isEmpty)
+            _PreviousResultState(message: emptyMessage)
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                children: List.generate(results.length, (index) {
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
+                        child: _DashboardResultRow(result: results[index]),
+                      ),
+                      if (index != results.length - 1)
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 58,
+                          color: Color(0xFFE4E7F2),
+                        ),
+                    ],
+                  );
+                }),
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+class _DashboardResultRow extends StatelessWidget {
+  const _DashboardResultRow({required this.result});
+
+  final QuizSubmitResultItem result;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: result.iconBackground,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(result.icon, color: result.accent, size: 22),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                result.quizTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${result.scoreText} • ${result.percentageText} • ${result.dateLabel}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.resultMeta,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: result.accent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Text(
+            result.passed ? 'Passed' : 'Failed',
+            style: TextStyle(
+              color: result.accent,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

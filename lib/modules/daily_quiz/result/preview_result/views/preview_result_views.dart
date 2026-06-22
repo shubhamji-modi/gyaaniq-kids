@@ -5,13 +5,24 @@ import '../../../../../core/service/api_service.dart';
 import '../controller/preview_result_controller.dart';
 
 class PreviewResultViews extends StatelessWidget {
-  const PreviewResultViews({super.key});
+  const PreviewResultViews({super.key, this.initialType});
+
+  final ResultHistoryType? initialType;
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.isRegistered<PreviewResultController>()
         ? Get.find<PreviewResultController>()
         : Get.put(PreviewResultController());
+    final initialType = this.initialType;
+    if (initialType != null && controller.selectedType != initialType) {
+      final index = PreviewResultController.typeTabs.indexWhere(
+        (tab) => tab.type == initialType,
+      );
+      if (index >= 0) {
+        Future.microtask(() => controller.changeTypeTab(index));
+      }
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFF),
@@ -337,24 +348,24 @@ class _ResultCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: item.accent.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Text(
-                    item.statusLabel,
-                    style: TextStyle(
-                      color: item.accent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+                // Container(
+                //   padding: const EdgeInsets.symmetric(
+                //     horizontal: 14,
+                //     vertical: 10,
+                //   ),
+                //   decoration: BoxDecoration(
+                //     color: item.accent.withValues(alpha: 0.10),
+                //     borderRadius: BorderRadius.circular(30),
+                //   ),
+                //   child: Text(
+                //     item.lessonLabel,
+                //     style: TextStyle(
+                //       color: item.accent,
+                //       fontSize: 12,
+                //       fontWeight: FontWeight.w800,
+                //     ),
+                //   ),
+                // ),
               ],
             ),
           ],

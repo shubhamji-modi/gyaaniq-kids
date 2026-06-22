@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -71,7 +72,7 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
       return;
     }
 
-    final source = await showModalBottomSheet<ImageSource>(
+    final source = await showModalBottomSheet<_AttachmentSource>(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
@@ -96,13 +97,20 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                 _ImageSourceTile(
                   icon: Icons.camera_alt_outlined,
                   title: 'Camera',
-                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                  onTap: () => Navigator.pop(context, _AttachmentSource.camera),
                 ),
                 const SizedBox(height: 10),
                 _ImageSourceTile(
                   icon: Icons.photo_library_outlined,
                   title: 'Gallery',
-                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                  onTap: () =>
+                      Navigator.pop(context, _AttachmentSource.gallery),
+                ),
+                const SizedBox(height: 10),
+                _ImageSourceTile(
+                  icon: Icons.attach_file_rounded,
+                  title: 'File',
+                  onTap: () => Navigator.pop(context, _AttachmentSource.file),
                 ),
               ],
             ),
@@ -115,13 +123,23 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
       return;
     }
 
-    await _pickAndUploadImage(source);
+    switch (source) {
+      case _AttachmentSource.camera:
+        await _pickAndUploadCameraImage();
+        break;
+      case _AttachmentSource.gallery:
+        await _pickAndUploadGalleryImage();
+        break;
+      case _AttachmentSource.file:
+        await _pickAndUploadFiles();
+        break;
+    }
   }
 
-  Future<void> _pickAndUploadImage(ImageSource source) async {
+  Future<void> _pickAndUploadCameraImage() async {
     try {
       final image = await _imagePicker.pickImage(
-        source: source,
+        source: ImageSource.camera,
         imageQuality: 86,
         maxWidth: 1800,
         maxHeight: 1800,
@@ -131,37 +149,102 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
         return;
       }
 
-      setState(() {
-        _isUploading = true;
-      });
-
-      final response = await LearnHomeworkRepository.uploadAttachment(
-        image.path,
+      await _uploadPickedFile(
+        _PickedHomeworkFile(path: image.path, name: image.name),
       );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isUploading = false;
-        if (response.success && response.data != null) {
-          _uploadedAttachments.add(response.data!);
-        }
-      });
-
-      if (!response.success) {
-        _showError(response.message);
-      }
     } on PlatformException catch (error) {
-      if (!mounted) {
+      _handleUploadException(error.message ?? 'Unable to capture image.');
+    }
+  }
+
+  Future<void> _pickAndUploadGalleryImage() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 86,
+        maxWidth: 1800,
+        maxHeight: 1800,
+        requestFullMetadata: false,
+      );
+      if (image == null || !mounted) {
         return;
       }
-      setState(() {
-        _isUploading = false;
-      });
-      _showError(error.message ?? 'Unable to pick image.');
+
+      await _uploadPickedFile(
+        _PickedHomeworkFile(path: image.path, name: image.name),
+      );
+    } on PlatformException catch (error) {
+      _handleUploadException(error.message ?? 'Unable to pick image.');
     }
+  }
+
+  Future<void> _pickAndUploadFiles() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+      );
+      if (result == null || result.files.isEmpty || !mounted) {
+        return;
+      }
+
+      final file = result.files.first;
+      if (file.path == null || file.path!.isEmpty) {
+        return;
+      }
+
+      await _uploadPickedFile(
+        _PickedHomeworkFile(
+          path: file.path!,
+          name: file.name,
+          size: file.size,
+        ),
+      );
+    } on PlatformException catch (error) {
+      _handleUploadException(error.message ?? 'Unable to pick files.');
+    }
+  }
+
+  Future<void> _uploadPickedFile(_PickedHomeworkFile file) async {
+    if (file.size != null && file.size! > _maxUploadBytes) {
+      _showError('${file.name} is larger than 20MB.');
+      return;
+    }
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    final response = await LearnHomeworkRepository.uploadAttachment(file.path);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isUploading = false;
+    });
+
+    if (response.success && response.data != null) {
+      setState(() {
+        _uploadedAttachments
+          ..clear()
+          ..add(response.data!);
+      });
+    } else {
+      _showError(response.message);
+    }
+  }
+
+  void _handleUploadException(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isUploading = false;
+    });
+    _showError(message);
   }
 
   Future<void> _submitHomework() async {
@@ -389,7 +472,7 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                           ),
                           const SizedBox(height: 5),
                           const Text(
-                            'PDF, JPG, or PNG, Max 10MB',
+                            'PDF, JPG, PNG, DOC or DOCX, Max 20MB',
                             style: TextStyle(
                               color: Color(0xFF4C5164),
                               fontSize: 12,
@@ -469,7 +552,9 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                       style: ElevatedButton.styleFrom(
                         elevation: 0,
                         backgroundColor: const Color(0xFF4A4FD9),
+                        disabledBackgroundColor: const Color(0xFFD9DBE8),
                         foregroundColor: Colors.white,
+                        disabledForegroundColor: const Color(0xFF8B90A3),
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(34),
@@ -522,6 +607,22 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
       ),
     );
   }
+}
+
+const int _maxUploadBytes = 20 * 1024 * 1024;
+
+enum _AttachmentSource { camera, gallery, file }
+
+class _PickedHomeworkFile {
+  const _PickedHomeworkFile({
+    required this.path,
+    required this.name,
+    this.size,
+  });
+
+  final String path;
+  final String name;
+  final int? size;
 }
 
 class _HeaderChip extends StatelessWidget {

@@ -27,8 +27,7 @@ class ApiService extends GetxService {
   static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
   static const String GET_USER_SUBJECT = 'user/subjects';
   static const String GET_USER_LESSON = 'user/lessons/by-class-subject';
-  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT =
-      'user/ebooks/by-class-subject';
+  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT = 'user/ebooks/by-class-subject';
   static const String FETCH_NOTES_BY_LESSON = 'user/notes/by-lesson';
   static const String FETCH_QUIZZES = 'user/quizzes/by-lesson';
   static const String FETCH_SINGLE_QUIZZES = 'user/quizzes/:id';
@@ -53,8 +52,7 @@ class ApiService extends GetxService {
   static const String HOMEWORK = 'user/homework';
   static const String HOMEWORK_DETAIL = 'user/homework/:id';
   static const String HOMEWORK_SUBMIT = 'user/homework/:id/submit';
-  static const String HOMEWORK_UPLOAD_ATTACHMENT =
-      'user/homework/upload-attachment';
+  static const String HOMEWORK_UPLOAD_ATTACHMENT = 'user/homework/upload-attachment';
   static const String HOMEWORK_MY_SUBMISSIONS = 'user/homework/my-submissions';
   static const String USER_ATTENDANCE = 'user/attendance';
   static const String USER_ATTENDANCE_SUMMARY = 'user/attendance/summary';
@@ -331,6 +329,7 @@ class ApiService extends GetxService {
     required String filePath,
     String fieldName = 'file',
     bool showLoader = true,
+    Duration uploadTimeout = const Duration(minutes: 5),
     T Function(dynamic)? fromJson,
   }) async {
     try {
@@ -344,7 +343,11 @@ class ApiService extends GetxService {
       final response = await _dio.post(
         endpoint,
         data: formData,
-        options: Options(contentType: 'multipart/form-data'),
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: uploadTimeout,
+          receiveTimeout: uploadTimeout,
+        ),
       );
 
       if (showLoader) {

@@ -15,6 +15,7 @@ import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../../menubar/download/views/menubar_download_views.dart';
 import '../../learn/chapter/views/learn_chapter_views.dart';
 import '../../learn/chapter/views/learn_subject_views.dart';
+import '../../learn/attendance/controller/learn_attendance_controller.dart';
 import '../../learn/attendance/views/learn_attendance_views.dart';
 import '../../learn/doubt_solve/views/learn_doubt_solve_views.dart';
 import '../../learn/e_book/views/learn_ebook_views.dart';
@@ -41,6 +42,8 @@ class DashboardTabbarController extends GetxController {
   final RxString userXpError = ''.obs;
   final RxBool isLoadingLiveClasses = true.obs;
   final RxString liveClassesError = ''.obs;
+  final RxBool isLoadingAttendanceSummary = true.obs;
+  final RxString attendanceSummaryError = ''.obs;
   final RxList<SubjectCardData> learnSubjects = <SubjectCardData>[].obs;
   final RxList<MockTestCardData> mockTests = <MockTestCardData>[].obs;
   final RxList<DailyQuizAnalyticsDayData> dailyQuizAnalytics =
@@ -52,6 +55,8 @@ class DashboardTabbarController extends GetxController {
       <LiveClassScheduleData>[].obs;
   final Rx<DashboardLessonSummary> lessonSummary =
       const DashboardLessonSummary().obs;
+  final Rx<AttendanceSummaryModel> attendanceSummary =
+      AttendanceSummaryModel.empty().obs;
   Timer? _liveClassClockTimer;
 
   final String studentName = 'Sarah!';
@@ -66,36 +71,36 @@ class DashboardTabbarController extends GetxController {
     DashboardNavItemData(label: 'Profile', icon: Icons.person_outline_rounded),
   ];
 
-  final List<StudyToolData> studyTools = const [
-    StudyToolData(
+  List<StudyToolData> get studyTools => [
+    const StudyToolData(
       title: 'Chapters',
       subtitle: '12 Chapters left to review',
       icon: Icons.import_contacts_rounded,
       accent: Color(0xFF4A4FD9),
       iconBackground: Color(0xFFE5E6FF),
     ),
-    StudyToolData(
+    const StudyToolData(
       title: 'Notes',
       subtitle: 'View all shared class notes',
       icon: Icons.note_alt_outlined,
       accent: Color(0xFFFFA615),
       iconBackground: Color(0xFFFFE6B7),
     ),
-    StudyToolData(
+    const StudyToolData(
       title: 'Homework',
-      subtitle: '3 Tasks due today',
+      subtitle: 'Keep learning daily',
       icon: Icons.assignment_outlined,
       accent: Color(0xFF7E2AD9),
       iconBackground: Color(0xFFEAD7FF),
     ),
-    StudyToolData(
+    const StudyToolData(
       title: 'Doubt Solve',
       subtitle: 'Chat with AI or Teachers',
       icon: Icons.live_help_outlined,
       accent: Color(0xFFC91F1F),
       iconBackground: Color(0xFFFFDEDE),
     ),
-    StudyToolData(
+    const StudyToolData(
       title: 'E-Book',
       subtitle: 'Access digital textbook',
       icon: Icons.library_books_outlined,
@@ -104,12 +109,26 @@ class DashboardTabbarController extends GetxController {
     ),
     StudyToolData(
       title: 'Attendance',
-      subtitle: '95% average presence',
+      subtitle: attendanceSubtitle,
       icon: Icons.calendar_month_outlined,
       accent: Color(0xFF6366F1),
       iconBackground: Color(0xFFE2E7FF),
     ),
   ];
+
+  String get attendanceSubtitle {
+    if (isLoadingAttendanceSummary.value) {
+      return 'Loading attendance...';
+    }
+    if (attendanceSummaryError.value.isNotEmpty) {
+      return 'Tap to view attendance';
+    }
+    final summary = attendanceSummary.value;
+    if (summary.total == 0) {
+      return 'No attendance yet';
+    }
+    return '${summary.percentage.toStringAsFixed(2)}% this month';
+  }
 
   final List<PreviousResultData> previousResults = const [
     PreviousResultData(
@@ -193,6 +212,46 @@ class DashboardTabbarController extends GetxController {
     await loadLeaderboardSummary();
     await loadUserXp();
     await loadLiveClasses();
+    await loadAttendanceSummary();
+  }
+
+  Future<void> loadAttendanceSummary() async {
+    isLoadingAttendanceSummary.value = true;
+    attendanceSummaryError.value = '';
+
+    final now = DateTime.now();
+    final month = _formatAttendanceMonth(now);
+    final from = '$month-01';
+    final to =
+        '$month-${DateUtils.getDaysInMonth(now.year, now.month).toString().padLeft(2, '0')}';
+
+    final responses = await Future.wait([
+      LearnAttendanceRepository.fetchMonthlyAttendance(month),
+      LearnAttendanceRepository.fetchAttendanceSummary(from: from, to: to),
+    ]);
+
+    final monthResponse = responses[0] as ApiResponse<List<AttendanceDayModel>>;
+    final summaryResponse = responses[1] as ApiResponse<AttendanceSummaryModel>;
+
+    isLoadingAttendanceSummary.value = false;
+
+    if (summaryResponse.success) {
+      attendanceSummary.value =
+          summaryResponse.data ?? AttendanceSummaryModel.empty();
+      return;
+    }
+
+    if (monthResponse.success) {
+      attendanceSummary.value = AttendanceSummaryModel.fromDays(
+        monthResponse.data ?? const <AttendanceDayModel>[],
+      );
+      return;
+    }
+
+    attendanceSummary.value = AttendanceSummaryModel.empty();
+    attendanceSummaryError.value = summaryResponse.message.isNotEmpty
+        ? summaryResponse.message
+        : monthResponse.message;
   }
 
   Future<void> loadUserXp() async {
@@ -530,7 +589,9 @@ class DashboardTabbarController extends GetxController {
     }
 
     if (tool.title == 'Attendance') {
-      Get.to(() => const LearnAttendanceViews());
+      Get.to(() => const LearnAttendanceViews())?.then((_) {
+        loadAttendanceSummary();
+      });
       return;
     }
   }
@@ -1437,6 +1498,10 @@ String _formatClock(DateTime date) {
   final minute = date.minute.toString().padLeft(2, '0');
   final period = date.hour >= 12 ? 'PM' : 'AM';
   return '$hour:$minute $period';
+}
+
+String _formatAttendanceMonth(DateTime date) {
+  return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}';
 }
 
 String _monthName(int month) {

@@ -1,4 +1,4 @@
-package com.example.edupath_learning
+package com.gyaaniqkids.app
 
 import io.flutter.embedding.android.FlutterActivity
 
