@@ -1480,6 +1480,8 @@ class WeakAreaSubjectData {
 class WeakAreaLessonData {
   final String id;
   final String title;
+  final String description;
+  final int order;
   final double accuracy;
   final int answered;
   final int correct;
@@ -1488,6 +1490,8 @@ class WeakAreaLessonData {
   const WeakAreaLessonData({
     required this.id,
     required this.title,
+    required this.description,
+    required this.order,
     required this.accuracy,
     required this.answered,
     required this.correct,
@@ -1500,6 +1504,8 @@ class WeakAreaLessonData {
     return WeakAreaLessonData(
       id: _safeText(lesson['_id']),
       title: _safeText(lesson['title'], fallback: 'Lesson'),
+      description: _safeText(lesson['description']),
+      order: (lesson['order'] as num?)?.toInt() ?? 0,
       accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
       answered: (json['answered'] as num?)?.toInt() ?? 0,
       correct: (json['correct'] as num?)?.toInt() ?? 0,

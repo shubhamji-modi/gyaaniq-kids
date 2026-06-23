@@ -13,11 +13,7 @@ import '../../menubar/edit profile/views/edit_profile_views.dart';
 import '../../daily_quiz/views/start_quiz_views.dart';
 import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../daily_quiz/result/preview_result/views/preview_result_views.dart';
-import '../../daily_quiz/practice_test/Views/practice_quiz_overview.dart';
 import '../../daily_quiz/practice_test/Views/quiz_practice_paper_subject_views.dart';
-import '../../daily_quiz/practice_test/Views/quiz_practice_paper_topic_views.dart';
-import '../../explore_classes/views/explore_classes_views.dart';
-import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
 import 'performance_dna_views.dart';
 
@@ -552,10 +548,7 @@ class _LearnTab extends GetView<DashboardTabbarController> {
             ),
             const SizedBox(height: 16),
             if (controller.isLoadingLearnSubjects.value)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const _LearnSubjectsSkeleton()
             else if (controller.learnSubjectsError.value.isNotEmpty)
               _DashboardInlineState(
                 message: controller.learnSubjectsError.value,
@@ -632,10 +625,7 @@ class _LiveTab extends GetView<DashboardTabbarController> {
     return _DashboardScaffold(
       child: Obx(() {
         if (controller.isLoadingLiveClasses.value) {
-          return const SizedBox(
-            height: 220,
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const _LiveClassesSkeleton();
         }
 
         if (controller.liveClassesError.value.isNotEmpty) {
@@ -1174,10 +1164,7 @@ class _WeakAreasSection extends GetView<DashboardTabbarController> {
             ),
             const SizedBox(height: 18),
             if (controller.isLoadingWeakAreas.value)
-              const SizedBox(
-                height: 150,
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const _WeakAreasSkeleton()
             else if (controller.weakAreasError.value.isNotEmpty)
               _DashboardInlineState(
                 message: controller.weakAreasError.value,
@@ -1252,7 +1239,11 @@ class _WeakAreaTile extends StatelessWidget {
     final accent = _weakAreaAccent(subject.name);
 
     return InkWell(
-      onTap: _openLessonOverview,
+      onTap: () => showWeakAreaLessonsBottomSheet(
+        context,
+        subject,
+        dashboardController: Get.find<DashboardTabbarController>(),
+      ),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(13),
@@ -1297,7 +1288,7 @@ class _WeakAreaTile extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              subject.primaryLessonTitle,
+              subject.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -1309,7 +1300,7 @@ class _WeakAreaTile extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              subject.primaryLessonMeta,
+              '${subject.accuracyLabel} Accuracy',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -1357,101 +1348,6 @@ class _WeakAreaTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _openLessonOverview() async {
-    final dashboardController = Get.find<DashboardTabbarController>();
-    final targetLessonId = subject.lessons.isEmpty
-        ? ''
-        : subject.lessons.first.id;
-    final learnSubject =
-        _findLearnSubject(dashboardController, subject.id) ??
-        await _fetchLearnSubject(subject.id);
-
-    if (learnSubject == null) {
-      Get.snackbar(
-        'Lesson overview',
-        'Unable to find this subject right now.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFB42318),
-        colorText: AppColors.white,
-        margin: const EdgeInsets.all(14),
-      );
-      return;
-    }
-
-    final response = await LearnCatalogData.getUserLessons(
-      subject: learnSubject,
-    );
-
-    if (!response.success) {
-      Get.snackbar(
-        'Lesson overview',
-        response.message,
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFB42318),
-        colorText: AppColors.white,
-        margin: const EdgeInsets.all(14),
-      );
-      return;
-    }
-
-    final chapters = response.data ?? const <LearnChapterModel>[];
-    final targetChapter = _findChapterForLesson(chapters, targetLessonId);
-    if (targetChapter == null) {
-      Get.to(() => QuizPracticePaperTopicViews(subject: learnSubject));
-      return;
-    }
-
-    Get.to(
-      () => PracticeQuizOverviewViews(
-        subject: learnSubject,
-        chapter: targetChapter,
-      ),
-    );
-  }
-
-  LearnSubjectModel? _findLearnSubject(
-    DashboardTabbarController controller,
-    String subjectId,
-  ) {
-    for (final subjectCard in controller.learnSubjects) {
-      if (subjectCard.learnSubject.id == subjectId) {
-        return subjectCard.learnSubject;
-      }
-    }
-    return null;
-  }
-
-  Future<LearnSubjectModel?> _fetchLearnSubject(String subjectId) async {
-    final response = await LearnCatalogData.getUserSubjects();
-    final subjects = response.data ?? const <LearnSubjectModel>[];
-    for (final subject in subjects) {
-      if (subject.id == subjectId) {
-        return subject;
-      }
-    }
-    return null;
-  }
-
-  LearnChapterModel? _findChapterForLesson(
-    List<LearnChapterModel> chapters,
-    String lessonId,
-  ) {
-    if (chapters.isEmpty) {
-      return null;
-    }
-    if (lessonId.isEmpty) {
-      return chapters.first;
-    }
-    for (final chapter in chapters) {
-      for (final topic in chapter.topics) {
-        if (topic.lesson.id == lessonId) {
-          return chapter;
-        }
-      }
-    }
-    return null;
   }
 }
 
@@ -1804,6 +1700,203 @@ class _DashboardInlineState extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerBox extends StatefulWidget {
+  const _ShimmerBox({this.width, required this.height, this.radius = 12});
+
+  final double? width;
+  final double height;
+  final double radius;
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: LinearGradient(
+              begin: Alignment(-1.0 + (_controller.value * 2), 0),
+              end: Alignment(0.2 + (_controller.value * 2), 0),
+              colors: const [
+                Color(0xFFE9EEF8),
+                Color(0xFFF7F9FE),
+                Color(0xFFE9EEF8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LearnSubjectsSkeleton extends StatelessWidget {
+  const _LearnSubjectsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.90,
+      ),
+      itemBuilder: (context, index) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: _cardDecoration(),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ShimmerBox(width: 42, height: 42, radius: 12),
+            Spacer(),
+            _ShimmerBox(width: 94, height: 14, radius: 7),
+            SizedBox(height: 10),
+            _ShimmerBox(height: 8, radius: 4),
+            SizedBox(height: 8),
+            _ShimmerBox(width: 74, height: 10, radius: 5),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveClassesSkeleton extends StatelessWidget {
+  const _LiveClassesSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _ShimmerBox(width: 96, height: 16, radius: 8),
+        const SizedBox(height: 18),
+        Container(
+          height: 170,
+          padding: const EdgeInsets.all(18),
+          decoration: _cardDecoration(),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ShimmerBox(width: 130, height: 16, radius: 8),
+              SizedBox(height: 12),
+              _ShimmerBox(height: 10, radius: 5),
+              SizedBox(height: 8),
+              _ShimmerBox(width: 180, height: 10, radius: 5),
+              Spacer(),
+              _ShimmerBox(width: 110, height: 34, radius: 17),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WeakAreasSkeleton extends StatelessWidget {
+  const _WeakAreasSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        mainAxisExtent: 150,
+      ),
+      itemBuilder: (context, index) => Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _ShimmerBox(width: 20, height: 20, radius: 8),
+                Spacer(),
+                _ShimmerBox(width: 18, height: 18, radius: 9),
+              ],
+            ),
+            SizedBox(height: 16),
+            _ShimmerBox(height: 12, radius: 6),
+            SizedBox(height: 8),
+            _ShimmerBox(width: 86, height: 10, radius: 5),
+            Spacer(),
+            _ShimmerBox(width: 92, height: 10, radius: 5),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalyticsSkeleton extends StatelessWidget {
+  const _AnalyticsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 150,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ShimmerBox(width: 170, height: 12, radius: 6),
+          SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(child: _ShimmerBox(height: 76, radius: 10)),
+              SizedBox(width: 8),
+              Expanded(child: _ShimmerBox(height: 112, radius: 10)),
+              SizedBox(width: 8),
+              Expanded(child: _ShimmerBox(height: 92, radius: 10)),
+              SizedBox(width: 8),
+              Expanded(child: _ShimmerBox(height: 124, radius: 10)),
+            ],
+          ),
         ],
       ),
     );
@@ -2182,10 +2275,7 @@ class _AnalyticsCard extends GetView<DashboardTabbarController> {
           const SizedBox(height: 8),
           Obx(() {
             if (controller.isLoadingDailyQuizAnalytics.value) {
-              return const SizedBox(
-                height: 150,
-                child: Center(child: CircularProgressIndicator()),
-              );
+              return const _AnalyticsSkeleton();
             }
 
             if (controller.dailyQuizAnalyticsError.value.isNotEmpty) {
