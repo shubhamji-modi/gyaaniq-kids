@@ -356,30 +356,30 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Wrap(
-                //   alignment: WrapAlignment.center,
-                //   crossAxisAlignment: WrapCrossAlignment.center,
-                //   children: [
-                //     Text(
-                //       'Don’t have an account? ',
-                //       style: theme.textTheme.bodyMedium?.copyWith(
-                //         color: const Color(0xFF344054),
-                //         fontWeight: FontWeight.w500,
-                //       ),
-                //     ),
-                //     GestureDetector(
-                //       onTap: () => Get.toNamed(AppRoutes.createAccount),
-                //       child: Text(
-                //         'Sign Up',
-                //         style: theme.textTheme.bodyMedium?.copyWith(
-                //           color: const Color(0xFF4F46E5),
-                //           fontWeight: FontWeight.w700,
-                //         ),
-                //       ),
-                //     ),
-                //   ],
-                // ),
-                // const SizedBox(height: 18),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Don’t have an account? ',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF344054),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Get.toNamed(AppRoutes.createAccount),
+                      child: Text(
+                        'Sign Up',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF4F46E5),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
                 // const Row(
                 //   children: [
                 //     Expanded(

@@ -333,60 +333,60 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 22),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(
-                              color: Color(0xFFD0D5DD),
-                              thickness: 1,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              'or',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFF667085),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(
-                              color: Color(0xFFD0D5DD),
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF111827),
-                            side: const BorderSide(color: Color(0xFFD0D5DD)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(26),
-                            ),
-                          ),
-                          icon: Image.asset(
-                            'assets/images/google-icon.png',
-                            width: 22,
-                            height: 22,
-                          ),
-                          label: const Text(
-                            'Continue with Google',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
+                      // const SizedBox(height: 22),
+                      // Row(
+                      //   children: [
+                      //     const Expanded(
+                      //       child: Divider(
+                      //         color: Color(0xFFD0D5DD),
+                      //         thickness: 1,
+                      //       ),
+                      //     ),
+                      //     Padding(
+                      //       padding: const EdgeInsets.symmetric(horizontal: 12),
+                      //       child: Text(
+                      //         'or',
+                      //         style: theme.textTheme.bodyMedium?.copyWith(
+                      //           color: const Color(0xFF667085),
+                      //           fontWeight: FontWeight.w500,
+                      //         ),
+                      //       ),
+                      //     ),
+                      //     const Expanded(
+                      //       child: Divider(
+                      //         color: Color(0xFFD0D5DD),
+                      //         thickness: 1,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
+                      // const SizedBox(height: 22),
+                      // SizedBox(
+                      //   width: double.infinity,
+                      //   height: 52,
+                      //   child: OutlinedButton.icon(
+                      //     onPressed: () {},
+                      //     style: OutlinedButton.styleFrom(
+                      //       foregroundColor: const Color(0xFF111827),
+                      //       side: const BorderSide(color: Color(0xFFD0D5DD)),
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(26),
+                      //       ),
+                      //     ),
+                      //     icon: Image.asset(
+                      //       'assets/images/google-icon.png',
+                      //       width: 22,
+                      //       height: 22,
+                      //     ),
+                      //     label: const Text(
+                      //       'Continue with Google',
+                      //       style: TextStyle(
+                      //         fontSize: 14,
+                      //         fontWeight: FontWeight.w600,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),

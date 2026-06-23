@@ -346,7 +346,7 @@ class SubjectProgressSummary {
   }
 }
 
-enum LearnChapterStatus { completed, inProgress, locked }
+enum LearnChapterStatus { notStarted, completed, inProgress, locked }
 
 class LearnChapterModel {
   final String id;
@@ -394,7 +394,9 @@ class LearnChapterModel {
         ? LearnChapterStatus.locked
         : isCompleted
         ? LearnChapterStatus.completed
-        : LearnChapterStatus.inProgress;
+        : topicStatus == LearnTopicStatus.inProgress
+        ? LearnChapterStatus.inProgress
+        : LearnChapterStatus.notStarted;
 
     return LearnChapterModel(
       id: _safeText(json['_id']),

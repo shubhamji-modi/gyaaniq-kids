@@ -76,6 +76,8 @@ class QuestionAnswerShowController extends GetxController {
   final RxInt elapsedSeconds = 0.obs;
   final RxBool isReviewMode = false.obs;
   final RxBool isSubmittingQuiz = false.obs;
+  final RxList<bool> visitedQuestions = <bool>[].obs;
+  final RxList<bool> markedQuestions = <bool>[].obs;
   final RxString quizTitle = 'Practice Quiz'.obs;
   final RxString subjectTitle = ''.obs;
   final RxString lessonTitle = ''.obs;
@@ -98,6 +100,9 @@ class QuestionAnswerShowController extends GetxController {
     super.onInit();
     questions = _demoQuestions;
     selectedAnswers.assignAll(List<int?>.filled(questions.length, null));
+    visitedQuestions.assignAll(List<bool>.filled(questions.length, false));
+    markedQuestions.assignAll(List<bool>.filled(questions.length, false));
+    _markVisited(0);
     isReviewMode.value = Get.arguments?['reviewMode'] == true;
   }
 
@@ -105,6 +110,8 @@ class QuestionAnswerShowController extends GetxController {
 
   int get answeredCount =>
       selectedAnswers.where((answer) => answer != null).length;
+
+  int get markedCount => markedQuestions.where((isMarked) => isMarked).length;
 
   bool get isQuizCompleted => answeredCount == totalQuestions;
 
@@ -129,6 +136,12 @@ class QuestionAnswerShowController extends GetxController {
   bool get hasPreviousQuestion => currentQuestionIndex.value > 0;
 
   bool get hasNextQuestion => currentQuestionIndex.value < totalQuestions - 1;
+
+  bool get currentQuestionHasAnswer =>
+      selectedAnswers[currentQuestionIndex.value] != null;
+
+  bool get isCurrentQuestionMarked =>
+      markedQuestions.isNotEmpty && markedQuestions[currentQuestionIndex.value];
 
   String get progressLabel => '${(answeredProgress * 100).round()}% Done';
 
@@ -175,6 +188,7 @@ class QuestionAnswerShowController extends GetxController {
       return;
     }
 
+    _markVisited(currentQuestionIndex.value);
     selectedAnswers[currentQuestionIndex.value] = optionIndex;
     selectedAnswers.refresh();
   }
@@ -183,18 +197,58 @@ class QuestionAnswerShowController extends GetxController {
     if (index < 0 || index >= totalQuestions) {
       return;
     }
+    _markVisited(index);
     currentQuestionIndex.value = index;
   }
 
   void nextQuestion() {
     if (hasNextQuestion) {
-      currentQuestionIndex.value++;
+      goToQuestion(currentQuestionIndex.value + 1);
     }
   }
 
   void previousQuestion() {
     if (hasPreviousQuestion) {
-      currentQuestionIndex.value--;
+      goToQuestion(currentQuestionIndex.value - 1);
+    }
+  }
+
+  void clearCurrentAnswer() {
+    if (isReviewMode.value || totalQuestions == 0) {
+      return;
+    }
+    _markVisited(currentQuestionIndex.value);
+    selectedAnswers[currentQuestionIndex.value] = null;
+    selectedAnswers.refresh();
+  }
+
+  void toggleMarkCurrentQuestion() {
+    if (isReviewMode.value || totalQuestions == 0) {
+      return;
+    }
+    _markVisited(currentQuestionIndex.value);
+    markedQuestions[currentQuestionIndex.value] =
+        !markedQuestions[currentQuestionIndex.value];
+    markedQuestions.refresh();
+  }
+
+  void skipCurrentQuestion() {
+    if (isReviewMode.value || totalQuestions == 0) {
+      return;
+    }
+    _markVisited(currentQuestionIndex.value);
+    if (hasNextQuestion) {
+      nextQuestion();
+    }
+  }
+
+  void saveAndNextQuestion() {
+    if (isReviewMode.value || totalQuestions == 0) {
+      return;
+    }
+    _markVisited(currentQuestionIndex.value);
+    if (hasNextQuestion) {
+      nextQuestion();
     }
   }
 
@@ -374,6 +428,20 @@ class QuestionAnswerShowController extends GetxController {
     elapsedSeconds.value = 0;
     isReviewMode.value = false;
     selectedAnswers.assignAll(List<int?>.filled(questions.length, null));
+    visitedQuestions.assignAll(List<bool>.filled(questions.length, false));
+    markedQuestions.assignAll(List<bool>.filled(questions.length, false));
+    _markVisited(0);
+  }
+
+  void _markVisited(int index) {
+    if (index < 0 || index >= visitedQuestions.length) {
+      return;
+    }
+    if (visitedQuestions[index]) {
+      return;
+    }
+    visitedQuestions[index] = true;
+    visitedQuestions.refresh();
   }
 }
 

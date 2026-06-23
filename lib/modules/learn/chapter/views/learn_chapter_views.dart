@@ -164,8 +164,14 @@ class _ChapterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = chapter.status == LearnChapterStatus.completed;
     final isInProgress = chapter.status == LearnChapterStatus.inProgress;
+    final isNotStarted = chapter.status == LearnChapterStatus.notStarted;
     final isLocked = chapter.status == LearnChapterStatus.locked;
-    final hasStarted = chapter.progress > 0 && !isCompleted;
+
+    const completedColor = Color(0xFF12B76A);
+    const inProgressColor = Color(0xFFF97316);
+    const inProgressBackground = Color(0xFFFFF3D6);
+    const notStartedColor = Color(0xFF8C8F9C);
+    const notStartedBackground = Color(0xFFF1F3F8);
 
     return InkWell(
       onTap: isLocked
@@ -187,9 +193,11 @@ class _ChapterCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: isInProgress
-                  ? const Color(0xFF4A4FD9)
-                  : const Color(0xFFC8C7F1),
+              color: isCompleted
+                  ? completedColor
+                  : isInProgress
+                  ? inProgressColor
+                  : const Color(0xFFD8DCE4),
               width: isInProgress ? 2.2 : 1,
             ),
             boxShadow: [
@@ -211,9 +219,11 @@ class _ChapterCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isLocked
                           ? const Color(0xFFF0F2F6)
-                          : (hasStarted
-                                ? const Color(0xFFDCD9FF)
-                                : const Color(0xFFFFE8C8)),
+                          : isCompleted
+                          ? const Color(0xFFE6F8EF)
+                          : isInProgress
+                          ? inProgressBackground
+                          : notStartedBackground,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -225,8 +235,10 @@ class _ChapterCard extends StatelessWidget {
                       color: isLocked
                           ? const Color(0xFFA1A4B3)
                           : (isCompleted
-                                ? const Color(0xFFA46A00)
-                                : const Color(0xFF4A4FD9)),
+                                ? completedColor
+                                : isInProgress
+                                ? inProgressColor
+                                : notStartedColor),
                       size: 22,
                     ),
                   ),
@@ -277,9 +289,9 @@ class _ChapterCard extends StatelessWidget {
                   backgroundColor: const Color(0xFFE5E8EF),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     isCompleted
-                        ? const Color(0xFFA46A00)
+                        ? completedColor
                         : (isInProgress
-                              ? const Color(0xFF4A4FD9)
+                              ? inProgressColor
                               : const Color(0xFFD8DCE4)),
                   ),
                 ),
@@ -303,7 +315,7 @@ class _ChapterCard extends StatelessWidget {
                     const Text(
                       'Review ->',
                       style: TextStyle(
-                        color: Color(0xFF4A4FD9),
+                        color: completedColor,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -315,7 +327,7 @@ class _ChapterCard extends StatelessWidget {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4A4FD9),
+                        color: inProgressColor,
                         borderRadius: BorderRadius.circular(22),
                       ),
                       child: const Text(
@@ -331,6 +343,11 @@ class _ChapterCard extends StatelessWidget {
                     const Icon(
                       Icons.lock_outline_rounded,
                       color: Color(0xFFBCBED0),
+                    ),
+                  if (isNotStarted)
+                    const Icon(
+                      Icons.radio_button_unchecked_rounded,
+                      color: notStartedColor,
                     ),
                 ],
               ),
@@ -351,27 +368,31 @@ class _ChapterBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = chapter.status == LearnChapterStatus.completed;
     final isInProgress = chapter.status == LearnChapterStatus.inProgress;
-    final hasStarted = chapter.progress > 0 && !isCompleted;
+
+    const completedColor = Color(0xFF12B76A);
+    const inProgressColor = Color(0xFFF97316);
+    const inProgressBackground = Color(0xFFFFF3D6);
+    const notStartedColor = Color(0xFF8C8F9C);
 
     final background = isCompleted
-        ? const Color(0xFFFFA61E)
-        : hasStarted
-        ? const Color(0xFF6368F2)
+        ? completedColor
+        : isInProgress
+        ? inProgressBackground
         : const Color(0xFFE7EAEE);
 
     final label = isCompleted
         ? 'Completed'
-        : hasStarted
-        ? 'In Progress'
         : isInProgress
-        ? 'Available'
+        ? 'In Progress'
+        : chapter.status == LearnChapterStatus.notStarted
+        ? 'Not Started'
         : 'Locked';
 
     final textColor = isCompleted
         ? Colors.white
-        : hasStarted
-        ? Colors.white
-        : const Color(0xFF7D8090);
+        : isInProgress
+        ? inProgressColor
+        : notStartedColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),

@@ -331,6 +331,11 @@ class _TopicCard extends StatelessWidget {
     final isInProgress = status == LearnTopicStatus.inProgress;
     final isLocked = status == LearnTopicStatus.locked;
 
+    const completedColor = Color(0xFF12B76A);
+    const inProgressColor = Color(0xFFF97316);
+    const inProgressBackground = Color(0xFFFFF3D6);
+    const notStartedColor = Color(0xFF8C8F9C);
+
     return InkWell(
       onTap: isLocked || isStarting ? null : onTap,
       borderRadius: BorderRadius.circular(24),
@@ -342,15 +347,17 @@ class _TopicCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isInProgress
-                  ? const Color(0xFF4A4FD9)
-                  : const Color(0xFFC8C7F1),
+              color: isCompleted
+                  ? completedColor
+                  : isInProgress
+                  ? inProgressColor
+                  : const Color(0xFFD8DCE4),
               width: isInProgress ? 2.2 : 1,
             ),
             boxShadow: isInProgress
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF4A4FD9).withValues(alpha: 0.12),
+                      color: inProgressColor.withValues(alpha: 0.12),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -367,9 +374,9 @@ class _TopicCard extends StatelessWidget {
                   color: isLocked
                       ? const Color(0xFFF0F2F6)
                       : isCompleted
-                      ? const Color(0xFFDCAEFF)
+                      ? const Color(0xFFE6F8EF)
                       : isInProgress
-                      ? const Color(0xFF6368F2)
+                      ? inProgressBackground
                       : const Color(0xFFF1F3F8),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -383,9 +390,11 @@ class _TopicCard extends StatelessWidget {
                       : Icons.menu_book_rounded,
                   color: isLocked
                       ? const Color(0xFFA5A8B5)
-                      : isCompleted || isInProgress
-                      ? Colors.white
-                      : const Color(0xFF8C8F9C),
+                      : isCompleted
+                      ? completedColor
+                      : isInProgress
+                      ? inProgressColor
+                      : notStartedColor,
                   size: 23,
                 ),
               ),
@@ -416,12 +425,12 @@ class _TopicCard extends StatelessWidget {
                           ),
                           style: TextStyle(
                             color: isStarting
-                                ? const Color(0xFF4A4FD9)
+                                ? inProgressColor
                                 : isCompleted
-                                ? const Color(0xFF7D31E2)
+                                ? completedColor
                                 : (isInProgress
-                                      ? const Color(0xFF4A4FD9)
-                                      : const Color(0xFF8C8F9C)),
+                                      ? inProgressColor
+                                      : notStartedColor),
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                           ),
@@ -468,8 +477,10 @@ class _TopicCard extends StatelessWidget {
                           isLocked
                               ? const Color(0xFFD9DDE5)
                               : (isInProgress
-                                    ? const Color(0xFF4A4FD9)
-                                    : const Color(0xFF7D31E2)),
+                                    ? inProgressColor
+                                    : isCompleted
+                                    ? completedColor
+                                    : const Color(0xFFD9DDE5)),
                         ),
                       ),
                     ),

@@ -14,7 +14,7 @@ class ApiService extends GetxService {
   late Dio _dio;
 
   ///BASE URL
-  // static String baseUrl = 'https://383a-49-36-27-72.ngrok-free.app/api/v1/';
+  // static String baseUrl = 'https://cb4f-2405-201-301c-203c-747a-d121-9934-34f4.ngrok-free.app/api/v1/';
   static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
 
   ///End points

@@ -58,6 +58,69 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _QuizActionButton(
+                                    label: 'Questions',
+                                    icon: Icons.apps_rounded,
+                                    onTap: () {
+                                      Get.bottomSheet<void>(
+                                        _QuestionNavigatorSheet(
+                                          controller: controller,
+                                        ),
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        barrierColor: Colors.black.withValues(
+                                          alpha: 0.55,
+                                        ),
+                                      );
+                                    },
+                                    foregroundColor: const Color(0xFF0865B7),
+                                    backgroundColor: const Color(0xFFE9F4FF),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _QuizActionButton(
+                                    label: controller.isSubmittingQuiz.value
+                                        ? 'Submitting...'
+                                        : 'Submit',
+                                    icon: Icons.check_circle_outline_rounded,
+                                    onTap:
+                                        controller.totalQuestions > 0 &&
+                                            !controller.isReviewMode.value &&
+                                            !controller.isSubmittingQuiz.value
+                                        ? () async {
+                                            final shouldSubmit =
+                                                await Get.dialog<bool>(
+                                                  _SubmitQuizDialog(
+                                                    totalQuestions: controller
+                                                        .totalQuestions,
+                                                    attemptedQuestions:
+                                                        controller
+                                                            .answeredCount,
+                                                  ),
+                                                  barrierDismissible: true,
+                                                );
+
+                                            if (shouldSubmit == true) {
+                                              await controller.submitQuiz();
+                                            }
+                                          }
+                                        : null,
+                                    foregroundColor: Colors.white,
+                                    backgroundColor: const Color(0xFF0865B7),
+                                    disabledBackgroundColor: const Color(
+                                      0xFFC9CCDE,
+                                    ),
+                                    showLoader:
+                                        controller.isSubmittingQuiz.value,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
                             const Text(
                               'Quiz Progress',
                               style: TextStyle(
@@ -616,7 +679,7 @@ class _BottomActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 22),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFE4E7F0))),
@@ -624,72 +687,521 @@ class _BottomActionBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Obx(
-          () => Row(
+          () => Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _CircleNavButton(
-                icon: Icons.chevron_left_rounded,
-                onTap: controller.hasPreviousQuestion
-                    ? controller.previousQuestion
-                    : null,
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: SizedBox(
-                  height: 40,
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        controller.totalQuestions > 0 &&
-                            !controller.isReviewMode.value &&
-                            !controller.isSubmittingQuiz.value
-                        ? controller.submitQuiz
-                        : null,
-                    icon: controller.isSubmittingQuiz.value
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.check_circle_outline_rounded,
-                            size: 20,
-                          ),
-                    label: Text(
-                      controller.isReviewMode.value
-                          ? 'Answers Reviewed'
-                          : (controller.isSubmittingQuiz.value
-                                ? 'Submitting...'
-                                : 'Finish Quiz'),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4D4FE1),
-                      disabledBackgroundColor: const Color(0xFFC9CCDE),
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(32),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _QuizActionButton(
+                      label: 'Clear',
+                      icon: Icons.delete_outline_rounded,
+                      onTap:
+                          controller.currentQuestionHasAnswer &&
+                              !controller.isReviewMode.value
+                          ? controller.clearCurrentAnswer
+                          : null,
+                      foregroundColor: const Color(0xFF697181),
+                      backgroundColor: const Color(0xFFE8ECF2),
+                      disabledBackgroundColor: const Color(0xFFE8ECF2),
+                      disabledForegroundColor: const Color(0xFF9AA1AD),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _QuizActionButton(
+                      label: controller.isCurrentQuestionMarked
+                          ? 'Marked'
+                          : 'Mark',
+                      icon: controller.isCurrentQuestionMarked
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      onTap: controller.isReviewMode.value
+                          ? null
+                          : controller.toggleMarkCurrentQuestion,
+                      foregroundColor: const Color(0xFFC45A12),
+                      backgroundColor: Colors.white,
+                      borderColor: const Color(0xFFF0C8B5),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 18),
-              _CircleNavButton(
-                icon: Icons.chevron_right_rounded,
-                onTap: controller.hasNextQuestion
-                    ? controller.nextQuestion
-                    : null,
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _QuizActionButton(
+                      label: 'Skip',
+                      icon: Icons.keyboard_double_arrow_right_rounded,
+                      onTap:
+                          controller.hasNextQuestion &&
+                              !controller.isReviewMode.value
+                          ? controller.skipCurrentQuestion
+                          : null,
+                      foregroundColor: const Color(0xFF697181),
+                      backgroundColor: const Color(0xFFE8ECF2),
+                      disabledBackgroundColor: const Color(0xFFE8ECF2),
+                      disabledForegroundColor: const Color(0xFF9AA1AD),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _QuizActionButton(
+                      label: controller.hasNextQuestion
+                          ? 'Save & Next'
+                          : 'Save',
+                      icon: controller.hasNextQuestion
+                          ? Icons.arrow_forward_rounded
+                          : Icons.done_rounded,
+                      iconAfterLabel: true,
+                      onTap: controller.isReviewMode.value
+                          ? null
+                          : controller.saveAndNextQuestion,
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF0865B7),
+                      disabledBackgroundColor: const Color(0xFFC9CCDE),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _QuizActionButton extends StatelessWidget {
+  const _QuizActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    this.disabledForegroundColor,
+    this.disabledBackgroundColor,
+    this.borderColor,
+    this.iconAfterLabel = false,
+    this.showLoader = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final Color foregroundColor;
+  final Color backgroundColor;
+  final Color? disabledForegroundColor;
+  final Color? disabledBackgroundColor;
+  final Color? borderColor;
+  final bool iconAfterLabel;
+  final bool showLoader;
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onTap != null;
+    final effectiveForeground = isEnabled
+        ? foregroundColor
+        : (disabledForegroundColor ?? Colors.white);
+    final effectiveBackground = isEnabled
+        ? backgroundColor
+        : (disabledBackgroundColor ?? const Color(0xFFC9CCDE));
+
+    final iconWidget = showLoader
+        ? SizedBox(
+            width: 12,
+            height: 5,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: effectiveForeground,
+            ),
+          )
+        : Icon(icon, size: 15, color: effectiveForeground);
+
+    final labelWidget = Flexible(
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: effectiveForeground,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
+      ),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(30),
+        child: Container(
+          height: 35,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: effectiveBackground,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: isEnabled
+                  ? (borderColor ?? effectiveBackground)
+                  : Colors.transparent,
+              width: borderColor == null ? 1 : 1.6,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: iconAfterLabel
+                ? [labelWidget, const SizedBox(width: 10), iconWidget]
+                : [iconWidget, const SizedBox(width: 10), labelWidget],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuestionNavigatorSheet extends StatelessWidget {
+  const _QuestionNavigatorSheet({required this.controller});
+
+  final QuestionAnswerShowController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+        ),
+        child: Obx(
+          () => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE1E4EA),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Question Navigator',
+                style: TextStyle(
+                  color: Color(0xFF1D2433),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: List.generate(controller.totalQuestions, (index) {
+                  final isCurrent =
+                      index == controller.currentQuestionIndex.value;
+                  final isAnswered = controller.selectedAnswers[index] != null;
+                  final isMarked = controller.markedQuestions[index];
+                  final isVisited = controller.visitedQuestions[index];
+
+                  return _QuestionNumberButton(
+                    number: index + 1,
+                    isCurrent: isCurrent,
+                    isAnswered: isAnswered,
+                    isMarked: isMarked,
+                    isVisited: isVisited,
+                    onTap: () {
+                      controller.goToQuestion(index);
+                      Get.back<void>();
+                    },
+                  );
+                }),
+              ),
+              const SizedBox(height: 28),
+              const Wrap(
+                spacing: 22,
+                runSpacing: 12,
+                children: [
+                  _NavigatorLegendDot(
+                    label: 'Answered',
+                    color: Color(0xFF0B8A3A),
+                  ),
+                  _NavigatorLegendDot(
+                    label: 'Not Visited',
+                    color: Color(0xFFE9EDF3),
+                  ),
+                  _NavigatorLegendDot(
+                    label: 'Marked',
+                    color: Color(0xFFC45A12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuestionNumberButton extends StatelessWidget {
+  const _QuestionNumberButton({
+    required this.number,
+    required this.isCurrent,
+    required this.isAnswered,
+    required this.isMarked,
+    required this.isVisited,
+    required this.onTap,
+  });
+
+  final int number;
+  final bool isCurrent;
+  final bool isAnswered;
+  final bool isMarked;
+  final bool isVisited;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = isCurrent
+        ? const Color(0xFF0865B7)
+        : isMarked
+        ? const Color(0xFFC45A12)
+        : isAnswered
+        ? const Color(0xFF0B8A3A)
+        : const Color(0xFFE9EDF3);
+    final textColor = isCurrent || isMarked || isAnswered
+        ? Colors.white
+        : const Color(0xFF667085);
+
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 45,
+        height: 45,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isVisited || isCurrent
+                ? backgroundColor
+                : const Color(0xFFE1E5EC),
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          '$number',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavigatorLegendDot extends StatelessWidget {
+  const _NavigatorLegendDot({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF697181),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubmitQuizDialog extends StatelessWidget {
+  const _SubmitQuizDialog({
+    required this.totalQuestions,
+    required this.attemptedQuestions,
+  });
+
+  final int totalQuestions;
+  final int attemptedQuestions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 430),
+        padding: const EdgeInsets.fromLTRB(26, 28, 26, 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 32,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Submit Quiz?',
+              style: TextStyle(
+                color: Color(0xFF111421),
+                fontSize: 25,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 22),
+            const Text(
+              'Are you sure you want to submit your quiz? You cannot change your answers after submission.',
+              style: TextStyle(
+                color: Color(0xFF777D8D),
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _SubmitQuizStatCard(
+                    label: 'Total Questions',
+                    value: '$totalQuestions',
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _SubmitQuizStatCard(
+                    label: 'Attempted',
+                    value: '$attemptedQuestions',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 26),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Get.back(result: false),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFA4A4A4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 16),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () => Get.back(result: true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1F73D1),
+                      foregroundColor: Colors.white,
+                      elevation: 4,
+                      shadowColor: const Color(
+                        0xFF1F73D1,
+                      ).withValues(alpha: 0.28),
+                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    child: const Text('Submit'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubmitQuizStatCard extends StatelessWidget {
+  const _SubmitQuizStatCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 17, 18, 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1E4EA), width: 1.4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF717787),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF0865B7),
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
