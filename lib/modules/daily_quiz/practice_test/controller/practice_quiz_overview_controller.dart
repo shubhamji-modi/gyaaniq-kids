@@ -9,10 +9,12 @@ class PracticeQuizOverviewController extends GetxController {
   PracticeQuizOverviewController({
     required this.subject,
     required this.chapter,
+    this.returnToLessonOnResultBack = false,
   });
 
   final LearnSubjectModel subject;
   final LearnChapterModel chapter;
+  final bool returnToLessonOnResultBack;
 
   final RxBool isLoading = true.obs;
   final RxBool isStartingQuiz = false.obs;
@@ -63,13 +65,13 @@ class PracticeQuizOverviewController extends GetxController {
 
     quizzes.assignAll(
       quizzesJson.map(
-        (item) => PracticeQuizSummary.fromApi(
-          item as Map<String, dynamic>,
-        ),
+        (item) => PracticeQuizSummary.fromApi(item as Map<String, dynamic>),
       ),
     );
 
-    errorMessage.value = quizzes.isEmpty ? 'No quizzes available right now.' : '';
+    errorMessage.value = quizzes.isEmpty
+        ? 'No quizzes available right now.'
+        : '';
     isLoading.value = false;
   }
 
@@ -127,6 +129,7 @@ class PracticeQuizOverviewController extends GetxController {
       lessonTitle: chapter.title,
       questions: questionList,
       timeLimitMinutes: (quizJson['timeLimitMinutes'] as num?)?.toInt() ?? 0,
+      returnToLessonOnResultBack: returnToLessonOnResultBack,
     );
 
     Get.to(() => const QuestionAnswerShowViews());

@@ -40,9 +40,18 @@ class _LearnNotesViewsState extends State<LearnNotesViews> {
       _isLoading = false;
       if (response.success) {
         _notes = response.data ?? const [];
+        debugPrint('NOTES UI DEBUG loaded notes=${_notes.length}');
+        for (final note in _notes) {
+          debugPrint(
+            'NOTES UI DEBUG card id=${note.id} title=${note.title} '
+            'subject=${note.subject} lesson=${note.lessonTitle} '
+            'description=${note.description}',
+          );
+        }
       } else {
         _notes = const [];
         _error = response.message;
+        debugPrint('NOTES UI DEBUG error=$_error');
       }
     });
   }

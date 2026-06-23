@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
+import '../../../../core/service/app_route_observer.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/theme/appcolors.dart';
 
@@ -12,9 +13,13 @@ import '../../menubar/edit profile/views/edit_profile_views.dart';
 import '../../daily_quiz/views/start_quiz_views.dart';
 import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../daily_quiz/result/preview_result/views/preview_result_views.dart';
+import '../../daily_quiz/practice_test/Views/practice_quiz_overview.dart';
 import '../../daily_quiz/practice_test/Views/quiz_practice_paper_subject_views.dart';
+import '../../daily_quiz/practice_test/Views/quiz_practice_paper_topic_views.dart';
 import '../../explore_classes/views/explore_classes_views.dart';
+import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
+import 'performance_dna_views.dart';
 
 class DashboardTabbarViewsScreen extends StatefulWidget {
   const DashboardTabbarViewsScreen({super.key});
@@ -24,10 +29,11 @@ class DashboardTabbarViewsScreen extends StatefulWidget {
       _DashboardTabbarViewsScreenState();
 }
 
-class _DashboardTabbarViewsScreenState
-    extends State<DashboardTabbarViewsScreen> {
+class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
+    with RouteAware {
   bool _isFetchingProfile = false;
   bool _hasHandledLaunchArgs = false;
+  bool _isRouteObserverSubscribed = false;
   late final Worker _refreshWorker;
 
   @override
@@ -45,14 +51,49 @@ class _DashboardTabbarViewsScreenState
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleLaunchArgs();
+      _reloadHomeTabApis();
       _fetchProfile();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isRouteObserverSubscribed) {
+      return;
+    }
+
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+      _isRouteObserverSubscribed = true;
+    }
+  }
+
+  @override
   void dispose() {
+    if (_isRouteObserverSubscribed) {
+      appRouteObserver.unsubscribe(this);
+    }
     _refreshWorker.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _reloadHomeTabApis();
+    _fetchProfile();
+  }
+
+  void _reloadHomeTabApis() {
+    if (!mounted) {
+      return;
+    }
+
+    final controller = Get.put(DashboardTabbarController());
+    if (controller.currentTabIndex.value == 0) {
+      controller.reloadHomeTabData();
+    }
   }
 
   void _handleLaunchArgs() {
@@ -139,7 +180,7 @@ class _DashboardTabbarViewsScreenState
             _HomeTab(),
             _LearnTab(),
             _QuizTab(),
-            _LiveTab(),
+            Offstage(offstage: true, child: _LiveTab()),
             _ProfileTab(),
           ],
         ),
@@ -151,6 +192,8 @@ class _DashboardTabbarViewsScreenState
 
 class _BottomNavBar extends GetView<DashboardTabbarController> {
   const _BottomNavBar();
+
+  static const List<int> _visibleTabIndexes = [0, 1, 2, 4];
 
   @override
   Widget build(BuildContext context) {
@@ -172,13 +215,14 @@ class _BottomNavBar extends GetView<DashboardTabbarController> {
         ),
         child: Obx(
           () => Row(
-            children: List.generate(controller.navItems.length, (index) {
-              final item = controller.navItems[index];
-              final isSelected = controller.currentTabIndex.value == index;
+            children: List.generate(_visibleTabIndexes.length, (index) {
+              final tabIndex = _visibleTabIndexes[index];
+              final item = controller.navItems[tabIndex];
+              final isSelected = controller.currentTabIndex.value == tabIndex;
 
               return Expanded(
                 child: InkWell(
-                  onTap: () => controller.changeTab(index),
+                  onTap: () => controller.changeTab(tabIndex),
                   borderRadius: BorderRadius.circular(24),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
@@ -469,14 +513,7 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(height: 18),
             const _LeaderboardStripCard(),
             const SizedBox(height: 18),
-            const Text(
-              'Improvement Area',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            const _WeakAreasSection(),
             // const _HomeLiveClassesSection(),
             // const SizedBox(height: 18),
             // const _SpokenEnglishCard(),
@@ -832,7 +869,7 @@ class _DailyQuizMiniCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
-                  'BONUS +50 XP',
+                  'BONUS +10 XP',
                   style: TextStyle(
                     color: AppColors.textBlueDark,
                     fontSize: 10,
@@ -1059,6 +1096,362 @@ class _LeaderboardStripCard extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+class _WeakAreasSection extends GetView<DashboardTabbarController> {
+  const _WeakAreasSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final summary = controller.weakAreasSummary.value;
+      final subjects = summary.subjects.take(4).toList();
+
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: _cardDecoration().copyWith(
+          color: const Color(0xFFF8FAFF),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.cardShadow.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Improvement Areas',
+                    style: TextStyle(
+                      color: AppColors.textPrimaryNavy,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE1EEFF),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Text(
+                    '${summary.subjects.length}',
+                    style: const TextStyle(
+                      color: Color(0xFF1671D9),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                InkWell(
+                  onTap: () => Get.to(() => const PerformanceDnaViews()),
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    child: Text(
+                      'See All',
+                      style: TextStyle(
+                        color: Color(0xFF1671D9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (controller.isLoadingWeakAreas.value)
+              const SizedBox(
+                height: 150,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (controller.weakAreasError.value.isNotEmpty)
+              _DashboardInlineState(
+                message: controller.weakAreasError.value,
+                onRetry: controller.loadWeakAreas,
+              )
+            else if (summary.subjects.isEmpty)
+              _WeakAreasEmptyState(hasAttempts: summary.hasAttempts)
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: subjects.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 150,
+                ),
+                itemBuilder: (context, index) {
+                  return _WeakAreaTile(
+                    subject: subjects[index],
+                    isHighlighted: index < 2,
+                  );
+                },
+              ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _WeakAreasEmptyState extends StatelessWidget {
+  const _WeakAreasEmptyState({required this.hasAttempts});
+
+  final bool hasAttempts;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4EAF6)),
+      ),
+      child: Text(
+        hasAttempts
+            ? 'Great job, no weak areas right now!'
+            : 'Start attempting quizzes to find what you should practice.',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.textMuted6,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          height: 1.45,
+        ),
+      ),
+    );
+  }
+}
+
+class _WeakAreaTile extends StatelessWidget {
+  const _WeakAreaTile({required this.subject, required this.isHighlighted});
+
+  final WeakAreaSubjectData subject;
+  final bool isHighlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _weakAreaAccent(subject.name);
+
+    return InkWell(
+      onTap: _openLessonOverview,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isHighlighted
+                ? const Color(0xFFD7E6FA)
+                : AppColors.transparent,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.cardShadow.withValues(alpha: 0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.menu_book_rounded, color: accent, size: 12),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: accent.withValues(alpha: 0.70),
+                  size: 18,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              subject.primaryLessonTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textPrimaryNavy,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subject.primaryLessonMeta,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textMuted6,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'Tap to practice',
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subject.skipped > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF2E0),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '+${subject.skipped} skipped',
+                      style: const TextStyle(
+                        color: Color(0xFFB25E09),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLessonOverview() async {
+    final dashboardController = Get.find<DashboardTabbarController>();
+    final targetLessonId = subject.lessons.isEmpty
+        ? ''
+        : subject.lessons.first.id;
+    final learnSubject =
+        _findLearnSubject(dashboardController, subject.id) ??
+        await _fetchLearnSubject(subject.id);
+
+    if (learnSubject == null) {
+      Get.snackbar(
+        'Lesson overview',
+        'Unable to find this subject right now.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFB42318),
+        colorText: AppColors.white,
+        margin: const EdgeInsets.all(14),
+      );
+      return;
+    }
+
+    final response = await LearnCatalogData.getUserLessons(
+      subject: learnSubject,
+    );
+
+    if (!response.success) {
+      Get.snackbar(
+        'Lesson overview',
+        response.message,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFB42318),
+        colorText: AppColors.white,
+        margin: const EdgeInsets.all(14),
+      );
+      return;
+    }
+
+    final chapters = response.data ?? const <LearnChapterModel>[];
+    final targetChapter = _findChapterForLesson(chapters, targetLessonId);
+    if (targetChapter == null) {
+      Get.to(() => QuizPracticePaperTopicViews(subject: learnSubject));
+      return;
+    }
+
+    Get.to(
+      () => PracticeQuizOverviewViews(
+        subject: learnSubject,
+        chapter: targetChapter,
+      ),
+    );
+  }
+
+  LearnSubjectModel? _findLearnSubject(
+    DashboardTabbarController controller,
+    String subjectId,
+  ) {
+    for (final subjectCard in controller.learnSubjects) {
+      if (subjectCard.learnSubject.id == subjectId) {
+        return subjectCard.learnSubject;
+      }
+    }
+    return null;
+  }
+
+  Future<LearnSubjectModel?> _fetchLearnSubject(String subjectId) async {
+    final response = await LearnCatalogData.getUserSubjects();
+    final subjects = response.data ?? const <LearnSubjectModel>[];
+    for (final subject in subjects) {
+      if (subject.id == subjectId) {
+        return subject;
+      }
+    }
+    return null;
+  }
+
+  LearnChapterModel? _findChapterForLesson(
+    List<LearnChapterModel> chapters,
+    String lessonId,
+  ) {
+    if (chapters.isEmpty) {
+      return null;
+    }
+    if (lessonId.isEmpty) {
+      return chapters.first;
+    }
+    for (final chapter in chapters) {
+      for (final topic in chapter.topics) {
+        if (topic.lesson.id == lessonId) {
+          return chapter;
+        }
+      }
+    }
+    return null;
   }
 }
 
@@ -3210,4 +3603,21 @@ BoxDecoration _cardDecoration({double borderRadius = 26}) {
       ),
     ],
   );
+}
+
+Color _weakAreaAccent(String subjectName) {
+  final name = subjectName.toLowerCase();
+  if (name.contains('math')) {
+    return const Color(0xFF1671D9);
+  }
+  if (name.contains('physics') || name.contains('science')) {
+    return const Color(0xFFE45656);
+  }
+  if (name.contains('computer')) {
+    return const Color(0xFF4A4FD9);
+  }
+  if (name.contains('english')) {
+    return const Color(0xFF19945F);
+  }
+  return const Color(0xFF1671D9);
 }

@@ -10,6 +10,12 @@ class PreviewResultController extends GetxController {
   final RxInt selectedTypeIndex = 0.obs;
   final RxInt selectedTabIndex = 0.obs;
   final RxList<QuizSubmitResultItem> results = <QuizSubmitResultItem>[].obs;
+  final RxMap<String, QuizExplanationData> explanationByQuestionId =
+      <String, QuizExplanationData>{}.obs;
+  final RxMap<String, bool> explanationLoadingByQuestionId =
+      <String, bool>{}.obs;
+  final RxMap<String, String> explanationErrorByQuestionId =
+      <String, String>{}.obs;
 
   int _page = 1;
   int _totalPages = 1;
@@ -113,9 +119,70 @@ class PreviewResultController extends GetxController {
   ) {
     return QuizSubmitResultRepository.fetchFeedback(item);
   }
+
+  Future<void> fetchExplanation(
+    ResultHistoryType type,
+    QuizAttemptAnswerFeedback answer,
+  ) async {
+    if (answer.questionId.isEmpty) {
+      return;
+    }
+
+    if (explanationByQuestionId.containsKey(answer.questionId) ||
+        explanationLoadingByQuestionId[answer.questionId] == true) {
+      return;
+    }
+
+    explanationErrorByQuestionId.remove(answer.questionId);
+    explanationLoadingByQuestionId[answer.questionId] = true;
+
+    final endpoint = ApiService.GET_QUESTION_EXPLANATION
+        .replaceFirst(':type', type.explanationApiType)
+        .replaceFirst(':questionId', answer.questionId);
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: endpoint,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    explanationLoadingByQuestionId.remove(answer.questionId);
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      explanationErrorByQuestionId[answer.questionId] = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      explanationErrorByQuestionId[answer.questionId] =
+          body['message']?.toString() ?? 'Unable to load explanation.';
+      return;
+    }
+
+    final explanation = QuizExplanationData.fromApi(data);
+    if (explanation.explanation.isEmpty) {
+      explanationErrorByQuestionId[answer.questionId] =
+          'Explanation is not available for this question.';
+      return;
+    }
+
+    explanationByQuestionId[answer.questionId] = explanation;
+  }
 }
 
 enum ResultHistoryType { daily, practice, mock }
+
+extension ResultHistoryTypeExplanation on ResultHistoryType {
+  String get explanationApiType {
+    return switch (this) {
+      ResultHistoryType.daily => 'dailyQuiz',
+      ResultHistoryType.practice => 'quiz',
+      ResultHistoryType.mock => 'mockTest',
+    };
+  }
+}
 
 class ResultTypeTab {
   const ResultTypeTab({required this.label, required this.type});
@@ -574,6 +641,32 @@ class QuizAttemptAnswerFeedback {
       return '';
     }
     return options[index];
+  }
+}
+
+class QuizExplanationData {
+  const QuizExplanationData({
+    required this.questionId,
+    required this.explanation,
+    required this.source,
+    required this.model,
+    required this.fromCache,
+  });
+
+  final String questionId;
+  final String explanation;
+  final String source;
+  final String model;
+  final bool fromCache;
+
+  factory QuizExplanationData.fromApi(Map<String, dynamic> json) {
+    return QuizExplanationData(
+      questionId: _safeText(json['questionId']),
+      explanation: _safeText(json['explanation']),
+      source: _safeText(json['source']),
+      model: _safeText(json['model']),
+      fromCache: json['fromCache'] == true,
+    );
   }
 }
 

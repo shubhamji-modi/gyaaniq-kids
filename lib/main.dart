@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'core/service/api_service.dart';
+import 'core/service/app_route_observer.dart';
 import 'core/service/session_manager.dart';
 import 'modules/auth/views/create_account_screen.dart';
 import 'modules/auth/views/forgot_password_views.dart';
@@ -39,6 +40,7 @@ class EduPathApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'EduPath',
       initialRoute: AppRoutes.splash,
+      navigatorObservers: [appRouteObserver],
       getPages: [
         GetPage(name: AppRoutes.splash, page: () => const SplashView()),
         GetPage(name: AppRoutes.login, page: () => const LoginScreen()),

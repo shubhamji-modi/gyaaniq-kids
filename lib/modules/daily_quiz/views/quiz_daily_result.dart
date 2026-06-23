@@ -12,262 +12,273 @@ class QuizDailyResult extends StatelessWidget {
       tag: 'daily_quiz_result',
     );
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const _ResultTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Quiz Completed!',
-                      style: TextStyle(
-                        color: Color(0xFF4950DB),
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          controller.backToSubjects();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF7F8FC),
+        body: SafeArea(
+          child: Column(
+            children: [
+              const _ResultTopBar(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Quiz Completed!',
+                        style: TextStyle(
+                          color: Color(0xFF4950DB),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      controller.resultSubtitle,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF505165),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
+                      const SizedBox(height: 10),
+                      Text(
+                        controller.resultSubtitle,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF505165),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 1.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                      decoration: _cardDecoration(),
-                      child: Column(
-                        children: [
-                          Text(
-                            controller.scoreLabel,
-                            style: const TextStyle(
-                              color: Color(0xFF484B60),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          RichText(
-                            text: TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: '${controller.score}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF4D4FE1),
-                                    fontSize: 50,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: '/${controller.maxScore}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF6B6E82),
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 15),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(99),
-                            child: LinearProgressIndicator(
-                              value: controller.accuracy,
-                              minHeight: 8,
-                              backgroundColor: const Color(0xFFE2E5EC),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Color(0xFF4D4FE1),
+                      const SizedBox(height: 28),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                        decoration: _cardDecoration(),
+                        child: Column(
+                          children: [
+                            Text(
+                              controller.scoreLabel,
+                              style: const TextStyle(
+                                color: Color(0xFF484B60),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.8,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            icon: Icons.gps_fixed_rounded,
-                            iconBackground: const Color(0xFFF1D9FF),
-                            iconColor: const Color(0xFF8B36D9),
-                            title: controller.accuracyText,
-                            subtitle: controller.accuracyLabel,
-                          ),
-                        ),
-                        const SizedBox(width: 18),
-                        Expanded(
-                          child: _StatCard(
-                            icon: Icons.timer_outlined,
-                            iconBackground: controller.passed
-                                ? const Color(0xFFE0F7E8)
-                                : const Color(0xFFFFDBAB),
-                            iconColor: controller.passed
-                                ? const Color(0xFF1E9E57)
-                                : const Color(0xFF9C6200),
-                            title: controller.passStatusLabel,
-                            subtitle: 'Result',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _AttemptMetaCard(
-                      attemptId: controller.attemptId,
-                      timeTaken: controller.formattedElapsedTime,
-                      totalQuestions: controller.totalQuestions,
-                    ),
-                    const SizedBox(height: 22),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: _cardDecoration(
-                        borderColor: const Color(0xFFD9D8FF),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 45,
-                            height: 45,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF5D63F0),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF5D63F0,
-                                  ).withValues(alpha: 0.26),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.bolt_rounded,
-                              color: Colors.white,
-                              size: 25,
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Level Up!',
-                                  style: TextStyle(
-                                    color: Color(0xFF202436),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Obx(
-                                  () => Text(
-                                    controller.isLoadingXp.value
-                                        ? 'Calculating XP...'
-                                        : '+${controller.xpEarned} XP Gained',
+                            const SizedBox(height: 10),
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '${controller.score}',
                                     style: const TextStyle(
-                                      color: Color(0xFF505165),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF4D4FE1),
+                                      fontSize: 50,
+                                      fontWeight: FontWeight.w400,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Obx(
-                            () => Text(
-                              controller.isLoadingXp.value
-                                  ? '...'
-                                  : '${controller.xpEarned} XP',
-                              style: const TextStyle(
-                                color: Color(0xFF4D4FE1),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
+                                  TextSpan(
+                                    text: '/${controller.maxScore}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF6B6E82),
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: controller.reviewAnswers,
-                        icon: const Icon(
-                          Icons.assignment_turned_in_outlined,
-                          size: 22,
-                        ),
-                        label: Text('Review Answers'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4D4FE1),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(32),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
+                            const SizedBox(height: 15),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(99),
+                              child: LinearProgressIndicator(
+                                value: controller.accuracy,
+                                minHeight: 8,
+                                backgroundColor: const Color(0xFFE2E5EC),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF4D4FE1),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    if (controller.canTryAgain)
+                      const SizedBox(height: 22),
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: controller.tryAgain,
-                              icon: const Icon(Icons.refresh_rounded, size: 22),
-                              label: const Text('Try Again'),
-                              style: _secondaryButtonStyle(),
+                            child: _StatCard(
+                              icon: Icons.gps_fixed_rounded,
+                              iconBackground: const Color(0xFFF1D9FF),
+                              iconColor: const Color(0xFF8B36D9),
+                              title: controller.accuracyText,
+                              subtitle: controller.accuracyLabel,
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 18),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: controller.goHome,
-                              icon: const Icon(Icons.home_outlined, size: 28),
-                              label: const Text('Home'),
-                              style: _secondaryButtonStyle(),
+                            child: _StatCard(
+                              icon: Icons.timer_outlined,
+                              iconBackground: controller.passed
+                                  ? const Color(0xFFE0F7E8)
+                                  : const Color(0xFFFFDBAB),
+                              iconColor: controller.passed
+                                  ? const Color(0xFF1E9E57)
+                                  : const Color(0xFF9C6200),
+                              title: controller.passStatusLabel,
+                              subtitle: 'Result',
                             ),
                           ),
                         ],
-                      )
-                    else
-                      SizedBox(
+                      ),
+                      const SizedBox(height: 16),
+                      _AttemptMetaCard(
+                        attemptId: controller.attemptId,
+                        timeTaken: controller.formattedElapsedTime,
+                        totalQuestions: controller.totalQuestions,
+                      ),
+                      const SizedBox(height: 22),
+                      Container(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: controller.goHome,
-                          icon: const Icon(Icons.home_outlined, size: 28),
-                          label: const Text('Home'),
-                          style: _secondaryButtonStyle(),
+                        padding: const EdgeInsets.all(20),
+                        decoration: _cardDecoration(
+                          borderColor: const Color(0xFFD9D8FF),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 45,
+                              height: 45,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF5D63F0),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF5D63F0,
+                                    ).withValues(alpha: 0.26),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.bolt_rounded,
+                                color: Colors.white,
+                                size: 25,
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Level Up!',
+                                    style: TextStyle(
+                                      color: Color(0xFF202436),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Obx(
+                                    () => Text(
+                                      controller.isLoadingXp.value
+                                          ? 'Calculating XP...'
+                                          : '+${controller.xpEarned} XP Gained',
+                                      style: const TextStyle(
+                                        color: Color(0xFF505165),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Obx(
+                              () => Text(
+                                controller.isLoadingXp.value
+                                    ? '...'
+                                    : '${controller.xpEarned} XP',
+                                style: const TextStyle(
+                                  color: Color(0xFF4D4FE1),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 15),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: controller.reviewAnswers,
+                          icon: const Icon(
+                            Icons.assignment_turned_in_outlined,
+                            size: 22,
+                          ),
+                          label: Text('Review Answers'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4D4FE1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      if (controller.canTryAgain)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: controller.tryAgain,
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 22,
+                                ),
+                                label: const Text('Try Again'),
+                                style: _secondaryButtonStyle(),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: controller.goHome,
+                                icon: const Icon(Icons.home_outlined, size: 28),
+                                label: const Text('Home'),
+                                style: _secondaryButtonStyle(),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: controller.goHome,
+                            icon: const Icon(Icons.home_outlined, size: 28),
+                            label: const Text('Home'),
+                            style: _secondaryButtonStyle(),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -421,14 +432,14 @@ class _StatCard extends StatelessWidget {
               color: iconBackground,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: iconColor, size: 25),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
           const SizedBox(height: 10),
           Text(
             title,
             style: const TextStyle(
               color: Color(0xFF202436),
-              fontSize: 18,
+              fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
           ),

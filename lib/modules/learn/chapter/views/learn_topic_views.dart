@@ -103,6 +103,19 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
       return;
     }
 
+    final currentStatus = _resolvedStatus(topic);
+    if (currentStatus == LearnTopicStatus.completed) {
+      await Get.to<bool>(
+        () => LearnLessonPlayerViews(
+          subject: widget.subject,
+          chapter: widget.chapter,
+          topic: topic,
+          isCompleted: true,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _startingLessonId = topic.lesson.id;
     });
@@ -141,7 +154,18 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
       );
     });
 
-    Get.to(() => LearnLessonPlayerViews(topic: topic));
+    final shouldReload = await Get.to<bool>(
+      () => LearnLessonPlayerViews(
+        subject: widget.subject,
+        chapter: widget.chapter,
+        topic: topic,
+        isCompleted: currentStatus == LearnTopicStatus.completed,
+      ),
+    );
+
+    if (shouldReload == true && mounted) {
+      await _loadTopicProgress();
+    }
   }
 
   @override

@@ -11,14 +11,23 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/service/offline_download_service.dart';
+import '../../../daily_quiz/practice_test/Views/practice_quiz_overview.dart';
 import '../controller/learn_chapter_controller.dart';
-import '../../../dashboard_vc/views/dashboard_tabbar_views_screen.dart';
 import 'learn_subject_views.dart';
 
 class LearnLessonPlayerViews extends StatefulWidget {
-  const LearnLessonPlayerViews({super.key, required this.topic});
+  const LearnLessonPlayerViews({
+    super.key,
+    required this.subject,
+    required this.chapter,
+    required this.topic,
+    required this.isCompleted,
+  });
 
+  final LearnSubjectModel subject;
+  final LearnChapterModel chapter;
   final LearnTopicModel topic;
+  final bool isCompleted;
 
   @override
   State<LearnLessonPlayerViews> createState() => _LearnLessonPlayerViewsState();
@@ -27,6 +36,13 @@ class LearnLessonPlayerViews extends StatefulWidget {
 class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
   bool _showVideo = true;
   bool _isMarkingComplete = false;
+  late bool _isCompleted;
+
+  @override
+  void initState() {
+    super.initState();
+    _isCompleted = widget.isCompleted;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,36 +51,11 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-        child: SizedBox(
-          height: 48,
-          child: ElevatedButton.icon(
-            onPressed: _isMarkingComplete ? null : _markLessonAsComplete,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4D49E8),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-            ),
-            icon: _isMarkingComplete
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Icon(Icons.check_circle_rounded, size: 20),
-            label: Text(
-              _isMarkingComplete ? 'Please wait...' : 'Mark as Complete',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
+      bottomNavigationBar: _LessonPlayerBottomActions(
+        isCompleted: _isCompleted,
+        isMarkingComplete: _isMarkingComplete,
+        onMarkComplete: _showMarkCompleteDialog,
+        onTakeQuiz: _openChapterQuiz,
       ),
       body: SafeArea(
         child: Column(
@@ -190,9 +181,49 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
     );
   }
 
-  Future<void> _markLessonAsComplete() async {
+  Future<void> _showMarkCompleteDialog() async {
     if (_isMarkingComplete) {
       return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.48),
+      builder: (dialogContext) {
+        return _MarkCompleteDialog(
+          onTakeQuiz: () {
+            Navigator.of(dialogContext).pop();
+            _markCompleteAndOpenQuiz();
+          },
+          onSkipAndComplete: () {
+            Navigator.of(dialogContext).pop();
+            _markLessonAsComplete();
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _markLessonAsComplete() async {
+    await _completeLesson(showSuccessSnack: true);
+  }
+
+  Future<void> _markCompleteAndOpenQuiz() async {
+    final didComplete = await _completeLesson(showSuccessSnack: false);
+    if (!mounted || !didComplete) {
+      return;
+    }
+
+    _openChapterQuiz();
+  }
+
+  Future<bool> _completeLesson({required bool showSuccessSnack}) async {
+    if (_isCompleted) {
+      return true;
+    }
+
+    if (_isMarkingComplete || _isCompleted) {
+      return false;
     }
 
     setState(() {
@@ -204,7 +235,7 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
     );
 
     if (!mounted) {
-      return;
+      return false;
     }
 
     setState(() {
@@ -220,18 +251,214 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
         colorText: Colors.white,
         margin: const EdgeInsets.all(14),
       );
-      return;
+      return false;
     }
+
+    setState(() {
+      _isCompleted = true;
+    });
 
     LearnProgressRefreshService.instance.notifyRefresh();
 
-    Get.offAll(
-      () => const DashboardTabbarViewsScreen(),
-      arguments: {
-        'initialTab': 1,
-        'successMessage': response.message,
-        'forceReload': true,
-      },
+    if (showSuccessSnack) {
+      Get.snackbar(
+        'Lesson Completed',
+        response.message,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF3FA34D),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(14),
+      );
+    }
+
+    return true;
+  }
+
+  void _openChapterQuiz() {
+    Get.to(
+      () => PracticeQuizOverviewViews(
+        subject: widget.subject,
+        chapter: widget.chapter,
+        returnToLessonOnResultBack: true,
+      ),
+    );
+  }
+}
+
+class _LessonPlayerBottomActions extends StatelessWidget {
+  const _LessonPlayerBottomActions({
+    required this.isCompleted,
+    required this.isMarkingComplete,
+    required this.onMarkComplete,
+    required this.onTakeQuiz,
+  });
+
+  final bool isCompleted;
+  final bool isMarkingComplete;
+  final VoidCallback onMarkComplete;
+  final VoidCallback onTakeQuiz;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: isCompleted || isMarkingComplete
+                  ? null
+                  : onMarkComplete,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isCompleted
+                    ? const Color(0xFF3FA34D)
+                    : const Color(0xFF4D49E8),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFF3FA34D),
+                disabledForegroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              icon: isMarkingComplete
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Icon(
+                      isCompleted
+                          ? Icons.check_rounded
+                          : Icons.check_circle_rounded,
+                      size: 20,
+                    ),
+              label: Text(
+                isMarkingComplete
+                    ? 'Please wait...'
+                    : isCompleted
+                    ? 'Completed'
+                    : 'Mark as Complete',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          if (isCompleted) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 46,
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onTakeQuiz,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1B72E8),
+                  side: const BorderSide(color: Color(0xFF1B72E8), width: 1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                icon: const Icon(Icons.quiz_outlined, size: 18),
+                label: const Text('Take Lesson Quiz'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MarkCompleteDialog extends StatelessWidget {
+  const _MarkCompleteDialog({
+    required this.onTakeQuiz,
+    required this.onSkipAndComplete,
+  });
+
+  final VoidCallback onTakeQuiz;
+  final VoidCallback onSkipAndComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mark as Complete?',
+              style: TextStyle(
+                color: Color(0xFF111827),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Great job on finishing the lesson! Would you like to take a quick quiz to test your understanding before marking this as complete?',
+              style: TextStyle(
+                color: Color(0xFF1F2937),
+                fontSize: 12,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 44,
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onTakeQuiz,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6765F5),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                child: const Text('Take Quiz'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: TextButton(
+                onPressed: onSkipAndComplete,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF4D49E8),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                child: const Text('Skip & Mark Complete'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

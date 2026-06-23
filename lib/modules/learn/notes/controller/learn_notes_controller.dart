@@ -180,6 +180,11 @@ class LearnNotesRepository {
 
   static Future<ApiResponse<List<LearnNoteModel>>> fetchStudentNotes() async {
     final subjectsResponse = await LearnCatalogData.getUserSubjects();
+    debugPrint(
+      'NOTES DEBUG subjects success=${subjectsResponse.success} '
+      'count=${subjectsResponse.data?.length ?? 0} '
+      'message=${subjectsResponse.message}',
+    );
 
     if (!subjectsResponse.success) {
       return ApiResponse<List<LearnNoteModel>>(
@@ -193,8 +198,18 @@ class LearnNotesRepository {
     final notes = <LearnNoteModel>[];
 
     for (final subject in subjects) {
+      debugPrint(
+        'NOTES DEBUG loading lessons subjectId=${subject.id} '
+        'subject=${subject.title}',
+      );
       final lessonsResponse = await LearnCatalogData.getUserLessons(
         subject: subject,
+      );
+      debugPrint(
+        'NOTES DEBUG lessons subject=${subject.title} '
+        'success=${lessonsResponse.success} '
+        'count=${lessonsResponse.data?.length ?? 0} '
+        'message=${lessonsResponse.message}',
       );
       if (!lessonsResponse.success) {
         return ApiResponse<List<LearnNoteModel>>(
@@ -212,6 +227,11 @@ class LearnNotesRepository {
             fallbackSubject: subject,
             fallbackLessonTitle: topic.lesson.title,
           );
+          debugPrint(
+            'NOTES DEBUG parsed lessonId=${topic.lesson.id} '
+            'lesson=${topic.lesson.title} '
+            'count=${response.data?.length ?? 0}',
+          );
           if (!response.success) {
             return response;
           }
@@ -220,6 +240,7 @@ class LearnNotesRepository {
       }
     }
 
+    debugPrint('NOTES DEBUG total parsed notes=${notes.length}');
     return ApiResponse<List<LearnNoteModel>>(
       success: true,
       data: notes,
@@ -239,6 +260,13 @@ class LearnNotesRepository {
       fromJson: (json) => json,
       data: {'lessonId': lessonId},
     );
+    debugPrint(
+      'NOTES DEBUG API lessonId=$lessonId '
+      'success=${response.success} '
+      'status=${response.statusCode} '
+      'message=${response.message} '
+      'raw=${response.data}',
+    );
 
     if (!response.success || response.data is! Map<String, dynamic>) {
       return ApiResponse<List<LearnNoteModel>>(
@@ -252,6 +280,10 @@ class LearnNotesRepository {
     final notesJson =
         ((body['data'] as Map<String, dynamic>?)?['notes']) as List<dynamic>? ??
         const [];
+    debugPrint(
+      'NOTES DEBUG raw notes lessonId=$lessonId count=${notesJson.length} '
+      'data=$notesJson',
+    );
     final notes = notesJson
         .whereType<Map<String, dynamic>>()
         .map(
@@ -262,6 +294,14 @@ class LearnNotesRepository {
           ),
         )
         .toList();
+    for (final note in notes) {
+      debugPrint(
+        'NOTES DEBUG note id=${note.id} title=${note.title} '
+        'subject=${note.subject} lessonId=${note.lessonId} '
+        'lesson=${note.lessonTitle} pdf=${note.pdfUrl} '
+        'media=${note.media.length}',
+      );
+    }
 
     return ApiResponse<List<LearnNoteModel>>(
       success: true,

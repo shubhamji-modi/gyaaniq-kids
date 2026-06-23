@@ -248,17 +248,20 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                             Transform.translate(
                               offset: const Offset(0, 20),
                               child: Column(
-                                children: List.generate(
-                                  question.options.length,
-                                  (index) {
+                                children: [
+                                  ...List.generate(question.options.length, (
+                                    index,
+                                  ) {
                                     return Padding(
                                       padding: const EdgeInsets.only(
                                         bottom: 16,
                                       ),
                                       child: _OptionTile(optionIndex: index),
                                     );
-                                  },
-                                ),
+                                  }),
+                                  if (controller.isReviewMode.value)
+                                    _ExplanationSection(question: question),
+                                ],
                               ),
                             ),
                           ],
@@ -415,6 +418,193 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
         ),
       );
     });
+  }
+}
+
+class _ExplanationSection extends GetView<QuestionAnswerShowController> {
+  const _ExplanationSection({required this.question});
+
+  final QuizQuestion question;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final explanation = controller.explanationByQuestionId[question.id];
+      final isLoading =
+          controller.explanationLoadingByQuestionId[question.id] == true;
+      final errorMessage =
+          controller.explanationErrorByQuestionId[question.id] ?? '';
+
+      return Padding(
+        padding: const EdgeInsets.only(top: 2, bottom: 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (explanation != null)
+              _ExplanationCard(text: explanation.explanation)
+            else if (isLoading)
+              const _ExplanationLoadingCard()
+            else if (errorMessage.isNotEmpty)
+              _ExplanationErrorCard(message: errorMessage),
+            if (explanation == null) ...[
+              if (isLoading || errorMessage.isNotEmpty)
+                const SizedBox(height: 14),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () => controller.fetchExplanation(question),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF5722),
+                    disabledBackgroundColor: const Color(0xFFFFA184),
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.lightbulb_outline_rounded, size: 21),
+                  label: Text(
+                    isLoading ? 'Preparing explanation...' : 'View Explanation',
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _ExplanationCard extends StatelessWidget {
+  const _ExplanationCard({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F7FF),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD3E6FF), width: 1.4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                color: Color(0xFF1565C0),
+                size: 22,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'EXPLANATION',
+                style: TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF5A5D6B),
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              height: 1.55,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplanationLoadingCard extends StatelessWidget {
+  const _ExplanationLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F7FF),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD3E6FF), width: 1.4),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Preparing explanation...',
+              style: TextStyle(
+                color: Color(0xFF1565C0),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplanationErrorCard extends StatelessWidget {
+  const _ExplanationErrorCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4F2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFFB8AC)),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: Color(0xFFB42318),
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+        ),
+      ),
+    );
   }
 }
 

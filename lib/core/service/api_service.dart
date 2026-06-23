@@ -14,7 +14,7 @@ class ApiService extends GetxService {
   late Dio _dio;
 
   ///BASE URL
-  // static String baseUrl = 'https://6346-2405-201-301c-203c-20a4-b319-62c0-ec62.ngrok-free.app/api/v1/';
+  // static String baseUrl = 'https://383a-49-36-27-72.ngrok-free.app/api/v1/';
   static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
 
   ///End points
@@ -27,13 +27,17 @@ class ApiService extends GetxService {
   static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
   static const String GET_USER_SUBJECT = 'user/subjects';
   static const String GET_USER_LESSON = 'user/lessons/by-class-subject';
-  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT = 'user/ebooks/by-class-subject';
+  static const String FETCH_EBOOKS_BY_CLASS_SUBJECT =
+      'user/ebooks/by-class-subject';
   static const String FETCH_NOTES_BY_LESSON = 'user/notes/by-lesson';
   static const String FETCH_QUIZZES = 'user/quizzes/by-lesson';
   static const String FETCH_SINGLE_QUIZZES = 'user/quizzes/:id';
+  static const String GET_QUESTION_EXPLANATION =
+      'user/explanations/:type/:questionId';
   static const String SUBMIT_PRACTICE_QUIZZES = 'user/quizzes/:id/attempt';
   static const String GET_SUBMIT_RESULT = 'user/progress/quizzes/attempts';
   static const String DASHBOARD_PROGRESS_SUMMARY = 'user/progress/summary';
+  static const String weakAreas = 'user/progress/weak-areas';
   static const String MARK_A_LESSON = 'user/progress/lessons/:id/complete';
   static const String MARK_START_LESSON = 'user/progress/lessons/:id/start';
   static const String GET_PROGRESS_ONE_LESSON = 'user/progress/lessons/:id';
@@ -52,7 +56,8 @@ class ApiService extends GetxService {
   static const String HOMEWORK = 'user/homework';
   static const String HOMEWORK_DETAIL = 'user/homework/:id';
   static const String HOMEWORK_SUBMIT = 'user/homework/:id/submit';
-  static const String HOMEWORK_UPLOAD_ATTACHMENT = 'user/homework/upload-attachment';
+  static const String HOMEWORK_UPLOAD_ATTACHMENT =
+      'user/homework/upload-attachment';
   static const String HOMEWORK_MY_SUBMISSIONS = 'user/homework/my-submissions';
   static const String USER_ATTENDANCE = 'user/attendance';
   static const String USER_ATTENDANCE_SUMMARY = 'user/attendance/summary';

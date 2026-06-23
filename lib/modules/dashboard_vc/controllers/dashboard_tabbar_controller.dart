@@ -38,6 +38,8 @@ class DashboardTabbarController extends GetxController {
   final RxString dailyQuizAnalyticsError = ''.obs;
   final RxBool isLoadingLeaderboardSummary = true.obs;
   final RxString leaderboardSummaryError = ''.obs;
+  final RxBool isLoadingWeakAreas = true.obs;
+  final RxString weakAreasError = ''.obs;
   final RxBool isLoadingUserXp = true.obs;
   final RxString userXpError = ''.obs;
   final RxBool isLoadingLiveClasses = true.obs;
@@ -50,6 +52,8 @@ class DashboardTabbarController extends GetxController {
       <DailyQuizAnalyticsDayData>[].obs;
   final Rx<LeaderboardStripData> leaderboardSummary =
       const LeaderboardStripData().obs;
+  final Rx<WeakAreasSummaryData> weakAreasSummary =
+      const WeakAreasSummaryData().obs;
   final Rx<UserXpSummaryData> userXpSummary = const UserXpSummaryData().obs;
   final RxList<LiveClassScheduleData> liveClassSchedules =
       <LiveClassScheduleData>[].obs;
@@ -62,6 +66,7 @@ class DashboardTabbarController extends GetxController {
   final String studentName = 'Sarah!';
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
   final String appBuild = 'App Build: v1.0.2';
+  bool _isReloadingHomeTabData = false;
 
   final List<DashboardNavItemData> navItems = const [
     DashboardNavItemData(label: 'Home', icon: Icons.home_rounded),
@@ -180,6 +185,10 @@ class DashboardTabbarController extends GetxController {
 
   void changeTab(int index) {
     currentTabIndex.value = index;
+    if (index == 0) {
+      reloadHomeTabData();
+      return;
+    }
     if (index == 3 &&
         liveClassSchedules.isEmpty &&
         !isLoadingLiveClasses.value) {
@@ -205,14 +214,28 @@ class DashboardTabbarController extends GetxController {
   }
 
   Future<void> loadDashboardData() async {
-    await _loadProgressSummary();
-    await _loadLearnSubjects();
-    await loadMockTests();
-    await loadDailyQuizAnalytics();
-    await loadLeaderboardSummary();
-    await loadUserXp();
-    await loadLiveClasses();
-    await loadAttendanceSummary();
+    await reloadHomeTabData();
+  }
+
+  Future<void> reloadHomeTabData() async {
+    if (_isReloadingHomeTabData) {
+      return;
+    }
+
+    _isReloadingHomeTabData = true;
+    try {
+      await _loadProgressSummary();
+      await _loadLearnSubjects();
+      await loadMockTests();
+      await loadDailyQuizAnalytics();
+      await loadLeaderboardSummary();
+      await loadWeakAreas();
+      await loadUserXp();
+      await loadLiveClasses();
+      await loadAttendanceSummary();
+    } finally {
+      _isReloadingHomeTabData = false;
+    }
   }
 
   Future<void> loadAttendanceSummary() async {
@@ -376,6 +399,30 @@ class DashboardTabbarController extends GetxController {
           });
 
     liveClassSchedules.assignAll(items);
+  }
+
+  Future<void> loadWeakAreas() async {
+    isLoadingWeakAreas.value = true;
+    weakAreasError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.weakAreas,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    isLoadingWeakAreas.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      weakAreasSummary.value = const WeakAreasSummaryData();
+      weakAreasError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    debugPrint('Improvement Areas API data: $data');
+    weakAreasSummary.value = WeakAreasSummaryData.fromApi(data);
   }
 
   LiveClassScheduleData? get featuredLiveClass {
@@ -1348,6 +1395,121 @@ class DailyQuizAnalyticsDayData {
   }
 }
 
+class WeakAreasSummaryData {
+  final int answered;
+  final int correct;
+  final int skipped;
+  final List<WeakAreaSubjectData> subjects;
+
+  const WeakAreasSummaryData({
+    this.answered = 0,
+    this.correct = 0,
+    this.skipped = 0,
+    this.subjects = const [],
+  });
+
+  factory WeakAreasSummaryData.fromApi(Map<String, dynamic> json) {
+    final totals = _safeMap(json['totals']);
+    final subjectsJson = json['subjects'] as List<dynamic>? ?? const [];
+
+    return WeakAreasSummaryData(
+      answered: (totals['answered'] as num?)?.toInt() ?? 0,
+      correct: (totals['correct'] as num?)?.toInt() ?? 0,
+      skipped: (totals['skipped'] as num?)?.toInt() ?? 0,
+      subjects: subjectsJson
+          .whereType<Map<String, dynamic>>()
+          .map(WeakAreaSubjectData.fromApi)
+          .toList(),
+    );
+  }
+
+  bool get hasAttempts => answered > 0 || correct > 0 || skipped > 0;
+}
+
+class WeakAreaSubjectData {
+  final String id;
+  final String name;
+  final double accuracy;
+  final int answered;
+  final int correct;
+  final int skipped;
+  final int unresolvedLessons;
+  final List<WeakAreaLessonData> lessons;
+
+  const WeakAreaSubjectData({
+    required this.id,
+    required this.name,
+    required this.accuracy,
+    required this.answered,
+    required this.correct,
+    required this.skipped,
+    required this.unresolvedLessons,
+    required this.lessons,
+  });
+
+  factory WeakAreaSubjectData.fromApi(Map<String, dynamic> json) {
+    final subject = _safeMap(json['subject']);
+    final lessonsJson = json['lessons'] as List<dynamic>? ?? const [];
+
+    return WeakAreaSubjectData(
+      id: _safeText(subject['_id']),
+      name: _safeText(subject['name'], fallback: 'Subject'),
+      accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
+      answered: (json['answered'] as num?)?.toInt() ?? 0,
+      correct: (json['correct'] as num?)?.toInt() ?? 0,
+      skipped: (json['skipped'] as num?)?.toInt() ?? 0,
+      unresolvedLessons: (json['unresolvedLessons'] as num?)?.toInt() ?? 0,
+      lessons: lessonsJson
+          .whereType<Map<String, dynamic>>()
+          .map(WeakAreaLessonData.fromApi)
+          .toList(),
+    );
+  }
+
+  String get accuracyLabel => _formatWeakAreaAccuracy(accuracy);
+
+  String get correctAnswerLabel => '$correct/$answered correct';
+
+  String get primaryLessonTitle => lessons.isEmpty ? name : lessons.first.title;
+
+  String get primaryLessonMeta => lessons.isEmpty
+      ? correctAnswerLabel
+      : '${lessons.first.accuracyLabel} Accuracy';
+}
+
+class WeakAreaLessonData {
+  final String id;
+  final String title;
+  final double accuracy;
+  final int answered;
+  final int correct;
+  final int skipped;
+
+  const WeakAreaLessonData({
+    required this.id,
+    required this.title,
+    required this.accuracy,
+    required this.answered,
+    required this.correct,
+    required this.skipped,
+  });
+
+  factory WeakAreaLessonData.fromApi(Map<String, dynamic> json) {
+    final lesson = _safeMap(json['lesson']);
+
+    return WeakAreaLessonData(
+      id: _safeText(lesson['_id']),
+      title: _safeText(lesson['title'], fallback: 'Lesson'),
+      accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
+      answered: (json['answered'] as num?)?.toInt() ?? 0,
+      correct: (json['correct'] as num?)?.toInt() ?? 0,
+      skipped: (json['skipped'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  String get accuracyLabel => _formatWeakAreaAccuracy(accuracy);
+}
+
 class ProfileMenuData {
   final String title;
   final IconData icon;
@@ -1376,6 +1538,13 @@ String _formatCompactNumber(int value) {
     }
   }
   return buffer.toString();
+}
+
+String _formatWeakAreaAccuracy(double value) {
+  final rounded = value.truncateToDouble() == value
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(1);
+  return '$rounded%';
 }
 
 String _initials(String name) {

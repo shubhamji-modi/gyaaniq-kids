@@ -9,20 +9,26 @@ class PracticeQuizOverviewViews extends StatelessWidget {
     super.key,
     required this.subject,
     required this.chapter,
+    this.returnToLessonOnResultBack = false,
   });
 
   final LearnSubjectModel subject;
   final LearnChapterModel chapter;
+  final bool returnToLessonOnResultBack;
 
   @override
   Widget build(BuildContext context) {
-    final controllerTag = '${subject.id}_${chapter.id}';
-    final controller = Get.isRegistered<PracticeQuizOverviewController>(
-          tag: controllerTag,
-        )
+    final sourceTag = returnToLessonOnResultBack ? 'lesson' : 'default';
+    final controllerTag = '${subject.id}_${chapter.id}_$sourceTag';
+    final controller =
+        Get.isRegistered<PracticeQuizOverviewController>(tag: controllerTag)
         ? Get.find<PracticeQuizOverviewController>(tag: controllerTag)
         : Get.put(
-            PracticeQuizOverviewController(subject: subject, chapter: chapter),
+            PracticeQuizOverviewController(
+              subject: subject,
+              chapter: chapter,
+              returnToLessonOnResultBack: returnToLessonOnResultBack,
+            ),
             tag: controllerTag,
           );
 
@@ -142,10 +148,14 @@ class PracticeQuizOverviewViews extends StatelessWidget {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF4D4FE1),
                                 foregroundColor: Colors.white,
-                                disabledBackgroundColor: const Color(0xFF4D4FE1),
+                                disabledBackgroundColor: const Color(
+                                  0xFF4D4FE1,
+                                ),
                                 disabledForegroundColor: Colors.white,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
                                 ),
@@ -214,7 +224,9 @@ class PracticeQuizOverviewViews extends StatelessWidget {
                             borderRadius: BorderRadius.circular(28),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFD8E0F3).withValues(alpha: 0.75),
+                                color: const Color(
+                                  0xFFD8E0F3,
+                                ).withValues(alpha: 0.75),
                                 blurRadius: 30,
                                 offset: const Offset(0, 16),
                               ),
@@ -446,10 +458,7 @@ class _StatCard extends StatelessWidget {
 }
 
 class _InstructionTile extends StatelessWidget {
-  const _InstructionTile({
-    required this.number,
-    required this.text,
-  });
+  const _InstructionTile({required this.number, required this.text});
 
   final int number;
   final String text;

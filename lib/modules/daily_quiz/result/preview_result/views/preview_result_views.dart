@@ -497,6 +497,7 @@ class _FeedbackBottomSheet extends StatelessWidget {
                         child: _AnswerFeedbackCard(
                           index: entry.key,
                           answer: entry.value,
+                          type: item.type,
                         ),
                       ),
                     ),
@@ -551,10 +552,15 @@ class _FeedbackSummaryTile extends StatelessWidget {
 }
 
 class _AnswerFeedbackCard extends StatelessWidget {
-  const _AnswerFeedbackCard({required this.index, required this.answer});
+  const _AnswerFeedbackCard({
+    required this.index,
+    required this.answer,
+    required this.type,
+  });
 
   final int index;
   final QuizAttemptAnswerFeedback answer;
+  final ResultHistoryType type;
 
   @override
   Widget build(BuildContext context) {
@@ -651,7 +657,198 @@ class _AnswerFeedbackCard extends StatelessWidget {
               ),
             ],
           ),
+          _ExplanationSection(type: type, answer: answer),
         ],
+      ),
+    );
+  }
+}
+
+class _ExplanationSection extends StatelessWidget {
+  const _ExplanationSection({required this.type, required this.answer});
+
+  final ResultHistoryType type;
+  final QuizAttemptAnswerFeedback answer;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<PreviewResultController>();
+
+    return Obx(() {
+      final explanation = controller.explanationByQuestionId[answer.questionId];
+      final isLoading =
+          controller.explanationLoadingByQuestionId[answer.questionId] == true;
+      final errorMessage =
+          controller.explanationErrorByQuestionId[answer.questionId] ?? '';
+
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (explanation != null)
+              _ExplanationCard(text: explanation.explanation)
+            else if (isLoading)
+              const _ExplanationLoadingCard()
+            else if (errorMessage.isNotEmpty)
+              _ExplanationErrorCard(message: errorMessage),
+            if (explanation == null) ...[
+              if (isLoading || errorMessage.isNotEmpty)
+                const SizedBox(height: 10),
+              SizedBox(
+                height: 42,
+                child: ElevatedButton.icon(
+                  onPressed: isLoading || answer.questionId.isEmpty
+                      ? null
+                      : () => controller.fetchExplanation(type, answer),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF5722),
+                    disabledBackgroundColor: const Color(0xFFFFA184),
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.lightbulb_outline_rounded, size: 18),
+                  label: Text(
+                    isLoading ? 'Preparing explanation...' : 'View Explanation',
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _ExplanationCard extends StatelessWidget {
+  const _ExplanationCard({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F7FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD3E6FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                color: Color(0xFF1565C0),
+                size: 16,
+              ),
+              SizedBox(width: 7),
+              Text(
+                'QUICK EXPLANATION',
+                style: TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF5A5D6B),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplanationLoadingCard extends StatelessWidget {
+  const _ExplanationLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F7FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD3E6FF)),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Preparing explanation...',
+              style: TextStyle(
+                color: Color(0xFF1565C0),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplanationErrorCard extends StatelessWidget {
+  const _ExplanationErrorCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFB8AC)),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: Color(0xFFB42318),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+        ),
       ),
     );
   }

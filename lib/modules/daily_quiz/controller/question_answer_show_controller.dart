@@ -83,6 +83,13 @@ class QuestionAnswerShowController extends GetxController {
   final RxString currentQuizId = ''.obs;
   final RxBool isDailyQuiz = false.obs;
   final RxBool isMockTest = false.obs;
+  final RxBool returnToLessonOnResultBack = false.obs;
+  final RxMap<String, QuizExplanationData> explanationByQuestionId =
+      <String, QuizExplanationData>{}.obs;
+  final RxMap<String, bool> explanationLoadingByQuestionId =
+      <String, bool>{}.obs;
+  final RxMap<String, String> explanationErrorByQuestionId =
+      <String, String>{}.obs;
 
   List<QuizQuestion> questions = const [];
 
@@ -108,6 +115,16 @@ class QuestionAnswerShowController extends GetxController {
 
   bool get hasAnswerKey =>
       questions.any((question) => question.correctOptionIndex != null);
+
+  String get explanationType {
+    if (isDailyQuiz.value) {
+      return 'dailyQuiz';
+    }
+    if (isMockTest.value) {
+      return 'mockTest';
+    }
+    return 'quiz';
+  }
 
   bool get hasPreviousQuestion => currentQuestionIndex.value > 0;
 
@@ -136,6 +153,7 @@ class QuestionAnswerShowController extends GetxController {
     int timeLimitMinutes = 0,
     bool isDailyQuiz = false,
     bool isMockTest = false,
+    bool returnToLessonOnResultBack = false,
   }) {
     currentQuizId.value = quizId;
     quizTitle.value = title;
@@ -144,7 +162,11 @@ class QuestionAnswerShowController extends GetxController {
     this.timeLimitMinutes.value = timeLimitMinutes;
     this.isDailyQuiz.value = isDailyQuiz;
     this.isMockTest.value = isMockTest;
+    this.returnToLessonOnResultBack.value = returnToLessonOnResultBack;
     this.questions = questions.isEmpty ? const [] : questions;
+    explanationByQuestionId.clear();
+    explanationLoadingByQuestionId.clear();
+    explanationErrorByQuestionId.clear();
     resetQuiz();
   }
 
@@ -282,6 +304,7 @@ class QuestionAnswerShowController extends GetxController {
         xpEarned: _readXpEarned(attemptJson) ?? _readXpEarned(body),
         hasAnswerKey: true,
         feedback: feedbackByQuestionId,
+        returnToLessonOnBack: returnToLessonOnResultBack.value,
       ),
       tag: 'daily_quiz_result',
     );
@@ -296,6 +319,54 @@ class QuestionAnswerShowController extends GetxController {
       () => const QuestionAnswerShowViews(),
       arguments: {'reviewMode': true},
     );
+  }
+
+  Future<void> fetchExplanation(QuizQuestion question) async {
+    if (!isReviewMode.value || question.id.isEmpty) {
+      return;
+    }
+
+    if (explanationByQuestionId.containsKey(question.id) ||
+        explanationLoadingByQuestionId[question.id] == true) {
+      return;
+    }
+
+    explanationErrorByQuestionId.remove(question.id);
+    explanationLoadingByQuestionId[question.id] = true;
+
+    final endpoint = ApiService.GET_QUESTION_EXPLANATION
+        .replaceFirst(':type', explanationType)
+        .replaceFirst(':questionId', question.id);
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: endpoint,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    explanationLoadingByQuestionId.remove(question.id);
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      explanationErrorByQuestionId[question.id] = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      explanationErrorByQuestionId[question.id] =
+          body['message']?.toString() ?? 'Unable to load explanation.';
+      return;
+    }
+
+    final explanation = QuizExplanationData.fromApi(data);
+    if (explanation.explanation.isEmpty) {
+      explanationErrorByQuestionId[question.id] =
+          'Explanation is not available for this question.';
+      return;
+    }
+
+    explanationByQuestionId[question.id] = explanation;
   }
 
   void resetQuiz() {
@@ -331,6 +402,32 @@ class QuizAnswerFeedback {
       isCorrect: json['isCorrect'] == true,
       marks: (json['marks'] as num?)?.toInt() ?? 0,
       marksAwarded: (json['marksAwarded'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class QuizExplanationData {
+  const QuizExplanationData({
+    required this.questionId,
+    required this.explanation,
+    required this.source,
+    required this.model,
+    required this.fromCache,
+  });
+
+  final String questionId;
+  final String explanation;
+  final String source;
+  final String model;
+  final bool fromCache;
+
+  factory QuizExplanationData.fromApi(Map<String, dynamic> json) {
+    return QuizExplanationData(
+      questionId: _safeText(json['questionId']),
+      explanation: _safeText(json['explanation']),
+      source: _safeText(json['source']),
+      model: _safeText(json['model']),
+      fromCache: json['fromCache'] == true,
     );
   }
 }

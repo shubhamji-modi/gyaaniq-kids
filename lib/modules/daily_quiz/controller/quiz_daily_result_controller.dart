@@ -19,6 +19,7 @@ class QuizDailyResultController extends GetxController {
     required this.rewardSource,
     this.feedback = const {},
     this.hasAnswerKey = true,
+    this.returnToLessonOnBack = false,
     int? xpEarned,
   }) : _initialXpEarned = xpEarned;
 
@@ -32,6 +33,7 @@ class QuizDailyResultController extends GetxController {
   final QuizRewardSource rewardSource;
   final Map<String, QuizAnswerFeedback> feedback;
   final bool hasAnswerKey;
+  final bool returnToLessonOnBack;
   final int? _initialXpEarned;
 
   final RxnInt configuredXpEarned = RxnInt();
@@ -140,6 +142,11 @@ class QuizDailyResultController extends GetxController {
   }
 
   void backToSubjects() {
+    if (returnToLessonOnBack) {
+      _backToLessonPlayer();
+      return;
+    }
+
     if (rewardSource != QuizRewardSource.practiceTest) {
       _openDashboardHome();
       return;
@@ -167,6 +174,14 @@ class QuizDailyResultController extends GetxController {
         Get.find<DashboardTabbarController>().changeTab(0);
       }
     });
+  }
+
+  void _backToLessonPlayer() {
+    for (var index = 0; index < 3; index++) {
+      if (Get.key.currentState?.canPop() ?? false) {
+        Get.back<void>();
+      }
+    }
   }
 
   void reviewAnswers() {
