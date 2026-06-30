@@ -99,15 +99,30 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      description.isEmpty
-                          ? 'Description will be available soon.'
-                          : description,
-                      style: const TextStyle(
-                        color: Color(0xFF373B4B),
-                        fontSize: 13,
-                        height: 1.6,
-                        fontWeight: FontWeight.w500,
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Author ',
+                            style: TextStyle(
+                              color: widget.subject.accent,
+                              fontSize: 13,
+                              height: 1.6,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          TextSpan(
+                            text: description.isEmpty
+                                ? 'Description will be available soon.'
+                                : description,
+                            style: const TextStyle(
+                              color: Color(0xFF373B4B),
+                              fontSize: 13,
+                              height: 1.6,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),

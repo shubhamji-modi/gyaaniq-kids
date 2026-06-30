@@ -59,6 +59,8 @@ flutter:
     - assets/images/apple_logo.png
     - assets/images/live_backImage.png
     - assets/icon/app_icon.png
+    - assets/head.jpg
+    - assets/quizz.jpg
 
   fonts:
     - family: Lexend

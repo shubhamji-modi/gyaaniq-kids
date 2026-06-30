@@ -49,15 +49,40 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                 final question = controller.currentQuestion;
                 final questionNumber =
                     controller.currentQuestionIndex.value + 1;
+                final isReview = controller.isReviewMode.value;
 
                 return Column(
                   children: [
                     Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onHorizontalDragEnd: (details) {
+                          final velocity = details.primaryVelocity ?? 0;
+                          if (velocity < -150) {
+                            controller.nextQuestion();
+                          } else if (velocity > 150) {
+                            controller.previousQuestion();
+                          }
+                        },
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          transitionBuilder: (child, animation) =>
+                              SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.15, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                          child: SingleChildScrollView(
+                            key: ValueKey<int>(
+                              controller.currentQuestionIndex.value,
+                            ),
+                            padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (!isReview)
                             Row(
                               children: [
                                 Expanded(
@@ -121,58 +146,61 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Quiz Progress',
-                              style: TextStyle(
-                                color: Color(0xFF4D4D60),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Text(
-                                  'Question $questionNumber of ${controller.totalQuestions}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF1E2230),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                            if (!isReview) ...[
+                              const Text(
+                                'Quiz Progress',
+                                style: TextStyle(
+                                  color: Color(0xFF4D4D60),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE4E2FF),
-                                    borderRadius: BorderRadius.circular(22),
-                                  ),
-                                  child: Text(
-                                    controller.progressLabel,
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Question $questionNumber of ${controller.totalQuestions}',
                                     style: const TextStyle(
-                                      color: Color(0xFF4D4FE1),
-                                      fontSize: 11,
+                                      color: Color(0xFF1E2230),
+                                      fontSize: 16,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(99),
-                              child: LinearProgressIndicator(
-                                value: controller.answeredProgress,
-                                minHeight: 7,
-                                backgroundColor: const Color(0xFFE0E4EB),
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF4D4FE1),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE4E2FF),
+                                      borderRadius: BorderRadius.circular(22),
+                                    ),
+                                    child: Text(
+                                      controller.progressLabel,
+                                      style: const TextStyle(
+                                        color: Color(0xFF4D4FE1),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(99),
+                                child: LinearProgressIndicator(
+                                  value: controller.answeredProgress,
+                                  minHeight: 7,
+                                  backgroundColor: const Color(0xFFE0E4EB),
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF4D4FE1),
+                                      ),
                                 ),
                               ),
-                            ),
+                            ],
                             const SizedBox(height: 14),
                             Align(
                               alignment: Alignment.centerRight,
@@ -327,11 +355,15 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                                 ],
                               ),
                             ),
-                          ],
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    _BottomActionBar(controller: controller),
+                    isReview
+                        ? _ReviewNavBar(controller: controller)
+                        : _BottomActionBar(controller: controller),
                   ],
                 );
               }),
@@ -772,6 +804,97 @@ class _BottomActionBar extends StatelessWidget {
   }
 }
 
+/// Review-mode bottom bar: lets the user step through questions directly with
+/// Previous / Next, plus a tappable counter that opens the question grid.
+class _ReviewNavBar extends StatelessWidget {
+  const _ReviewNavBar({required this.controller});
+
+  final QuestionAnswerShowController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE4E7F0))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Obx(() {
+          final canPrev = controller.hasPreviousQuestion;
+          final canNext = controller.hasNextQuestion;
+          return Row(
+            children: [
+              Expanded(
+                child: _QuizActionButton(
+                  label: 'Previous',
+                  icon: Icons.arrow_back_rounded,
+                  onTap: canPrev ? controller.previousQuestion : null,
+                  foregroundColor: const Color(0xFF0865B7),
+                  backgroundColor: const Color(0xFFE9F4FF),
+                  disabledBackgroundColor: const Color(0xFFEFF1F5),
+                  disabledForegroundColor: const Color(0xFFB0B5C0),
+                ),
+              ),
+              const SizedBox(width: 12),
+              InkWell(
+                onTap: () => Get.bottomSheet<void>(
+                  _QuestionNavigatorSheet(controller: controller),
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  barrierColor: Colors.black.withValues(alpha: 0.55),
+                ),
+                borderRadius: BorderRadius.circular(30),
+                child: Container(
+                  height: 35,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF1F6),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.grid_view_rounded,
+                        size: 15,
+                        color: Color(0xFF4D4D60),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        '${controller.currentQuestionIndex.value + 1}/${controller.totalQuestions}',
+                        style: const TextStyle(
+                          color: Color(0xFF1E2230),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _QuizActionButton(
+                  label: 'Next',
+                  icon: Icons.arrow_forward_rounded,
+                  iconAfterLabel: true,
+                  onTap: canNext ? controller.nextQuestion : null,
+                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFF0865B7),
+                  disabledBackgroundColor: const Color(0xFFC9CCDE),
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
 class _QuizActionButton extends StatelessWidget {
   const _QuizActionButton({
     required this.label,
@@ -909,14 +1032,22 @@ class _QuestionNavigatorSheet extends StatelessWidget {
                 children: List.generate(controller.totalQuestions, (index) {
                   final isCurrent =
                       index == controller.currentQuestionIndex.value;
-                  final isAnswered = controller.selectedAnswers[index] != null;
+                  final isReview = controller.isReviewMode.value;
+                  final selected = controller.selectedAnswers[index];
+                  final isAnswered = selected != null;
                   final isMarked = controller.markedQuestions[index];
                   final isVisited = controller.visitedQuestions[index];
+                  final correctIndex =
+                      controller.questions[index].correctOptionIndex;
+                  final isCorrect =
+                      isAnswered && correctIndex != null && selected == correctIndex;
 
                   return _QuestionNumberButton(
                     number: index + 1,
                     isCurrent: isCurrent,
+                    isReview: isReview,
                     isAnswered: isAnswered,
+                    isCorrect: isCorrect,
                     isMarked: isMarked,
                     isVisited: isVisited,
                     onTap: () {
@@ -927,24 +1058,44 @@ class _QuestionNavigatorSheet extends StatelessWidget {
                 }),
               ),
               const SizedBox(height: 28),
-              const Wrap(
-                spacing: 22,
-                runSpacing: 12,
-                children: [
-                  _NavigatorLegendDot(
-                    label: 'Answered',
-                    color: Color(0xFF0B8A3A),
-                  ),
-                  _NavigatorLegendDot(
-                    label: 'Not Visited',
-                    color: Color(0xFFE9EDF3),
-                  ),
-                  _NavigatorLegendDot(
-                    label: 'Marked',
-                    color: Color(0xFFC45A12),
-                  ),
-                ],
-              ),
+              if (controller.isReviewMode.value)
+                const Wrap(
+                  spacing: 22,
+                  runSpacing: 12,
+                  children: [
+                    _NavigatorLegendDot(
+                      label: 'Correct',
+                      color: Color(0xFF0B8A3A),
+                    ),
+                    _NavigatorLegendDot(
+                      label: 'Wrong',
+                      color: Color(0xFFD92D20),
+                    ),
+                    _NavigatorLegendDot(
+                      label: 'Not Visited',
+                      color: Color(0xFFE9EDF3),
+                    ),
+                  ],
+                )
+              else
+                const Wrap(
+                  spacing: 22,
+                  runSpacing: 12,
+                  children: [
+                    _NavigatorLegendDot(
+                      label: 'Answered',
+                      color: Color(0xFF0B8A3A),
+                    ),
+                    _NavigatorLegendDot(
+                      label: 'Not Visited',
+                      color: Color(0xFFE9EDF3),
+                    ),
+                    _NavigatorLegendDot(
+                      label: 'Marked',
+                      color: Color(0xFFC45A12),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -957,7 +1108,9 @@ class _QuestionNumberButton extends StatelessWidget {
   const _QuestionNumberButton({
     required this.number,
     required this.isCurrent,
+    required this.isReview,
     required this.isAnswered,
+    required this.isCorrect,
     required this.isMarked,
     required this.isVisited,
     required this.onTap,
@@ -965,23 +1118,36 @@ class _QuestionNumberButton extends StatelessWidget {
 
   final int number;
   final bool isCurrent;
+  final bool isReview;
   final bool isAnswered;
+  final bool isCorrect;
   final bool isMarked;
   final bool isVisited;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = isCurrent
-        ? const Color(0xFF0865B7)
-        : isMarked
-        ? const Color(0xFFC45A12)
-        : isAnswered
-        ? const Color(0xFF0B8A3A)
-        : const Color(0xFFE9EDF3);
-    final textColor = isCurrent || isMarked || isAnswered
-        ? Colors.white
-        : const Color(0xFF667085);
+    final Color backgroundColor;
+    if (isReview) {
+      // Review mode: color by correctness.
+      // green = correct, red = wrong, gray = not visited/unanswered.
+      backgroundColor = !isAnswered
+          ? const Color(0xFFE9EDF3)
+          : isCorrect
+          ? const Color(0xFF0B8A3A)
+          : const Color(0xFFD92D20);
+    } else {
+      backgroundColor = isCurrent
+          ? const Color(0xFF0865B7)
+          : isMarked
+          ? const Color(0xFFC45A12)
+          : isAnswered
+          ? const Color(0xFF0B8A3A)
+          : const Color(0xFFE9EDF3);
+    }
+
+    final bool isFilled = isReview ? isAnswered : (isCurrent || isMarked || isAnswered);
+    final textColor = isFilled ? Colors.white : const Color(0xFF667085);
 
     return InkWell(
       onTap: onTap,
@@ -994,10 +1160,10 @@ class _QuestionNumberButton extends StatelessWidget {
           color: backgroundColor,
           shape: BoxShape.circle,
           border: Border.all(
-            color: isVisited || isCurrent
-                ? backgroundColor
-                : const Color(0xFFE1E5EC),
-            width: 1.5,
+            color: isCurrent
+                ? const Color(0xFF0865B7)
+                : (isVisited ? backgroundColor : const Color(0xFFE1E5EC)),
+            width: isCurrent ? 2.0 : 1.5,
           ),
         ),
         child: Text(

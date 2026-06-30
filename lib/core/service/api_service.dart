@@ -49,6 +49,7 @@ class ApiService extends GetxService {
   static const String SUBMIT_MOCK_TEST = 'user/mock-tests/:id/attempt';
   static const String MOCK_TEST_HISTORY = 'user/mock-tests/my-attempts';
   static const String USER_LEADERBOARD = 'user/leaderboard';
+  static const String CLASS_PRIZES = 'user/class-prizes';
   static const String PRACTICE_FEEDBACK = 'user/progress/quizzes/attempts/:id';
   static const String DAILY_QUIZ_FEEDBACK = 'user/daily-quiz/my-attempts/:id';
   static const String MOCK_FEEDBACK = 'user/mock-tests/my-attempts/:id';

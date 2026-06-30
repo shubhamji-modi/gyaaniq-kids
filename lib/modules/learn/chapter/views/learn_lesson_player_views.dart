@@ -65,18 +65,48 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),
                 children: [
-                  Container(
-                    height: 220,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F1720),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: hasVideo
-                          ? _LessonVideoPlayer(videoUrl: lesson.videoUrl)
-                          : const _VideoNotFoundCard(),
-                    ),
+                  Stack(
+                    children: [
+                      Container(
+                        height: 220,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F1720),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: hasVideo
+                              ? _LessonVideoPlayer(videoUrl: lesson.videoUrl)
+                              : const _VideoNotFoundCard(),
+                        ),
+                      ),
+                      // Non-interactive context tags on top of the player.
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        right: 12,
+                        child: IgnorePointer(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _ChipTag(
+                                label: lesson.subjectLabel,
+                                icon: Icons.menu_book_rounded,
+                                background: const Color(0xFFDCD9FF),
+                                foreground: const Color(0xFF1F238B),
+                              ),
+                              _ChipTag(
+                                label: lesson.chapterLabel,
+                                icon: Icons.bookmark_border_rounded,
+                                background: const Color(0xFFE7E8EE),
+                                foreground: const Color(0xFF4C4F5E),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 28),
                   Row(
@@ -105,23 +135,6 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                   const SizedBox(height: 8),
                   Container(height: 1.5, color: const Color(0xFFC9CBE3)),
                   const SizedBox(height: 24),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _ChipTag(
-                        label: lesson.subjectLabel,
-                        background: const Color(0xFFDCD9FF),
-                        foreground: const Color(0xFF1F238B),
-                      ),
-                      _ChipTag(
-                        label: lesson.chapterLabel,
-                        background: const Color(0xFFE7E8EE),
-                        foreground: const Color(0xFF4C4F5E),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
                   _LessonDownloadActions(lesson: lesson),
                   const SizedBox(height: 22),
                   Text(
@@ -133,13 +146,31 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    _showVideo ? lesson.description : lesson.notes,
-                    style: const TextStyle(
-                      color: Color(0xFF4C4F5E),
-                      fontSize: 14,
-                      height: 1.6,
-                      fontWeight: FontWeight.w500,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.08, 0),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      _showVideo ? lesson.description : lesson.notes,
+                      key: ValueKey<bool>(_showVideo),
+                      style: const TextStyle(
+                        color: Color(0xFF4C4F5E),
+                        fontSize: 14,
+                        height: 1.6,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 34),
@@ -1069,33 +1100,49 @@ class _PlayerTab extends StatelessWidget {
   }
 }
 
+/// A non-interactive informational tag (subject / chapter metadata).
+/// Styled deliberately flat — no button affordance — so it doesn't invite taps.
 class _ChipTag extends StatelessWidget {
   const _ChipTag({
     required this.label,
     required this.background,
     required this.foreground,
+    this.icon,
   });
 
   final String label;
   final Color background;
   final Color foreground;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
+        color: background.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: foreground.withValues(alpha: 0.16)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: foreground,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.2,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon ?? Icons.label_outline_rounded,
+            size: 13,
+            color: foreground.withValues(alpha: 0.85),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
