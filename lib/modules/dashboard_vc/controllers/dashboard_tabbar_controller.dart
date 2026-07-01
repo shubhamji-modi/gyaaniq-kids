@@ -848,7 +848,18 @@ class SubjectCardData {
       iconBackground: palette.iconBackground,
     );
   }
+
+  /// Learning status derived from the subject's lesson progress.
+  /// `paused` is reserved for when the API exposes a real activity signal.
+  SubjectLearningStatus get learningStatus {
+    if (progressValue >= 1.0) return SubjectLearningStatus.completed;
+    if (progressValue > 0) return SubjectLearningStatus.active;
+    return SubjectLearningStatus.notStarted;
+  }
 }
+
+/// Drives the segmented progress bar colors on the Learning card.
+enum SubjectLearningStatus { notStarted, active, paused, completed }
 
 class DashboardLessonSummary {
   final int total;

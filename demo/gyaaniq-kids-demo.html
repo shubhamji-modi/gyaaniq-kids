@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GyaanIQ Kids — Demo Deck</title>
+<style>
+  :root{
+    --primary:#E26A0F;
+    --primary-dark:#A8410A;
+    --primary-bright:#F4842B;
+    --soft:#FCE6CC;
+    --pale:#FDEFDD;
+    --ink:#2A1E14;
+    --ink-2:#6B5A4B;
+    --bg:#FDF8F2;
+    --card:#FFFFFF;
+    --border:#F1E3D2;
+  }
+  body.dark{
+    --primary:#5B8DEF;
+    --primary-dark:#3160C2;
+    --primary-bright:#7AA5FF;
+    --soft:#1C2A4A;
+    --pale:#1E2C4A99;
+    --ink:#EAF0FB;
+    --ink-2:#9FB0CC;
+    --bg:#0C1424;
+    --card:#13203A;
+    --border:#243557;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#2a1408;color:var(--ink);overflow:hidden;
+  }
+  .deck{height:100vh;width:100vw;position:relative}
+  .slide{
+    position:absolute;inset:0;display:none;flex-direction:column;
+    padding:6vh 8vw;background:var(--bg);
+    animation:fade .35s ease;
+  }
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  /* Title slide */
+  .cover{background:
+      radial-gradient(115% 100% at 8% 90%, rgba(150,28,212,.92) 0%, rgba(96,20,168,.55) 20%, rgba(60,18,130,.25) 38%, transparent 56%),
+      radial-gradient(95% 85% at 40% 34%, rgba(34,54,168,.6) 0%, transparent 58%),
+      linear-gradient(135deg,#0c1640 0%,#080b22 55%,#04050e 100%);
+    color:#fff;justify-content:center;align-items:flex-start}
+  .cover .logo{display:flex;align-items:center;gap:18px;margin-bottom:30px}
+  .cover .logo .mark{width:70px;height:70px;border-radius:20px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:38px}
+  .cover h1{font-size:5.2vw;line-height:1.05;font-weight:800;letter-spacing:-1px}
+  .cover .tag{font-size:1.9vw;margin-top:18px;color:rgba(255,255,255,.85);font-weight:400;max-width:60ch}
+  .cover .meta{margin-top:40px;font-size:1.1vw;color:rgba(255,255,255,.7)}
+
+  .eyebrow{color:var(--primary);font-weight:700;text-transform:uppercase;letter-spacing:2px;font-size:.95vw;margin-bottom:14px}
+  h2{font-size:3.2vw;font-weight:800;letter-spacing:-.5px;line-height:1.1;margin-bottom:8px}
+  .sub{font-size:1.3vw;color:var(--ink-2);margin-bottom:40px;max-width:70ch}
+
+  .grid{display:grid;gap:22px;flex:1;align-content:start}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px 24px;box-shadow:0 8px 24px rgba(226,106,15,.08)}
+  .card .ic{width:48px;height:48px;border-radius:13px;background:var(--pale);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:16px}
+  .card h3{font-size:1.4vw;font-weight:700;margin-bottom:8px}
+  .card p{font-size:1.02vw;color:var(--ink-2);line-height:1.5}
+
+  ul.flow{list-style:none;display:flex;flex-direction:column;gap:16px;flex:1}
+  ul.flow li{display:flex;align-items:flex-start;gap:18px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 24px}
+  ul.flow li .num{flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:1.1vw}
+  ul.flow li b{font-size:1.25vw}
+  ul.flow li span{display:block;color:var(--ink-2);font-size:1vw;margin-top:3px}
+
+  .pills{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px}
+  .pill{background:var(--soft);color:var(--primary-dark);font-weight:600;padding:12px 20px;border-radius:30px;font-size:1.1vw}
+
+  .stat{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:30px}
+  .stat .big{font-size:3.4vw;font-weight:800;color:var(--primary)}
+  .stat .lbl{font-size:1vw;color:var(--ink-2);margin-top:6px;text-align:center}
+
+  .split{display:grid;grid-template-columns:1.1fr .9fr;gap:50px;flex:1;align-items:center}
+  .stack{display:flex;flex-direction:column;gap:16px}
+  .stack .row{display:flex;align-items:center;gap:14px;font-size:1.25vw}
+  .stack .row .dot{width:12px;height:12px;border-radius:50%;background:var(--primary);flex:0 0 auto}
+
+  .closing{background:
+      radial-gradient(115% 100% at 8% 90%, rgba(150,28,212,.92) 0%, rgba(96,20,168,.55) 20%, rgba(60,18,130,.25) 38%, transparent 56%),
+      radial-gradient(95% 85% at 40% 34%, rgba(34,54,168,.6) 0%, transparent 58%),
+      linear-gradient(135deg,#0c1640 0%,#080b22 55%,#04050e 100%);
+    color:#fff;justify-content:center;align-items:center;text-align:center}
+  .closing h2{font-size:4vw;color:#fff}
+  .closing p{font-size:1.5vw;color:rgba(255,255,255,.85);margin-top:16px}
+
+  /* footer + nav */
+  .foot{position:absolute;bottom:3vh;left:8vw;right:8vw;display:flex;justify-content:space-between;align-items:center;font-size:.9vw;color:var(--ink-2)}
+  .cover .foot,.closing .foot{color:rgba(255,255,255,.6)}
+  .nav{position:fixed;bottom:18px;right:22px;display:flex;gap:10px;z-index:50}
+  .nav button{border:none;background:rgba(255,255,255,.9);color:var(--primary-dark);width:42px;height:42px;border-radius:50%;font-size:18px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .nav button:hover{background:#fff}
+  .progress{position:fixed;top:0;left:0;height:4px;background:var(--primary-bright);z-index:60;transition:width .3s}
+  .hint{position:fixed;bottom:20px;left:22px;font-size:12px;color:rgba(255,255,255,.45);z-index:50}
+
+  @media print{
+    body{overflow:visible}
+    .slide{display:flex !important;position:relative;page-break-after:always;height:100vh;width:100vw}
+    .nav,.progress,.hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="prog"></div>
+<div class="deck" id="deck">
+
+  <!-- 1. COVER -->
+  <section class="slide cover active">
+    <div class="logo">
+      <div class="mark">🎓</div>
+      <span style="font-size:1.6vw;font-weight:700;letter-spacing:.5px">GyaanIQ Kids</span>
+    </div>
+    <h1>Learning that feels<br/>like play.</h1>
+    <p class="tag">A complete mobile learning companion for students — study, practice, attend live classes, and level up with every lesson.</p>
+    <div class="meta">Product Demo · Android · Built with Flutter</div>
+    <div class="foot"><span>GyaanIQ Kids</span><span>2026</span></div>
+  </section>
+
+  <!-- 2. PROBLEM / WHY -->
+  <section class="slide">
+    <div class="eyebrow">The Opportunity</div>
+    <h2>One app for the whole learning journey</h2>
+    <p class="sub">Students juggle scattered notes, separate quiz apps, and disconnected live-class links. GyaanIQ Kids brings study material, practice, live teaching, and motivation into a single, kid-friendly experience.</p>
+    <div class="grid g3">
+      <div class="card"><div class="ic">📚</div><h3>Scattered material</h3><p>Notes, e-books, and homework spread across many tools.</p></div>
+      <div class="card"><div class="ic">🎯</div><h3>No practice loop</h3><p>Learning without quizzes and feedback doesn't stick.</p></div>
+      <div class="card"><div class="ic">🔥</div><h3>Low motivation</h3><p>Kids need streaks, XP, and rewards to stay engaged.</p></div>
+    </div>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>02</span></div>
+  </section>
+
+  <!-- 3. CORE FEATURES -->
+  <section class="slide">
+    <div class="eyebrow">Product Overview</div>
+    <h2>Everything a student needs</h2>
+    <p class="sub">Five core areas, accessible from one bottom navigation bar.</p>
+    <div class="grid g4" style="grid-template-rows:1fr 1fr">
+      <div class="card"><div class="ic">🏠</div><h3>Home</h3><p>Personalized dashboard with progress at a glance.</p></div>
+      <div class="card"><div class="ic">📖</div><h3>Learn</h3><p>Chapters, notes, e-books, homework & doubt solving.</p></div>
+      <div class="card"><div class="ic">🎯</div><h3>Quiz</h3><p>Daily quizzes, practice tests & instant results.</p></div>
+      <div class="card"><div class="ic">📹</div><h3>Live</h3><p>Join live classes over Google Meet, in-app.</p></div>
+      <div class="card"><div class="ic">👤</div><h3>Profile</h3><p>Student info, settings & account management.</p></div>
+      <div class="card"><div class="ic">🏆</div><h3>Leaderboard</h3><p>Compete with peers and climb the ranks.</p></div>
+      <div class="card"><div class="ic">🔥</div><h3>XP & Streaks</h3><p>Earn points and keep your daily streak alive.</p></div>
+      <div class="card"><div class="ic">⬇️</div><h3>Offline</h3><p>Download lessons and study without internet.</p></div>
+    </div>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>03</span></div>
+  </section>
+
+  <!-- 4. LEARN MODULE -->
+  <section class="slide">
+    <div class="eyebrow">Deep Dive · Learn</div>
+    <h2>A full study toolkit</h2>
+    <p class="sub">The Learn tab is the heart of the app — structured, subject-wise, and interactive.</p>
+    <div class="grid g3" style="grid-template-rows:1fr 1fr">
+      <div class="card"><div class="ic">📑</div><h3>Chapters</h3><p>Subject-wise chapters with structured progress tracking.</p></div>
+      <div class="card"><div class="ic">📝</div><h3>Notes</h3><p>Clean, readable notes for every topic.</p></div>
+      <div class="card"><div class="ic">📕</div><h3>E-Books</h3><p>Built-in PDF reader for full textbooks.</p></div>
+      <div class="card"><div class="ic">✏️</div><h3>Homework</h3><p>Assignments delivered and tracked in-app.</p></div>
+      <div class="card"><div class="ic">💡</div><h3>Doubt Solving</h3><p>Ask questions with text & audio support.</p></div>
+      <div class="card"><div class="ic">✅</div><h3>Attendance</h3><p>Track class attendance automatically.</p></div>
+    </div>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>04</span></div>
+  </section>
+
+  <!-- 5. QUIZ & ASSESSMENT -->
+  <section class="slide">
+    <div class="eyebrow">Deep Dive · Practice</div>
+    <h2>Practice that builds mastery</h2>
+    <p class="sub">A continuous learn → test → review loop keeps knowledge sharp.</p>
+    <ul class="flow">
+      <li><div class="num">1</div><div><b>Daily Quiz</b><span>A fresh quiz every day to build a consistent habit.</span></div></li>
+      <li><div class="num">2</div><div><b>Practice Tests</b><span>Subject & topic-wise practice papers to target weak areas.</span></div></li>
+      <li><div class="num">3</div><div><b>Instant Results</b><span>Scores, answer review, and explanations right after submission.</span></div></li>
+      <li><div class="num">4</div><div><b>XP Rewards</b><span>Every quiz earns points that feed streaks and the leaderboard.</span></div></li>
+    </ul>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>05</span></div>
+  </section>
+
+  <!-- 6. ENGAGEMENT / GAMIFICATION -->
+  <section class="slide">
+    <div class="eyebrow">Deep Dive · Motivation</div>
+    <h2>Gamified to keep kids coming back</h2>
+    <div class="split">
+      <div class="stack">
+        <div class="row"><span class="dot"></span><b>XP points</b> earned for lessons & quizzes</div>
+        <div class="row"><span class="dot"></span><b>Daily streaks</b> reward consistent learning</div>
+        <div class="row"><span class="dot"></span><b>Leaderboard</b> drives friendly competition</div>
+        <div class="row"><span class="dot"></span><b>Configurable rewards</b> via XP config system</div>
+      </div>
+      <div class="grid g2" style="gap:18px">
+        <div class="stat"><div class="big">XP</div><div class="lbl">Earned every session</div></div>
+        <div class="stat"><div class="big">🔥</div><div class="lbl">Daily streaks</div></div>
+        <div class="stat"><div class="big">#1</div><div class="lbl">Leaderboard rank</div></div>
+        <div class="stat"><div class="big">🏅</div><div class="lbl">Rewards & badges</div></div>
+      </div>
+    </div>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>06</span></div>
+  </section>
+
+  <!-- 7. LIVE CLASSES -->
+  <section class="slide">
+    <div class="eyebrow">Deep Dive · Live</div>
+    <h2>Live classes, right inside the app</h2>
+    <p class="sub">No app-switching — students join scheduled live sessions seamlessly.</p>
+    <div class="grid g3">
+      <div class="card"><div class="ic">📹</div><h3>Google Meet</h3><p>Live sessions open in an embedded in-app webview.</p></div>
+      <div class="card"><div class="ic">🔎</div><h3>Explore Classes</h3><p>Discover and enroll in available courses & classes.</p></div>
+      <div class="card"><div class="ic">🎬</div><h3>Rich media</h3><p>YouTube & video player support for recorded content.</p></div>
+    </div>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>07</span></div>
+  </section>
+
+  <!-- 8. USER JOURNEY -->
+  <section class="slide">
+    <div class="eyebrow">Experience</div>
+    <h2>A smooth first run</h2>
+    <p class="sub">From install to first lesson in just a few guided steps.</p>
+    <ul class="flow">
+      <li><div class="num">1</div><div><b>Onboarding</b><span>Friendly intro screens explain what GyaanIQ Kids offers.</span></div></li>
+      <li><div class="num">2</div><div><b>Sign up / Login</b><span>Secure auth with create-account & password recovery.</span></div></li>
+      <li><div class="num">3</div><div><b>Profile setup</b><span>Student details captured to personalize content.</span></div></li>
+      <li><div class="num">4</div><div><b>Dashboard</b><span>Land on a tailored home with courses and progress.</span></div></li>
+    </ul>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>08</span></div>
+  </section>
+
+  <!-- 9. TECH -->
+  <section class="slide">
+    <div class="eyebrow">Under the Hood</div>
+    <h2>Built to scale & ship fast</h2>
+    <p class="sub">A modern, cross-platform stack with clean modular architecture.</p>
+    <div class="grid g4">
+      <div class="card"><div class="ic">💙</div><h3>Flutter</h3><p>Single codebase, native performance on Android.</p></div>
+      <div class="card"><div class="ic">⚡</div><h3>GetX</h3><p>Reactive state management & routing.</p></div>
+      <div class="card"><div class="ic">🔐</div><h3>Secure storage</h3><p>Encrypted tokens & session management.</p></div>
+      <div class="card"><div class="ic">🌐</div><h3>Dio / HTTP</h3><p>Robust API layer for all backend services.</p></div>
+    </div>
+    <div class="pills">
+      <span class="pill">Offline downloads</span>
+      <span class="pill">PDF & video playback</span>
+      <span class="pill">Audio doubt-solving</span>
+      <span class="pill">In-app updates</span>
+      <span class="pill">Modular feature folders</span>
+    </div>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>09</span></div>
+  </section>
+
+  <!-- 10. WHY -->
+  <section class="slide">
+    <div class="eyebrow">The Value</div>
+    <h2>Why GyaanIQ Kids wins</h2>
+    <div class="grid g3">
+      <div class="card"><div class="ic">🎯</div><h3>All-in-one</h3><p>Study, practice, live class & rewards in one place.</p></div>
+      <div class="card"><div class="ic">😊</div><h3>Kid-friendly</h3><p>Bright, simple UI designed for young learners.</p></div>
+      <div class="card"><div class="ic">📈</div><h3>Habit-forming</h3><p>Streaks & XP turn studying into a daily routine.</p></div>
+      <div class="card"><div class="ic">📡</div><h3>Works offline</h3><p>Download once, learn anywhere — no constant data.</p></div>
+      <div class="card"><div class="ic">💳</div><h3>Monetizable</h3><p>Built-in subscriptions & purchase history.</p></div>
+      <div class="card"><div class="ic">🚀</div><h3>Ready to grow</h3><p>Modular codebase makes new features easy to add.</p></div>
+    </div>
+    <div class="foot"><span>GyaanIQ Kids · Demo</span><span>10</span></div>
+  </section>
+
+  <!-- 11. CLOSING -->
+  <section class="slide closing">
+    <div class="logo" style="margin-bottom:24px"><div class="mark" style="background:rgba(255,255,255,.16);width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:34px">🎓</div></div>
+    <h2>Let's see it live.</h2>
+    <p>Thank you — questions & demo walkthrough welcome.</p>
+    <div class="foot"><span>GyaanIQ Kids</span><span>Demo</span></div>
+  </section>
+
+</div>
+
+<div class="hint">← → or Space to navigate · F for fullscreen · D for dark mode · P to print/PDF</div>
+<div class="nav">
+  <button onclick="toggleDark()" aria-label="Toggle dark mode" id="darkBtn">🌙</button>
+  <button onclick="go(-1)" aria-label="Previous">‹</button>
+  <button onclick="go(1)" aria-label="Next">›</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    document.getElementById('prog').style.width=((i+1)/slides.length*100)+'%';
+  }
+  function go(d){show(i+d)}
+  function setDark(on){
+    document.body.classList.toggle('dark',on);
+    document.getElementById('darkBtn').textContent=on?'☀️':'🌙';
+    try{localStorage.setItem('gq-dark',on?'1':'0')}catch(e){}
+  }
+  function toggleDark(){setDark(!document.body.classList.contains('dark'))}
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight',' ','PageDown'].includes(e.key)){e.preventDefault();go(1)}
+    else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();go(-1)}
+    else if(e.key==='Home')show(0);
+    else if(e.key==='End')show(slides.length-1);
+    else if(e.key.toLowerCase()==='f'){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen()}
+    else if(e.key.toLowerCase()==='d')toggleDark();
+    else if(e.key.toLowerCase()==='p')window.print();
+  });
+  let savedDark='0';try{savedDark=localStorage.getItem('gq-dark')||'0'}catch(e){}
+  setDark(savedDark==='1');
+  show(0);
+</script>
+</body>
+</html>

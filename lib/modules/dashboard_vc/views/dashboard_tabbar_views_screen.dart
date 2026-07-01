@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/data/user_profile_provider.dart';
@@ -23,6 +24,7 @@ class DashboardTabbarViewsScreen extends StatefulWidget {
   @override
   State<DashboardTabbarViewsScreen> createState() =>
       _DashboardTabbarViewsScreenState();
+
 }
 
 class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
@@ -167,22 +169,92 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
   Widget build(BuildContext context) {
     final controller = Get.put(DashboardTabbarController());
 
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
-      body: Obx(
-        () => IndexedStack(
-          index: controller.currentTabIndex.value,
-          children: const [
-            _HomeTab(),
-            _LearnTab(),
-            _QuizTab(),
-            Offstage(offstage: true, child: _LiveTab()),
-            _ProfileTab(),
-          ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) {
+          return;
+        }
+        // Not on Home → go to Home first.
+        if (controller.currentTabIndex.value != 0) {
+          controller.changeTab(0);
+          return;
+        }
+        // On Home → confirm before exiting the app.
+        final shouldExit = await _showExitDialog(context);
+        if (shouldExit) {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.scaffoldBackground,
+        body: Obx(
+          () => IndexedStack(
+            index: controller.currentTabIndex.value,
+            children: const [
+              _HomeTab(),
+              _LearnTab(),
+              _QuizTab(),
+              Offstage(offstage: true, child: _LiveTab()),
+              _ProfileTab(),
+            ],
+          ),
         ),
+        bottomNavigationBar: const _BottomNavBar(),
       ),
-      bottomNavigationBar: const _BottomNavBar(),
     );
+  }
+
+  Future<bool> _showExitDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Exit App',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to exit the app?',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Exit',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 }
 
@@ -294,95 +366,93 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
   Widget build(BuildContext context) {
     final profile = Provider.of<UserProfileProvider>(context).profile;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.center,
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(bottom: BorderSide(color: AppColors.headerBorder)),
       ),
       child: Row(
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              _ProfileAvatar(
-                imageUrl: profile?.profilePic ?? '',
-                size: 40,
-                iconSize: 28,
-                borderWidth: 2,
-              ),
-              const Positioned(
-                right: -1,
-                bottom: -1,
-                child: CircleAvatar(
-                  radius: 9,
-                  backgroundColor: AppColors.white,
-                  child: CircleAvatar(
-                    radius: 7,
-                    backgroundColor: AppColors.success,
-                  ),
-                ),
-              ),
-            ],
+          _ProfileAvatar(
+            imageUrl: profile?.profilePic ?? '',
+            size: 46,
+            iconSize: 30,
+            borderWidth: 2,
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hi, ${profile?.name ?? 'Student'}👋',
+                  'Hi, ${profile?.name ?? 'Student'}! 👋',
                   style: const TextStyle(
                     color: AppColors.textPrimaryDeep,
-                    fontSize: 15,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  'CLASS ${profile?.userClass ?? '-'} • ${profile?.educationBoard ?? '-'} BOARD',
+                  'Class ${profile?.userClass ?? '-'} • ${profile?.educationBoard ?? '-'} Board',
                   style: const TextStyle(
                     color: AppColors.textMuted2,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: AppColors.streakBackground,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppColors.chipBorder),
+              color: const Color(0xFFFFF0E0),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
-                  Icons.local_fire_department_outlined,
-                  color: AppColors.streakIcon,
-                  size: 15,
+                  Icons.local_fire_department_rounded,
+                  color: Color(0xFFFF7A00),
+                  size: 22,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 7),
                 Obx(
-                  () => Text(
-                    controller.userXpSummary.value.streakText,
-                    style: const TextStyle(
-                      color: AppColors.streakText,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  () => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        controller.userXpSummary.value.streakText,
+                        style: const TextStyle(
+                          color: Color(0xFF1F2433),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          height: 1.05,
+                        ),
+                      ),
+                      const Text(
+                        'Streak',
+                        style: TextStyle(
+                          color: Color(0xFF8A8F9C),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          // const SizedBox(width: 12),
-          // const Icon(
-          //   Icons.notifications_none_rounded,
-          //   color: AppColors.iconMuted,
-          //   size: 20,
-          // ),
         ],
       ),
     );
@@ -472,23 +542,7 @@ class _HomeTab extends StatelessWidget {
         () => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Your Learning Journey',
-              style: TextStyle(
-                color: AppColors.textBlue,
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 3),
-            const Text(
-              'Master your goals with interactive question.',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            const _LearningJourneyBanner(),
             const SizedBox(height: 18),
             if (controller.dashboardSummaryError.value.isNotEmpty)
               _DashboardInlineState(
@@ -499,26 +553,9 @@ class _HomeTab extends StatelessWidget {
               const _JourneyCard(),
               const SizedBox(height: 18),
             ],
-            const Row(
-              children: [
-                Expanded(child: _DailyQuizMiniCard()),
-                // SizedBox(width: 14),
-                // Expanded(child: _AiTutorCard()),
-              ],
-            ),
+            const _DailyQuizMiniCard(),
             const SizedBox(height: 18),
             const _LeaderboardStripCard(),
-            const SizedBox(height: 18),
-            const _WeakAreasSection(),
-            // const _HomeLiveClassesSection(),
-            // const SizedBox(height: 18),
-            // const _SpokenEnglishCard(),
-            // const SizedBox(height: 18),
-            // InkWell(
-            //   onTap: () => Get.to(() => const ExploreClassesViews()),
-            //   borderRadius: BorderRadius.circular(24),
-            //   // child: const _ExploreClassesCard(),
-            // ),
           ],
         ),
       ),
@@ -745,79 +782,112 @@ class _JourneyCard extends StatelessWidget {
 
     return Obx(() {
       final summary = controller.lessonSummary.value;
+      final subjects = controller.learnSubjects;
 
       return InkWell(
         onTap: () => controller.changeTab(1),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: _cardDecoration(),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFD8DEF0).withValues(alpha: 0.5),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.import_contacts_rounded,
-                  color: AppColors.primary,
-                  size: 25,
-                ),
-              ),
-              const SizedBox(height: 15),
-              const Text(
-                'Learning',
-                style: TextStyle(
-                  color: AppColors.textPrimaryAlt,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                summary.activeLessonLabel,
-                style: const TextStyle(
-                  color: AppColors.neutralText2,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 25),
               Row(
                 children: [
-                  const Text(
-                    'Overall Progress',
-                    style: TextStyle(
-                      color: AppColors.textMuted3,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF6C4DF6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.menu_book_rounded,
+                      color: Colors.white,
+                      size: 26,
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    summary.progressLabel,
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Learning Progress',
+                          style: TextStyle(
+                            color: Color(0xFF1B1F2A),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          summary.activeLessonLabel,
+                          style: const TextStyle(
+                            color: Color(0xFF8A8F9C),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        summary.progressLabel,
+                        style: const TextStyle(
+                          color: Color(0xFF6C4DF6),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const Text(
+                        'Completed',
+                        style: TextStyle(
+                          color: Color(0xFF8A8F9C),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              if (subjects.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final subject in subjects)
+                      _SubjectChip(subject: subject),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 18),
               ClipRRect(
                 borderRadius: BorderRadius.circular(99),
                 child: LinearProgressIndicator(
                   value: summary.progressValue,
-                  minHeight: 10,
-                  backgroundColor: AppColors.neutralSurface3,
+                  minHeight: 8,
+                  backgroundColor: const Color(0xFFEDEFF4),
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.primary,
+                    Color(0xFF6C4DF6),
                   ),
                 ),
               ),
@@ -829,6 +899,117 @@ class _JourneyCard extends StatelessWidget {
   }
 }
 
+/// Compact subject pill: colored symbol + short name, so each subject is
+/// visually identifiable at a glance.
+class _SubjectChip extends StatelessWidget {
+  const _SubjectChip({required this.subject});
+
+  final SubjectCardData subject;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _subjectColor(subject.title, subject.accent);
+    final icon = _subjectIcon(subject.title, subject.icon);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 5, 11, 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            subject.title,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A spread of bright, kid-friendly card colors.
+const List<Color> _brightSubjectColors = [
+  Color(0xFFFF5A5F), // coral red
+  Color(0xFFFF8A3D), // orange
+  Color(0xFFFFB300), // amber
+  Color(0xFF22C55E), // green
+  Color(0xFF06B6D4), // cyan
+  Color(0xFF3B82F6), // blue
+  Color(0xFF7C5CFC), // violet
+  Color(0xFFEC4899), // pink
+  Color(0xFF14B8A6), // teal
+  Color(0xFFF43F5E), // rose
+];
+
+/// Picks a bright color that's stable for a given subject key (so a subject
+/// always keeps the same color across rebuilds, but the set looks varied).
+Color _brightSubjectColor(String key) {
+  if (key.isEmpty) return _brightSubjectColors.first;
+  var hash = 0;
+  for (final unit in key.codeUnits) {
+    hash = (hash + unit) & 0x7fffffff;
+  }
+  return _brightSubjectColors[hash % _brightSubjectColors.length];
+}
+
+/// Per-subject symbol, keyed by subject name. Falls back to the subject's
+/// existing palette icon for anything not listed here.
+IconData _subjectIcon(String name, IconData fallback) {
+  final key = name.trim().toLowerCase();
+  bool has(String s) => key.contains(s);
+
+  if (has('math') || has('गणित')) return Icons.calculate_rounded;
+  if (has('hindi') || has('हिंदी') || has('हिन्दी')) return Icons.translate_rounded;
+  if (has('english') || has('अंग्रेज')) return Icons.menu_book_rounded;
+  if (has('science') || has('विज्ञान')) return Icons.science_rounded;
+  if (has('social') || has('sst') || has('history') || has('civics') ||
+      has('geograph')) {
+    return Icons.public_rounded;
+  }
+  if (has('computer') || has('coding') || has('comp')) {
+    return Icons.computer_rounded;
+  }
+  if (has('sanskrit') || has('संस्कृत')) return Icons.auto_stories_rounded;
+  if (has('evs') || has('environ')) return Icons.eco_rounded;
+  if (has('gk') || has('general knowledge')) return Icons.lightbulb_rounded;
+  return fallback;
+}
+
+/// Per-subject brand color, keyed by subject name. Falls back to the
+/// index-based palette accent for any subject not listed here.
+Color _subjectColor(String name, Color fallback) {
+  final key = name.trim().toLowerCase();
+  bool has(String s) => key.contains(s);
+
+  if (has('math') || has('गणित')) return const Color(0xFF4A4FD9); // indigo
+  if (has('hindi') || has('हिंदी') || has('हिन्दी')) {
+    return const Color(0xFFE4572E); // warm red
+  }
+  if (has('english') || has('अंग्रेज')) return const Color(0xFF19945F); // green
+  if (has('science') || has('विज्ञान')) return const Color(0xFFE8590C); // orange
+  if (has('social') || has('sst') || has('history') || has('civics') ||
+      has('geograph')) {
+    return const Color(0xFF8A2CD5); // purple
+  }
+  if (has('computer') || has('coding') || has('comp')) {
+    return const Color(0xFF1671D9); // blue
+  }
+  if (has('sanskrit') || has('संस्कृत')) return const Color(0xFFB8860B); // amber
+  if (has('evs') || has('environ')) return const Color(0xFF12A594); // teal
+  if (has('gk') || has('general knowledge')) return const Color(0xFFD6336C); // pink
+  return fallback;
+}
+
 class _DailyQuizMiniCard extends StatelessWidget {
   const _DailyQuizMiniCard();
 
@@ -836,83 +1017,161 @@ class _DailyQuizMiniCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => Get.to(() => const StartQuizViews()),
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(24),
       child: Container(
-        height: 200,
-        padding: const EdgeInsets.all(18),
+        width: double.infinity,
+        height: 212,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: AppColors.primaryDark,
-          borderRadius: BorderRadius.circular(28),
+          color: const Color(0xFF1B2C8A),
+          borderRadius: BorderRadius.circular(24),
+          image: const DecorationImage(
+            image: AssetImage('assets/quizz.jpg'),
+            fit: BoxFit.cover,
+            alignment: Alignment.centerRight,
+          ),
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.warning,
+                  color: const Color(0xFFFFC833),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  'BONUS +10 XP',
-                  style: TextStyle(
-                    color: AppColors.textBlueDark,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star_rounded, color: Color(0xFF1B2C8A), size: 14),
+                    SizedBox(width: 5),
+                    Text(
+                      'BONUS +10 XP',
+                      style: TextStyle(
+                        color: Color(0xFF1B2C8A),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const Positioned(
-              top: 58,
-              left: 0,
-              child: Text(
+              const Text(
                 'Daily Quiz',
                 style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 18,
+                  color: Colors.white,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  height: 1.1,
                 ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              bottom: 0,
-              child: Container(
+              const Text(
+                'Test your knowledge daily\nand level up!',
+                style: TextStyle(
+                  color: Color(0xFFD7DCF5),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                ),
+              ),
+              Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 9,
+                  horizontal: 18,
+                  vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.20),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
                 ),
-                child: const Text(
-                  'Start Now',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Start Quiz',
+                      style: TextStyle(
+                        color: Color(0xFF4D4FE1),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Color(0xFF4D4FE1),
+                      size: 18,
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Positioned(
-              bottom: -8,
-              right: -6,
-              child: Icon(
-                Icons.quiz_outlined,
-                size: 62,
-                color: AppColors.white.withValues(alpha: 0.12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Blue hero banner at the top of the Home tab (uses assets/head.jpg).
+class _LearningJourneyBanner extends StatelessWidget {
+  const _LearningJourneyBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1568 / 470,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: const Color(0xFF4B43D6),
+          borderRadius: BorderRadius.circular(24),
+          image: const DecorationImage(
+            image: AssetImage('assets/head.jpg'),
+            fit: BoxFit.cover,
+            alignment: Alignment.centerRight,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 6,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Your Learning Journey',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Master your goals with\nAI-powered learning.',
+                      style: TextStyle(
+                        color: Color(0xFFD7DCF5),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const Expanded(flex: 4, child: SizedBox()),
+            ],
+          ),
         ),
       ),
     );
@@ -1024,16 +1283,16 @@ class _LeaderboardStripCard extends StatelessWidget {
                   const Row(
                     children: [
                       Icon(
-                        Icons.emoji_events_outlined,
-                        color: AppColors.warning2,
-                        size: 20,
+                        Icons.emoji_events_rounded,
+                        color: Color(0xFFFFB300),
+                        size: 22,
                       ),
                       SizedBox(width: 8),
                       Text(
                         'Leaderboard',
                         style: TextStyle(
                           color: AppColors.textPrimaryNavy,
-                          fontSize: 14,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -1052,31 +1311,43 @@ class _LeaderboardStripCard extends StatelessWidget {
                       ? 'Global Rank: ...'
                       : 'Global Rank: ${summary.rankText}',
                   style: const TextStyle(
-                    color: AppColors.textMuted6,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF4D4FE1),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 18),
                 InkWell(
                   onTap: controller.openLeaderboard,
                   borderRadius: BorderRadius.circular(26),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 15,
-                      vertical: 5,
+                      horizontal: 16,
+                      vertical: 9,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryDeeper,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(26),
+                      border: Border.all(color: const Color(0xFF4D4FE1)),
                     ),
-                    child: const Text(
-                      'View Ranking',
-                      style: TextStyle(
-                        color: AppColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View Ranking',
+                          style: TextStyle(
+                            color: Color(0xFF4D4FE1),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(width: 7),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Color(0xFF4D4FE1),
+                          size: 15,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1593,13 +1864,22 @@ class _SubjectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<DashboardTabbarController>();
+    final accent = _brightSubjectColor(
+      subject.subjectId.isNotEmpty ? subject.subjectId : subject.title,
+    );
+    final icon = _subjectIcon(subject.title, subject.icon);
 
     return InkWell(
       onTap: () => controller.openLearnSubjectFromCard(subject),
       borderRadius: BorderRadius.circular(26),
       child: Container(
+        clipBehavior: Clip.antiAlias,
         padding: const EdgeInsets.all(18),
-        decoration: _cardDecoration(),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: accent.withValues(alpha: 0.25)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1607,10 +1887,17 @@ class _SubjectCard extends StatelessWidget {
               width: 45,
               height: 45,
               decoration: BoxDecoration(
-                color: subject.iconBackground,
-                borderRadius: BorderRadius.circular(10),
+                color: accent,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: Icon(subject.icon, color: subject.accent, size: 25),
+              child: Icon(icon, color: Colors.white, size: 25),
             ),
             const Spacer(),
             Text(
@@ -1630,8 +1917,8 @@ class _SubjectCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: subject.progressValue,
                       minHeight: 8,
-                      backgroundColor: AppColors.neutralSurface5,
-                      valueColor: AlwaysStoppedAnimation<Color>(subject.accent),
+                      backgroundColor: accent.withValues(alpha: 0.18),
+                      valueColor: AlwaysStoppedAnimation<Color>(accent),
                     ),
                   ),
                 ),
@@ -1650,7 +1937,7 @@ class _SubjectCard extends StatelessWidget {
             Text(
               subject.progressText,
               style: TextStyle(
-                color: subject.accent,
+                color: accent,
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),

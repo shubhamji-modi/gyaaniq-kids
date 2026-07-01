@@ -13,6 +13,12 @@ class LeaderboardController extends GetxController {
   final RxList<LeaderboardUser> top = <LeaderboardUser>[].obs;
   final Rxn<LeaderboardUser> myEntry = Rxn<LeaderboardUser>();
 
+  // Class prizes (shown in the header bottom sheet).
+  final RxBool isLoadingPrizes = false.obs;
+  final RxString prizesError = ''.obs;
+  final RxString prizesClassLevel = ''.obs;
+  final RxList<ClassPrize> classPrizes = <ClassPrize>[].obs;
+
   List<LeaderboardUser> get topThree => top.take(3).toList();
 
   LeaderboardUser? get currentUser => myEntry.value;
@@ -63,6 +69,40 @@ class LeaderboardController extends GetxController {
             subtitle: myRank.value > 0 ? 'Ranked #${myRank.value}' : null,
           )
         : null;
+  }
+
+  Future<void> loadClassPrizes() async {
+    if (isLoadingPrizes.value) {
+      return;
+    }
+    isLoadingPrizes.value = true;
+    prizesError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.CLASS_PRIZES,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    isLoadingPrizes.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      classPrizes.clear();
+      prizesError.value = response.message.isEmpty
+          ? 'Unable to load class prizes right now.'
+          : response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    prizesClassLevel.value = _safeText(data['classLevel']);
+    classPrizes.assignAll(
+      (data['prizes'] as List<dynamic>? ?? const [])
+          .map((item) => ClassPrize.fromApi(item as Map<String, dynamic>))
+          .toList()
+        ..sort((a, b) => a.rank.compareTo(b.rank)),
+    );
   }
 
   String formatXp(int value) {
@@ -120,6 +160,28 @@ class LeaderboardUser {
           : const Color(0xFFFFB46A),
       subtitle: subtitle,
       isChampion: rank == 1,
+    );
+  }
+}
+
+class ClassPrize {
+  const ClassPrize({
+    required this.rank,
+    required this.name,
+    this.imageUrl,
+  });
+
+  final int rank;
+  final String name;
+  final String? imageUrl;
+
+  factory ClassPrize.fromApi(Map<String, dynamic> json) {
+    final image = json['image'];
+    final url = image is Map<String, dynamic> ? _safeText(image['url']) : '';
+    return ClassPrize(
+      rank: (json['rank'] as num?)?.toInt() ?? 0,
+      name: _safeText(json['name'], fallback: 'Prize'),
+      imageUrl: url.isEmpty ? null : url,
     );
   }
 }

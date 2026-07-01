@@ -76,10 +76,38 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
   ];
 
   int _currentStep = 0;
+  bool _namePrefilled = false;
   String? _selectedLanguage;
   String? _selectedBoard;
   String? _selectedFinalGrade;
   bool _isSubmitting = false;
+
+  // When the name is already known from signup, the name step is skipped so
+  // the user isn't asked for it again — the flow becomes 3 steps instead of 4.
+  int get _firstStep => _namePrefilled ? 1 : 0;
+  int get _totalSteps => _namePrefilled ? 3 : 4;
+  int get _visibleStepIndex => _currentStep - _firstStep;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillNameFromSignup();
+  }
+
+  Future<void> _prefillNameFromSignup() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedName = (prefs.getString('user_name') ?? '').trim();
+    if (!mounted || savedName.isEmpty) {
+      return;
+    }
+    setState(() {
+      _nameController.text = savedName;
+      _namePrefilled = true;
+      if (_currentStep == 0) {
+        _currentStep = 1;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -113,6 +141,11 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
     }
 
     if (_currentStep == 3) {
+      final confirmed = await _showProfileReviewSheet();
+      if (confirmed != true || !mounted) {
+        return;
+      }
+
       final profileProvider = context.read<UserProfileProvider>();
 
       setState(() {
@@ -170,8 +203,23 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
     }
   }
 
+  Future<bool?> _showProfileReviewSheet() {
+    FocusScope.of(context).unfocus();
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ProfileReviewSheet(
+        name: _nameController.text.trim(),
+        language: _selectedLanguage ?? '-',
+        board: _selectedBoard ?? '-',
+        grade: _selectedFinalGrade ?? '-',
+      ),
+    );
+  }
+
   void _onBack() {
-    if (_currentStep == 0) {
+    if (_currentStep == _firstStep) {
       Get.back();
       return;
     }
@@ -352,7 +400,7 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (_currentStep + 1) / 4;
+    final progress = (_visibleStepIndex + 1) / _totalSteps;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
@@ -363,7 +411,7 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
               child: Row(
                 children: [
-                  if (_currentStep != 0) ...[
+                  if (_currentStep != _firstStep) ...[
                     InkWell(
                       onTap: _onBack,
                       borderRadius: BorderRadius.circular(20),
@@ -395,7 +443,7 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
                   Text(
                     _currentStep == 3
                         ? 'final Step'
-                        : 'Step ${_currentStep + 1} of 4',
+                        : 'Step ${_visibleStepIndex + 1} of $_totalSteps',
                     style: const TextStyle(
                       color: Color(0xFF6D7385),
                       fontSize: 13,
@@ -939,6 +987,225 @@ class _GradeCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Preview sheet shown when the user taps "Start Learning" so they can confirm
+/// or go back and edit their profile details. Pops `true` to confirm.
+class _ProfileReviewSheet extends StatelessWidget {
+  const _ProfileReviewSheet({
+    required this.name,
+    required this.language,
+    required this.board,
+    required this.grade,
+  });
+
+  final String name;
+  final String language;
+  final String board;
+  final String grade;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 46,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE1E4EA),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE4E5FB),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.fact_check_rounded,
+                    color: Color(0xFF4A4FD9),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Review Your Profile',
+                        style: TextStyle(
+                          color: Color(0xFF101828),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Confirm your details before you start learning.',
+                        style: TextStyle(
+                          color: Color(0xFF667085),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _ProfileReviewRow(
+              icon: Icons.person_outline_rounded,
+              label: 'Full Name',
+              value: name,
+            ),
+            const SizedBox(height: 12),
+            _ProfileReviewRow(
+              icon: Icons.translate_rounded,
+              label: 'Medium of Instruction',
+              value: language,
+            ),
+            const SizedBox(height: 12),
+            _ProfileReviewRow(
+              icon: Icons.school_outlined,
+              label: 'Educational Board',
+              value: board,
+            ),
+            const SizedBox(height: 12),
+            _ProfileReviewRow(
+              icon: Icons.grade_outlined,
+              label: 'Class',
+              value: grade,
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4A4FD9),
+                        side: const BorderSide(color: Color(0xFF4A4FD9)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4A4FD9),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      child: const Text('Start Learning'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileReviewRow extends StatelessWidget {
+  const _ProfileReviewRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE9ECF4)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF4A4FD9), size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF8A8F9C),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF1B1F2A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

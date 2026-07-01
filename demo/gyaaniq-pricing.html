@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GyaaniQ Kids — Pricing for Schools & Coaching Institutes</title>
+<style>
+  :root{
+    --brand:#4f46e5;
+    --brand2:#7c3aed;
+    --accent:#f59e0b;
+    --ink:#1e293b;
+    --muted:#64748b;
+    --line:#e2e8f0;
+    --bg:#f8fafc;
+    --green:#16a34a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5}
+  .page{max-width:900px;margin:0 auto;padding:32px 28px;background:#fff}
+
+  /* Header */
+  .hero{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-radius:18px;padding:28px 30px;position:relative;overflow:hidden}
+  .hero h1{font-size:30px;letter-spacing:.3px}
+  .hero p{opacity:.92;margin-top:6px;font-size:15px}
+  .badge{display:inline-block;background:var(--accent);color:#3a2400;font-weight:700;font-size:13px;padding:5px 12px;border-radius:999px;margin-top:14px}
+  .hero .blob{position:absolute;right:-40px;top:-40px;width:180px;height:180px;background:rgba(255,255,255,.12);border-radius:50%}
+
+  /* Anchor strip */
+  .anchor{display:flex;align-items:center;gap:18px;background:#fff7ed;border:1px dashed var(--accent);border-radius:14px;padding:18px 22px;margin:22px 0}
+  .anchor .num{font-size:46px;font-weight:800;color:var(--accent);line-height:1}
+  .anchor .num small{font-size:18px;color:var(--ink);font-weight:600}
+  .anchor .txt{font-size:14px;color:var(--muted)}
+  .anchor .txt b{color:var(--ink)}
+
+  h2.section{font-size:20px;margin:26px 0 12px;display:flex;align-items:center;gap:8px}
+  h2.section::before{content:"";width:6px;height:22px;background:var(--brand);border-radius:3px}
+
+  /* Plan cards */
+  .plans{display:grep;display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .plan{border:1px solid var(--line);border-radius:14px;padding:18px;position:relative;background:#fff}
+  .plan.featured{border:2px solid var(--brand);box-shadow:0 8px 24px rgba(79,70,229,.12)}
+  .plan .tag{position:absolute;top:-11px;right:14px;background:var(--brand);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .plan .tag.hot{background:var(--accent);color:#3a2400}
+  .plan h3{font-size:17px}
+  .plan .size{font-size:12px;color:var(--muted);margin-top:2px}
+  .plan .rate{font-size:34px;font-weight:800;color:var(--brand);margin:12px 0 2px}
+  .plan .rate small{font-size:14px;color:var(--muted);font-weight:500}
+  .plan .yearly{font-size:13px;color:var(--green);font-weight:600}
+  .plan ul{list-style:none;margin-top:12px;font-size:13px}
+  .plan ul li{padding:4px 0 4px 22px;position:relative;color:#334155}
+  .plan ul li::before{content:"✓";position:absolute;left:0;color:var(--green);font-weight:700}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left}
+  th{background:var(--brand);color:#fff;font-weight:600}
+  tr:nth-child(even) td{background:#f8fafc}
+  td.hl{color:var(--accent);font-weight:700}
+
+  /* Pitch */
+  .pitch{background:#0f172a;color:#e2e8f0;border-radius:14px;padding:22px 24px;margin-top:16px}
+  .pitch h3{color:#fff;font-size:17px;margin-bottom:10px}
+  .pitch .quote{border-left:3px solid var(--accent);padding:8px 14px;font-style:italic;color:#cbd5e1;margin:10px 0;font-size:14px}
+  .pitch ol{margin:10px 0 0 18px;font-size:13px}
+  .pitch ol li{margin:5px 0}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .note{background:#eef2ff;border-radius:12px;padding:14px 16px;font-size:13px;color:#3730a3}
+  .note b{color:#312e81}
+
+  .perks{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px}
+  .perk{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px}
+  .perk b{display:block;color:var(--brand);margin-bottom:2px}
+
+  footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+  @media print{
+    body{background:#fff}
+    .page{max-width:100%;padding:0}
+    .plan.featured{box-shadow:none}
+    .hero,.pitch{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .pagebreak{page-break-before:always}
+  }
+  @media(max-width:680px){.plans,.grid2,.perks{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="blob"></div>
+    <h1>GyaaniQ Kids — AI Tutor</h1>
+    <p>Affordable AI-powered learning for Schools &amp; Coaching Institutes · Dewas, M.P.</p>
+    <span class="badge">★ Starting at just ₹9 / student / month</span>
+  </div>
+
+  <!-- ANCHOR -->
+  <div class="anchor">
+    <div class="num">₹9<small>/student/month</small></div>
+    <div class="txt">
+      That's <b>only ₹108 per student a year</b> — less than the cost of one notebook.<br>
+      Give <b>every child a personal AI tutor</b> and give the institute a <b>smart progress dashboard</b>.
+    </div>
+  </div>
+
+  <!-- PLANS -->
+  <h2 class="section">Pricing Plans by Institute Strength</h2>
+  <div class="plans">
+
+    <div class="plan">
+      <span class="tag">PILOT</span>
+      <h3>Free Trial</h3>
+      <div class="size">Any institute · up to 50 students</div>
+      <div class="rate">₹0<small> / 30 days</small></div>
+      <div class="yearly">No payment to start</div>
+      <ul>
+        <li>1 class / batch</li>
+        <li>Full AI tutor access</li>
+        <li>Sample progress reports</li>
+        <li>See real usage before you pay</li>
+      </ul>
+    </div>
+
+    <div class="plan">
+      <span class="tag hot">TINY</span>
+      <h3>Starter</h3>
+      <div class="size">Very small · 10–100 students</div>
+      <div class="rate">₹12<small> /student/mo</small></div>
+      <div class="yearly">≈ ₹144 / student / year</div>
+      <ul>
+        <li>Core AI tutor &amp; practice</li>
+        <li>1 admin + 2 teacher logins</li>
+        <li>Basic progress reports</li>
+        <li>Parent report on WhatsApp</li>
+      </ul>
+    </div>
+
+    <div class="plan featured">
+      <span class="tag">MOST POPULAR</span>
+      <h3>Growth</h3>
+      <div class="size">Medium · 100–500 students</div>
+      <div class="rate">₹9<small> /student/mo</small></div>
+      <div class="yearly">≈ ₹108 / student / year</div>
+      <ul>
+        <li>Everything in Starter</li>
+        <li>Weak-area &amp; XP analytics</li>
+        <li>Attendance + multi-class view</li>
+        <li>5 teacher logins · Parent app</li>
+      </ul>
+    </div>
+
+    <div class="plan">
+      <span class="tag">VALUE</span>
+      <h3>Institute Pro</h3>
+      <div class="size">Large · 500–1500 students</div>
+      <div class="rate">₹7<small> /student/mo</small></div>
+      <div class="yearly">≈ ₹84 / student / year</div>
+      <ul>
+        <li>Everything in Growth</li>
+        <li>Branded reports &amp; owner dashboard</li>
+        <li>Unlimited teacher logins</li>
+        <li>Priority WhatsApp support</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ENTERPRISE STRIP -->
+  <div class="note" style="margin-top:16px">
+    <b>Enterprise / Multi-branch (1500+ students):</b> Custom rate from <b>₹5 /student/month</b> ·
+    white-label option · dedicated onboarding · one master contract for all branches.
+  </div>
+
+  <!-- COST TABLE -->
+  <h2 class="section">What It Actually Costs (Annual)</h2>
+  <table>
+    <tr>
+      <th>Plan</th><th>Strength (example)</th><th>Per student / month</th><th>Total per year</th><th>Per month to institute</th>
+    </tr>
+    <tr><td>Starter</td><td>50 students</td><td class="hl">₹12</td><td><b>₹7,200</b></td><td>₹600</td></tr>
+    <tr><td>Growth</td><td>300 students</td><td class="hl">₹9</td><td><b>₹32,400</b></td><td>₹2,700</td></tr>
+    <tr><td>Institute Pro</td><td>800 students</td><td class="hl">₹7</td><td><b>₹67,200</b></td><td>₹5,600</td></tr>
+    <tr><td>Enterprise</td><td>2000 students</td><td class="hl">₹5</td><td><b>₹1,20,000</b></td><td>₹10,000</td></tr>
+  </table>
+  <p style="font-size:12px;color:var(--muted);margin-top:8px">
+    * Billed annually, upfront, before session start. Half-yearly option available at +15%. The institute can add this to its fee structure (₹9/month is invisible inside a monthly fee).
+  </p>
+
+  <!-- WHY / PERKS -->
+  <h2 class="section">Why Institutes Say Yes</h2>
+  <div class="perks">
+    <div class="perk"><b>More Renewals</b>Parents who see weekly progress trust the institute and re-admit their child.</div>
+    <div class="perk"><b>Less Teacher Work</b>One teacher monitors 100+ students' weak areas automatically.</div>
+    <div class="perk"><b>Admission Edge</b>"Only institute in Dewas with an AI tutor" — use it in marketing.</div>
+    <div class="perk"><b>Almost Free</b>At ₹9/student, it's cheaper than chalk &amp; paper, and pays for itself in 1 re-admission.</div>
+  </div>
+
+  <!-- PITCH -->
+  <div class="pitch pagebreak">
+    <h3>📢 How to Pitch (60-second script)</h3>
+    <div class="quote">
+      "Sir, GyaaniQ gives every child a personal AI tutor and gives YOU a dashboard showing exactly which student is weak in which topic — automatically. Parents get progress reports on WhatsApp, so they trust your institute and re-admit. It costs just ₹9 per student a month — you can add it inside your fees. Let me set up a FREE pilot for one batch this week; you'll see the usage yourself before paying anything."
+    </div>
+    <h3 style="margin-top:14px">Sales sequence that closes</h3>
+    <ol>
+      <li><b>Free pilot</b> — 1 batch, 2 weeks. No money asked.</li>
+      <li><b>Show proof</b> — bring the owner a real weak-area report + usage numbers.</li>
+      <li><b>Quote one number</b> — give the flat annual figure for their strength (not per-student).</li>
+      <li><b>Early-bird</b> — "Sign before 15 July → 20% off + extended pilot."</li>
+      <li><b>Referral</b> — refer another institute → ₹2,000 off renewal (spreads fast in Dewas).</li>
+    </ol>
+  </div>
+
+  <footer>
+    <span>GyaaniQ Kids · AI Tutor for Schools &amp; Coaching · Dewas, Madhya Pradesh</span>
+    <span>Prices valid for 2026–27 session · GST extra if applicable</span>
+  </footer>
+
+</div>
+</body>
+</html>
