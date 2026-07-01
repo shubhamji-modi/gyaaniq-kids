@@ -532,6 +532,7 @@ class LearnLessonModel {
   final String pdfUrl;
   final String content;
   final List<LearnResourceModel> resources;
+  final List<LearnLessonMediaModel> media;
 
   const LearnLessonModel({
     required this.id,
@@ -547,6 +548,7 @@ class LearnLessonModel {
     required this.pdfUrl,
     required this.content,
     required this.resources,
+    required this.media,
   });
 
   factory LearnLessonModel.fromApi(
@@ -556,7 +558,7 @@ class LearnLessonModel {
     double progress = 0,
   }) {
     final title = _safeText(json['title'], fallback: 'Untitled Lesson');
-    final description = _safeText(json['description']);
+    final description = _stripHtml(_safeText(json['description']));
     final content = _safeText(json['content']);
     final videoUrl = _safeText(json['videoUrl']);
     final pdfUrl = _safeText(json['pdfUrl']);
@@ -583,6 +585,11 @@ class LearnLessonModel {
         ),
     ];
 
+    final media = (json['media'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(LearnLessonMediaModel.fromApi)
+        .toList();
+
     return LearnLessonModel(
       id: _safeText(json['_id']),
       title: title,
@@ -601,8 +608,37 @@ class LearnLessonModel {
       pdfUrl: pdfUrl,
       content: content,
       resources: resources,
+      media: media,
     );
   }
+}
+
+class LearnLessonMediaModel {
+  final String key;
+  final String url;
+  final String mimeType;
+  final String originalName;
+  final int size;
+
+  const LearnLessonMediaModel({
+    required this.key,
+    required this.url,
+    required this.mimeType,
+    required this.originalName,
+    required this.size,
+  });
+
+  factory LearnLessonMediaModel.fromApi(Map<String, dynamic> json) {
+    return LearnLessonMediaModel(
+      key: _safeText(json['key']),
+      url: _safeText(json['url']),
+      mimeType: _safeText(json['mimeType']),
+      originalName: _safeText(json['originalName']),
+      size: (json['size'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  bool get isImage => mimeType.toLowerCase().startsWith('image/');
 }
 
 class LearnResourceModel {
@@ -678,12 +714,36 @@ String _safeText(dynamic value, {String fallback = ''}) {
 }
 
 String _stripHtml(String value) {
+  if (value.trim().isEmpty) {
+    return '';
+  }
+
+  final withReadableBreaks = value
+      .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), '\n')
+      .replaceAll(
+        RegExp(r'</\s*(p|div|h[1-6]|li|ul|ol)\s*>', caseSensitive: false),
+        '\n',
+      )
+      .replaceAll(RegExp(r'<\s*li[^>]*>', caseSensitive: false), '\n• ');
+
+  return _decodeHtmlEntities(
+        withReadableBreaks.replaceAll(RegExp(r'<[^>]*>'), ' '),
+      )
+      .replaceAll(RegExp(r'[ \t]+'), ' ')
+      .replaceAll(RegExp(r' *\n *'), '\n')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .trim();
+}
+
+String _decodeHtmlEntities(String value) {
   return value
-      .replaceAll(RegExp(r'<[^>]*>'), ' ')
       .replaceAll('&nbsp;', ' ')
+      .replaceAll('&ensp;', ' ')
+      .replaceAll('&emsp;', ' ')
       .replaceAll('&lt;', '<')
       .replaceAll('&gt;', '>')
       .replaceAll('&amp;', '&')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&apos;', "'");
 }

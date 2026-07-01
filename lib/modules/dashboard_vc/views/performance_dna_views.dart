@@ -594,7 +594,7 @@ List<LearnChapterModel> _weakLessonsAsChapters(
       videoUrl: '',
       pdfUrl: '',
       content: '',
-      resources: const [],
+      resources: const [], media: [],
     );
 
     return LearnChapterModel(

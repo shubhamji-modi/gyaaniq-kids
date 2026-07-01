@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:get/get.dart';
@@ -42,12 +43,21 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
   void initState() {
     super.initState();
     _isCompleted = widget.isCompleted;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final media in widget.topic.lesson.media.where((m) => m.isImage)) {
+        if (media.url.isNotEmpty) {
+          precacheImage(CachedNetworkImageProvider(media.url), context);
+        }
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final lesson = widget.topic.lesson;
     final hasVideo = lesson.videoUrl.trim().isNotEmpty;
+    final imageMedia = lesson.media.where((media) => media.isImage).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
@@ -132,6 +142,79 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
+                  if (imageMedia.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    ...imageMedia.map(
+                      (media) => Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFFE8EAF5)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF1F238B,
+                                ).withValues(alpha: 0.06),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: CachedNetworkImage(
+                                imageUrl: media.url,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 720,
+                                placeholder: (context, url) => Container(
+                                  color: const Color(0xFFF3F5FB),
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Color(0xFF4A4FD9),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Container(
+                                  color: const Color(0xFFF3F5FB),
+                                  padding: const EdgeInsets.all(24),
+                                  child: const Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.broken_image_outlined,
+                                          size: 38,
+                                          color: Color(0xFF8C92A8),
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Unable to load image',
+                                          style: TextStyle(
+                                            color: Color(0xFF6D738D),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   Text(
                     _showVideo ? lesson.description : lesson.notes,
