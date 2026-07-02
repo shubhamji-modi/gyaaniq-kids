@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/service/learn_progress_refresh_service.dart';
+import '../../exercise/views/lesson_qa_search_views.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_subject_views.dart';
 import 'learn_topic_views.dart';
@@ -73,7 +74,25 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
       body: SafeArea(
         child: Column(
           children: [
-            const LearnTopBar(title: 'Chapters'),
+            LearnTopBar(
+              title: 'Chapters',
+              trailing: IconButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => Get.to(
+                  () => LessonQaSearchViews(
+                    subjectId: widget.subject.id,
+                    classLevel: widget.subject.classLevel,
+                    scopeTitle: widget.subject.title,
+                    accent: widget.subject.accent,
+                  ),
+                ),
+                icon: Icon(
+                  Icons.search_rounded,
+                  color: widget.subject.accent,
+                  size: 24,
+                ),
+              ),
+            ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _loadLessons,

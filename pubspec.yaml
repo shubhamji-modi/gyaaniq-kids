@@ -61,6 +61,12 @@ flutter:
     - assets/icon/app_icon.png
     - assets/head.jpg
     - assets/quizz.jpg
+    - assets/book.png
+    - assets/3_books.png
+    - assets/calendar.png
+    - assets/daily_quiz.png
+    - assets/practice_test.png
+    - assets/mock_test.png
 
   fonts:
     - family: Lexend

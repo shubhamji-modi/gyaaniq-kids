@@ -117,9 +117,11 @@ class LeaderboardController extends GetxController {
     }
     return '${buffer.toString()} XP';
   }
+
 }
 
 class LeaderboardUser {
+
   const LeaderboardUser({
     required this.rank,
     required this.name,
@@ -162,6 +164,7 @@ class LeaderboardUser {
       isChampion: rank == 1,
     );
   }
+
 }
 
 class ClassPrize {
@@ -184,6 +187,8 @@ class ClassPrize {
       imageUrl: url.isEmpty ? null : url,
     );
   }
+
+  
 }
 
 String _safeText(dynamic value, {String fallback = ''}) {

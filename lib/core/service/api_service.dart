@@ -67,6 +67,8 @@ class ApiService extends GetxService {
   static const String RESET_PASSWORD = 'auth/reset-password';
   static const String GET_ADMIN_XP = 'xp/config';
   static const String USER_XP = 'user/xp';
+  static const String LESSON_QA_BY_LESSON = 'user/lesson-qa/by-lesson/:lessonId';
+  static const String LESSON_QA_SEARCH = 'user/lesson-qa/search';
 
   @override
   void onInit() {
