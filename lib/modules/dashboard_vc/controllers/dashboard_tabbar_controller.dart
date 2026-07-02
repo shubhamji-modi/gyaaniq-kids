@@ -62,6 +62,7 @@ class DashboardTabbarController extends GetxController {
   final Rx<AttendanceSummaryModel> attendanceSummary =
       AttendanceSummaryModel.empty().obs;
   Timer? _liveClassClockTimer;
+  bool _isLoggingOut = false;
 
   final String studentName = 'Sarah!';
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
@@ -76,10 +77,25 @@ class DashboardTabbarController extends GetxController {
     DashboardNavItemData(label: 'Profile', icon: Icons.person_outline_rounded),
   ];
 
+  String get chaptersSubtitle {
+    if (isLoadingDashboardSummary.value) {
+      return 'Loading chapters...';
+    }
+    if (dashboardSummaryError.value.isNotEmpty) {
+      return 'Tap to refresh chapter summary';
+    }
+
+    final remaining = lessonSummary.value.notStarted;
+    if (remaining <= 0) {
+      return 'All chapters reviewed';
+    }
+    return '$remaining Chapter${remaining == 1 ? '' : 's'} left to review';
+  }
+
   List<StudyToolData> get studyTools => [
-    const StudyToolData(
+    StudyToolData(
       title: 'Chapters',
-      subtitle: '12 Chapters left to review',
+      subtitle: chaptersSubtitle,
       icon: Icons.import_contacts_rounded,
       accent: Color(0xFF4A4FD9),
       iconBackground: Color(0xFFE5E6FF),
@@ -98,13 +114,13 @@ class DashboardTabbarController extends GetxController {
       accent: Color(0xFF7E2AD9),
       iconBackground: Color(0xFFEAD7FF),
     ),
-    const StudyToolData(
-      title: 'Doubt Solve',
-      subtitle: 'Chat with AI or Teachers',
-      icon: Icons.live_help_outlined,
-      accent: Color(0xFFC91F1F),
-      iconBackground: Color(0xFFFFDEDE),
-    ),
+    // const StudyToolData(
+    //   title: 'Doubt Solve',
+    //   subtitle: 'Chat with AI or Teachers',
+    //   icon: Icons.live_help_outlined,
+    //   accent: Color(0xFFC91F1F),
+    //   iconBackground: Color(0xFFFFDEDE),
+    // ),
     const StudyToolData(
       title: 'E-Book',
       subtitle: 'Access digital textbook',
@@ -698,6 +714,11 @@ class DashboardTabbarController extends GetxController {
       );
 
       if (shouldLogout == true) {
+        if (_isLoggingOut) {
+          return;
+        }
+        _isLoggingOut = true;
+
         final response = await ApiService.instance.post<dynamic>(
           endpoint: ApiService.LOGOUT,
           fromJson: (json) => json,
@@ -725,7 +746,9 @@ class DashboardTabbarController extends GetxController {
             listen: false,
           ).clearProfile();
         }
-        Get.offAllNamed(AppRoutes.login);
+        // Navigate to login once and clear navigation stack via SessionManager.
+        SessionManager.instance.navigateToLoginIfNeeded();
+        _isLoggingOut = false;
       }
 
       return;

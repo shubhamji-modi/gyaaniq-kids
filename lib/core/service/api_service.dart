@@ -149,10 +149,11 @@ class ApiService extends GetxService {
   void _handleUnauthorized() async {
     await _storage.delete(key: StorageKeys.authToken);
     await SessionManager.instance.logout();
-    Get.offAllNamed('/login'); // Navigate to login page
+    // Use SessionManager's guarded navigation to avoid multiple navigations.
+    SessionManager.instance.navigateToLoginIfNeeded();
   }
 
-  // Generic API call method
+  // Generic API call method with retry logic for rate limiting
   Future<ApiResponse<T>> _apiCall<T>({
     required String method,
     required String endpoint,
@@ -161,6 +162,8 @@ class ApiService extends GetxService {
     bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
+    int retryCount = 0,
+    int maxRetries = 2,
   }) async {
     print(endpoint);
     try {
@@ -241,6 +244,28 @@ class ApiService extends GetxService {
       }
       print('=========== DioException ===========');
       print(stack);
+
+      // Retry logic for 429 (Too Many Requests) errors
+      if (e.response?.statusCode == 429 && retryCount < maxRetries) {
+        final waitSeconds = (2 * (retryCount + 1))
+            .toInt(); // Exponential backoff: 2s, 4s
+        print(
+          'Rate limited (429). Retrying after ${waitSeconds}s... (attempt ${retryCount + 1}/$maxRetries)',
+        );
+        await Future.delayed(Duration(seconds: waitSeconds));
+        return _apiCall<T>(
+          method: method,
+          endpoint: endpoint,
+          data: data,
+          queryParameters: queryParameters,
+          includeAuth: includeAuth,
+          showLoader: false, // Don't show loader on retry
+          fromJson: fromJson,
+          retryCount: retryCount + 1,
+          maxRetries: maxRetries,
+        );
+      }
+
       T? responseData;
       if (fromJson != null && e.response?.data != null) {
         responseData = fromJson(e.response?.data);

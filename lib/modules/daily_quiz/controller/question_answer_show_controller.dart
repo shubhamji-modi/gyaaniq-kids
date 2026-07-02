@@ -15,6 +15,8 @@ class QuizQuestion {
     required this.tags,
     this.order = 0,
     this.marks = 1,
+    this.questionImageUrl = '',
+    this.optionImageUrls = const [],
   });
 
   final String id;
@@ -24,6 +26,8 @@ class QuizQuestion {
   final List<String> tags;
   final int order;
   final int marks;
+  final String questionImageUrl;
+  final List<String> optionImageUrls;
 
   factory QuizQuestion.fromApi(
     Map<String, dynamic> json, {
@@ -32,12 +36,57 @@ class QuizQuestion {
     final difficulty = _safeText(json['difficulty'], fallback: 'Question');
     final marks = (json['marks'] as num?)?.toInt() ?? 1;
 
+    // Extract question image URL - try multiple field name variations
+    String questionImageUrl = '';
+    if (json['questionImage'] != null) {
+      questionImageUrl = _extractImageUrl(json['questionImage']);
+    } else if (json['image'] != null) {
+      questionImageUrl = _extractImageUrl(json['image']);
+    } else if (json['imageUrl'] != null) {
+      questionImageUrl = _extractImageUrl(json['imageUrl']);
+    } else if (json['media'] is List && (json['media'] as List).isNotEmpty) {
+      final media = (json['media'] as List).first;
+      if (media is Map<String, dynamic>) {
+        questionImageUrl = _extractImageUrl(media);
+      }
+    }
+
+    // Extract option data (can be strings or objects with image)
+    final optionsJson = json['options'] as List<dynamic>? ?? const [];
+    final optionImageUrls = <String>[];
+    final optionTexts = <String>[];
+
+    for (final option in optionsJson) {
+      if (option is Map<String, dynamic>) {
+        optionTexts.add(
+          _stripHtml(
+            _safeText(
+              option['text'] ??
+                  option['optionText'] ??
+                  option['label'] ??
+                  option['value'],
+            ),
+          ),
+        );
+        String optionImage = '';
+        if (option['image'] != null) {
+          optionImage = _extractImageUrl(option['image']);
+        } else if (option['imageUrl'] != null) {
+          optionImage = _extractImageUrl(option['imageUrl']);
+        } else if (option['media'] != null) {
+          optionImage = _extractImageUrl(option['media']);
+        }
+        optionImageUrls.add(optionImage);
+      } else {
+        optionTexts.add(_stripHtml(_safeText(option)));
+        optionImageUrls.add('');
+      }
+    }
+
     return QuizQuestion(
       id: _safeText(json['_id']),
       question: _stripHtml(_safeText(json['questionText'])),
-      options: (json['options'] as List<dynamic>? ?? const [])
-          .map((option) => _stripHtml(_safeText(option)))
-          .toList(),
+      options: optionTexts,
       correctOptionIndex: null,
       tags: [
         subjectTitle,
@@ -46,6 +95,8 @@ class QuizQuestion {
       ],
       order: (json['order'] as num?)?.toInt() ?? 0,
       marks: marks,
+      questionImageUrl: questionImageUrl,
+      optionImageUrls: optionImageUrls,
     );
   }
 
@@ -57,6 +108,8 @@ class QuizQuestion {
     List<String>? tags,
     int? order,
     int? marks,
+    String? questionImageUrl,
+    List<String>? optionImageUrls,
   }) {
     return QuizQuestion(
       id: id ?? this.id,
@@ -66,6 +119,8 @@ class QuizQuestion {
       tags: tags ?? this.tags,
       order: order ?? this.order,
       marks: marks ?? this.marks,
+      questionImageUrl: questionImageUrl ?? this.questionImageUrl,
+      optionImageUrls: optionImageUrls ?? this.optionImageUrls,
     );
   }
 }
@@ -598,6 +653,28 @@ const List<QuizQuestion> _demoQuestions = [
 String _safeText(dynamic value, {String fallback = ''}) {
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? fallback : text;
+}
+
+String _extractImageUrl(dynamic imageData) {
+  if (imageData is String) {
+    return imageData.trim();
+  }
+  if (imageData is Map<String, dynamic>) {
+    // Try common image URL field names
+    if (imageData['url'] is String) {
+      return (imageData['url'] as String).trim();
+    }
+    if (imageData['imageUrl'] is String) {
+      return (imageData['imageUrl'] as String).trim();
+    }
+    if (imageData['link'] is String) {
+      return (imageData['link'] as String).trim();
+    }
+    if (imageData['src'] is String) {
+      return (imageData['src'] as String).trim();
+    }
+  }
+  return '';
 }
 
 int? _readXpEarned(Map<String, dynamic> json) {

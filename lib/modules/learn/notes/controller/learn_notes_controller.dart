@@ -197,6 +197,14 @@ class LearnNotesRepository {
     final subjects = subjectsResponse.data ?? const <LearnSubjectModel>[];
     final notes = <LearnNoteModel>[];
 
+    // Collect all lesson IDs from all subjects
+    final allLessonIds = <String>[];
+    final lessonMetadata =
+        <
+          String,
+          (LearnSubjectModel, String)
+        >{}; // lessonId -> (subject, lessonTitle)
+
     for (final subject in subjects) {
       debugPrint(
         'NOTES DEBUG loading lessons subjectId=${subject.id} '
@@ -222,21 +230,43 @@ class LearnNotesRepository {
       for (final chapter
           in lessonsResponse.data ?? const <LearnChapterModel>[]) {
         for (final topic in chapter.topics) {
-          final response = await fetchNotesByLesson(
-            lessonId: topic.lesson.id,
-            fallbackSubject: subject,
-            fallbackLessonTitle: topic.lesson.title,
-          );
-          debugPrint(
-            'NOTES DEBUG parsed lessonId=${topic.lesson.id} '
-            'lesson=${topic.lesson.title} '
-            'count=${response.data?.length ?? 0}',
-          );
-          if (!response.success) {
-            return response;
-          }
-          notes.addAll(response.data ?? const <LearnNoteModel>[]);
+          allLessonIds.add(topic.lesson.id);
+          lessonMetadata[topic.lesson.id] = (subject, topic.lesson.title);
         }
+      }
+    }
+
+    debugPrint(
+      'NOTES DEBUG total lessons to fetch notes for: ${allLessonIds.length}',
+    );
+
+    // Fetch notes in batches (3 parallel requests per batch to avoid overwhelming server)
+    final batchSize = 3;
+    for (int i = 0; i < allLessonIds.length; i += batchSize) {
+      final batch = allLessonIds.skip(i).take(batchSize).toList();
+
+      final batchResponses = await Future.wait(
+        batch.map((lessonId) {
+          final metadata = lessonMetadata[lessonId];
+          return fetchNotesByLesson(
+            lessonId: lessonId,
+            fallbackSubject: metadata?.$1,
+            fallbackLessonTitle: metadata?.$2 ?? 'Unknown',
+          );
+        }),
+      );
+
+      for (final response in batchResponses) {
+        if (!response.success) {
+          debugPrint('NOTES DEBUG batch call failed: ${response.message}');
+          continue; // Skip failed lessons, don't abort entire operation
+        }
+        notes.addAll(response.data ?? const <LearnNoteModel>[]);
+      }
+
+      // Add delay between batches to avoid rate limiting
+      if (i + batchSize < allLessonIds.length) {
+        await Future.delayed(const Duration(milliseconds: 300));
       }
     }
 
@@ -249,7 +279,54 @@ class LearnNotesRepository {
     );
   }
 
+  /// Fetch notes for a single lesson (batched approach)
   static Future<ApiResponse<List<LearnNoteModel>>> fetchNotesByLesson({
+    required String lessonId,
+    required LearnSubjectModel? fallbackSubject,
+    required String fallbackLessonTitle,
+  }) async {
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: ApiService.FETCH_NOTES_BY_LESSON,
+      showLoader: false,
+      fromJson: (json) => json,
+      data: {'lessonId': lessonId}, // Send ONE lessonId
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return ApiResponse<List<LearnNoteModel>>(
+        success: false,
+        message: response.message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final notesJson =
+        ((body['data'] as Map<String, dynamic>?)?['notes']) as List<dynamic>? ??
+        const [];
+
+    final notes = <LearnNoteModel>[];
+    for (final noteJson in notesJson.whereType<Map<String, dynamic>>()) {
+      if (fallbackSubject != null) {
+        final note = LearnNoteModel.fromApi(
+          noteJson,
+          fallbackSubject: fallbackSubject,
+          fallbackLessonTitle: fallbackLessonTitle,
+        );
+        notes.add(note);
+      }
+    }
+
+    return ApiResponse<List<LearnNoteModel>>(
+      success: true,
+      data: notes,
+      message: 'Notes fetched',
+      statusCode: 200,
+    );
+  }
+
+  // Old fetchNotesByLesson kept for backward compatibility
+  static Future<ApiResponse<List<LearnNoteModel>>> fetchNotesByLessonOld({
     required String lessonId,
     required LearnSubjectModel fallbackSubject,
     required String fallbackLessonTitle,
