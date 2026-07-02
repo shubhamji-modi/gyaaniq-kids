@@ -25,6 +25,8 @@ class ApiService extends GetxService {
   static const String GET_PROFILE = 'user/profile';
   static const String EDIT_PROFILE = 'user/profile/setup';
   static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
+  static const String FETCH_AVATARS = 'user/avatars';
+  static const String SELECT_AVATAR = 'user/avatars/select';
   static const String GET_USER_SUBJECT = 'user/subjects';
   static const String GET_USER_LESSON = 'user/lessons/by-class-subject';
   static const String FETCH_EBOOKS_BY_CLASS_SUBJECT =

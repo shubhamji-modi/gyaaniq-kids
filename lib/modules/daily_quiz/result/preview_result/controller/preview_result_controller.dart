@@ -443,10 +443,11 @@ class QuizSubmitResultRepository {
 
     final body = response.data as Map<String, dynamic>;
     final data = (body['data'] as Map<String, dynamic>?) ?? const {};
-    if (item.type == ResultHistoryType.daily &&
-        _safeText(data['_id']) != item.quizId) {
-      return const {};
-    }
+    // For daily quizzes the question bank comes from `GET /daily-quiz/today`.
+    // We key it by each question `_id` and only enrich answers whose
+    // `questionId` matches, so there's no need to gate on the quiz id (which
+    // may be missing on the attempt row). Unique question ids make mismatched
+    // enrichment impossible.
     final questionsJson = data['questions'] as List<dynamic>? ?? const [];
 
     return {
