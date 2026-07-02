@@ -2,7 +2,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../routes/app_routes.dart';
 import '../values/constants.dart';
 import 'api_service.dart';
 import 'session_manager.dart';
@@ -80,6 +79,9 @@ class AuthService extends GetxService {
       email: email,
     );
 
+    // Reset any navigation guard so future logouts can navigate again.
+    SessionManager.instance.resetLoginNavigationGuard();
+
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('user_name', name);
     await preferences.setString('user_email', email);
@@ -95,6 +97,7 @@ class AuthService extends GetxService {
   Future<void> logout() async {
     await _storage.delete(key: StorageKeys.authToken);
     await _sessionManager.logout();
-    Get.offAllNamed(AppRoutes.login);
+    // Use guarded navigation helper to avoid duplicate navigations.
+    SessionManager.instance.navigateToLoginIfNeeded();
   }
 }

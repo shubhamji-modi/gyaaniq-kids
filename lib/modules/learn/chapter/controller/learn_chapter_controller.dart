@@ -76,25 +76,39 @@ class LearnCatalogData {
         const [];
 
     final lessons = lessonsJson.whereType<Map<String, dynamic>>().toList();
-    final progressResponses = await Future.wait(
-      lessons.map((lesson) {
-        final lessonId = _safeText(lesson['_id']);
-        return lessonId.isEmpty
-            ? Future.value(
-                ApiResponse<LearnLessonProgress>(
-                  success: false,
-                  message: 'Missing lesson id',
-                  statusCode: 0,
-                ),
-              )
-            : getLessonProgress(lessonId: lessonId);
-      }),
-    );
+
+    // Build progress cache from lesson data if available, fallback to API only if needed
     final progressByLessonId = <String, LearnLessonProgress>{};
-    for (final response in progressResponses) {
-      final progress = response.data;
-      if (response.success && progress != null) {
-        progressByLessonId[progress.lessonId] = progress;
+    final lessonIdsNeedingProgress = <String>[];
+
+    // Extract progress from lessons if included in response
+    for (final lesson in lessons) {
+      final lessonId = _safeText(lesson['_id']);
+      if (lessonId.isNotEmpty) {
+        final progressData = lesson['progress'] as Map<String, dynamic>?;
+        if (progressData != null) {
+          progressByLessonId[lessonId] = LearnLessonProgress.fromApi(
+            progressData,
+            lessonId: lessonId,
+          );
+        } else {
+          lessonIdsNeedingProgress.add(lessonId);
+        }
+      }
+    }
+
+    // Only fetch progress for lessons that don't have it in the response
+    if (lessonIdsNeedingProgress.isNotEmpty) {
+      final progressResponses = await Future.wait(
+        lessonIdsNeedingProgress.map(
+          (lessonId) => getLessonProgress(lessonId: lessonId),
+        ),
+      );
+      for (final response in progressResponses) {
+        final progress = response.data;
+        if (response.success && progress != null) {
+          progressByLessonId[progress.lessonId] = progress;
+        }
       }
     }
 

@@ -83,278 +83,378 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (!isReview)
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _QuizActionButton(
-                                    label: 'Questions',
-                                    icon: Icons.apps_rounded,
-                                    onTap: () {
-                                      Get.bottomSheet<void>(
-                                        _QuestionNavigatorSheet(
-                                          controller: controller,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _QuizActionButton(
+                                          label: 'Questions',
+                                          icon: Icons.apps_rounded,
+                                          onTap: () {
+                                            Get.bottomSheet<void>(
+                                              _QuestionNavigatorSheet(
+                                                controller: controller,
+                                              ),
+                                              isScrollControlled: true,
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              barrierColor: Colors.black
+                                                  .withValues(alpha: 0.55),
+                                            );
+                                          },
+                                          foregroundColor: const Color(
+                                            0xFF0865B7,
+                                          ),
+                                          backgroundColor: const Color(
+                                            0xFFE9F4FF,
+                                          ),
                                         ),
-                                        isScrollControlled: true,
-                                        backgroundColor: Colors.transparent,
-                                        barrierColor: Colors.black.withValues(
-                                          alpha: 0.55,
-                                        ),
-                                      );
-                                    },
-                                    foregroundColor: const Color(0xFF0865B7),
-                                    backgroundColor: const Color(0xFFE9F4FF),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _QuizActionButton(
-                                    label: controller.isSubmittingQuiz.value
-                                        ? 'Submitting...'
-                                        : 'Submit',
-                                    icon: Icons.check_circle_outline_rounded,
-                                    onTap:
-                                        controller.totalQuestions > 0 &&
-                                            !controller.isReviewMode.value &&
-                                            !controller.isSubmittingQuiz.value
-                                        ? () async {
-                                            final shouldSubmit =
-                                                await Get.dialog<bool>(
-                                                  _SubmitQuizDialog(
-                                                    totalQuestions: controller
-                                                        .totalQuestions,
-                                                    attemptedQuestions:
-                                                        controller
-                                                            .answeredCount,
-                                                  ),
-                                                  barrierDismissible: true,
-                                                );
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _QuizActionButton(
+                                          label:
+                                              controller.isSubmittingQuiz.value
+                                              ? 'Submitting...'
+                                              : 'Submit',
+                                          icon: Icons
+                                              .check_circle_outline_rounded,
+                                          onTap:
+                                              controller.totalQuestions > 0 &&
+                                                  !controller
+                                                      .isReviewMode
+                                                      .value &&
+                                                  !controller
+                                                      .isSubmittingQuiz
+                                                      .value
+                                              ? () async {
+                                                  final shouldSubmit =
+                                                      await Get.dialog<bool>(
+                                                        _SubmitQuizDialog(
+                                                          totalQuestions:
+                                                              controller
+                                                                  .totalQuestions,
+                                                          attemptedQuestions:
+                                                              controller
+                                                                  .answeredCount,
+                                                        ),
+                                                        barrierDismissible:
+                                                            true,
+                                                      );
 
-                                            if (shouldSubmit == true) {
-                                              await controller.submitQuiz();
-                                            }
-                                          }
-                                        : null,
-                                    foregroundColor: Colors.white,
-                                    backgroundColor: const Color(0xFF0865B7),
-                                    disabledBackgroundColor: const Color(
-                                      0xFFC9CCDE,
-                                    ),
-                                    showLoader:
-                                        controller.isSubmittingQuiz.value,
+                                                  if (shouldSubmit == true) {
+                                                    await controller
+                                                        .submitQuiz();
+                                                  }
+                                                }
+                                              : null,
+                                          foregroundColor: Colors.white,
+                                          backgroundColor: const Color(
+                                            0xFF0865B7,
+                                          ),
+                                          disabledBackgroundColor: const Color(
+                                            0xFFC9CCDE,
+                                          ),
+                                          showLoader:
+                                              controller.isSubmittingQuiz.value,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            if (!isReview) ...[
-                              const Text(
-                                'Quiz Progress',
-                                style: TextStyle(
-                                  color: Color(0xFF4D4D60),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Text(
-                                    'Question $questionNumber of ${controller.totalQuestions}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF1E2230),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
+                                const SizedBox(height: 12),
+                                if (!isReview) ...[
+                                  const Text(
+                                    'Quiz Progress',
+                                    style: TextStyle(
+                                      color: Color(0xFF4D4D60),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  const Spacer(),
-                                  Container(
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Question $questionNumber of ${controller.totalQuestions}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF1E2230),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFE4E2FF),
+                                          borderRadius: BorderRadius.circular(
+                                            22,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          controller.progressLabel,
+                                          style: const TextStyle(
+                                            color: Color(0xFF4D4FE1),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(99),
+                                    child: LinearProgressIndicator(
+                                      value: controller.answeredProgress,
+                                      minHeight: 7,
+                                      backgroundColor: const Color(0xFFE0E4EB),
+                                      valueColor:
+                                          const AlwaysStoppedAnimation<Color>(
+                                            Color(0xFF4D4FE1),
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 14),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 5,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFE4E2FF),
-                                      borderRadius: BorderRadius.circular(22),
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFB046F6),
+                                          Color(0xFF7B2DE3),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(24),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFF8F40E9,
+                                          ).withValues(alpha: 0.25),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
                                     ),
                                     child: Text(
-                                      controller.progressLabel,
+                                      controller.isReviewMode.value
+                                          ? 'Review Mode'
+                                          : 'Time ${controller.formattedElapsedTime}',
                                       style: const TextStyle(
-                                        color: Color(0xFF4D4FE1),
+                                        color: Colors.white,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(99),
-                                child: LinearProgressIndicator(
-                                  value: controller.answeredProgress,
-                                  minHeight: 7,
-                                  backgroundColor: const Color(0xFFE0E4EB),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF4D4FE1),
+                                ),
+                                const SizedBox(height: 22),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    22,
+                                    22,
+                                    22,
+                                    20,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(32),
+                                    border: Border.all(
+                                      color: const Color(0xFFD1CEEF),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFFDCE2F3,
+                                        ).withValues(alpha: 0.55),
+                                        blurRadius: 24,
+                                        offset: const Offset(0, 14),
                                       ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 14),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFB046F6),
-                                      Color(0xFF7B2DE3),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF8F40E9,
-                                      ).withValues(alpha: 0.25),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  controller.isReviewMode.value
-                                      ? 'Review Mode'
-                                      : 'Time ${controller.formattedElapsedTime}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 22),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.fromLTRB(
-                                22,
-                                22,
-                                22,
-                                20,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(32),
-                                border: Border.all(
-                                  color: const Color(0xFFD1CEEF),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFFDCE2F3,
-                                    ).withValues(alpha: 0.55),
-                                    blurRadius: 24,
-                                    offset: const Offset(0, 14),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 5,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF4D4FE1),
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                  ),
-                                  Transform.translate(
-                                    offset: const Offset(20, -40),
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(right: 18),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Q. $questionNumber ${question.question}',
-                                            style: const TextStyle(
-                                              color: Color(0xFF202436),
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                              height: 1.8,
-                                            ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 5,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF4D4FE1),
+                                          borderRadius: BorderRadius.circular(
+                                            99,
                                           ),
-                                          const SizedBox(height: 15),
-                                          Wrap(
-                                            spacing: 10,
-                                            runSpacing: 10,
-                                            children: question.tags
-                                                .map(
-                                                  (tag) => Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 11,
-                                                          vertical: 7,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(
-                                                        0xFFF0F1F5,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            24,
-                                                          ),
-                                                    ),
-                                                    child: Text(
-                                                      tag,
-                                                      style: const TextStyle(
-                                                        color: Color(
-                                                          0xFF505165,
-                                                        ),
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                      ),
-                                                    ),
+                                        ),
+                                      ),
+                                      Transform.translate(
+                                        offset: const Offset(20, -40),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 18,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Q. $questionNumber ${question.question}',
+                                                style: const TextStyle(
+                                                  color: Color(0xFF202436),
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                  height: 1.8,
+                                                ),
+                                              ),
+                                              if (question
+                                                  .questionImageUrl
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(height: 12),
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  child: Image.network(
+                                                    question.questionImageUrl,
+                                                    fit: BoxFit.cover,
+                                                    height: 180,
+                                                    width: double.infinity,
+                                                    loadingBuilder:
+                                                        (
+                                                          context,
+                                                          child,
+                                                          loadingProgress,
+                                                        ) {
+                                                          if (loadingProgress ==
+                                                              null) {
+                                                            return child;
+                                                          }
+                                                          return Container(
+                                                            height: 180,
+                                                            color: const Color(
+                                                              0xFFF0F1F5,
+                                                            ),
+                                                            child: const Center(
+                                                              child: CircularProgressIndicator(
+                                                                valueColor:
+                                                                    AlwaysStoppedAnimation<
+                                                                      Color
+                                                                    >(
+                                                                      Color(
+                                                                        0xFF4A4FD9,
+                                                                      ),
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                    errorBuilder:
+                                                        (
+                                                          context,
+                                                          error,
+                                                          stackTrace,
+                                                        ) {
+                                                          return Container(
+                                                            height: 180,
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFFF0F1F5,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                            ),
+                                                            child: const Center(
+                                                              child: Icon(
+                                                                Icons
+                                                                    .image_not_supported,
+                                                                color: Color(
+                                                                  0xFF9CA3AF,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
                                                   ),
-                                                )
-                                                .toList(),
+                                                ),
+                                              ],
+                                              const SizedBox(height: 15),
+                                              Wrap(
+                                                spacing: 10,
+                                                runSpacing: 10,
+                                                children: question.tags
+                                                    .map(
+                                                      (tag) => Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 11,
+                                                              vertical: 7,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(
+                                                            0xFFF0F1F5,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                24,
+                                                              ),
+                                                        ),
+                                                        child: Text(
+                                                          tag,
+                                                          style:
+                                                              const TextStyle(
+                                                                color: Color(
+                                                                  0xFF505165,
+                                                                ),
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                    .toList(),
+                                              ),
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                    ),
+                                      const SizedBox(height: 0),
+                                    ],
                                   ),
-                                  const SizedBox(height: 0),
-                                ],
-                              ),
-                            ),
-                            Transform.translate(
-                              offset: const Offset(0, 20),
-                              child: Column(
-                                children: [
-                                  ...List.generate(question.options.length, (
-                                    index,
-                                  ) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 16,
+                                ),
+                                Transform.translate(
+                                  offset: const Offset(0, 20),
+                                  child: Column(
+                                    children: [
+                                      ...List.generate(
+                                        question.options.length,
+                                        (index) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 16,
+                                            ),
+                                            child: _OptionTile(
+                                              optionIndex: index,
+                                            ),
+                                          );
+                                        },
                                       ),
-                                      child: _OptionTile(optionIndex: index),
-                                    );
-                                  }),
-                                  if (controller.isReviewMode.value)
-                                    _ExplanationSection(question: question),
-                                ],
-                              ),
-                            ),
+                                      if (controller.isReviewMode.value)
+                                        _ExplanationSection(question: question),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -477,37 +577,92 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
               width: isSelected ? 2.5 : 1.4,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: bubbleColor,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  String.fromCharCode(65 + optionIndex),
-                  style: TextStyle(
-                    color: bubbleTextColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      String.fromCharCode(65 + optionIndex),
+                      style: TextStyle(
+                        color: bubbleTextColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Text(
+                      question.options[optionIndex],
+                      style: const TextStyle(
+                        color: Color(0xFF202436),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (optionIndex < question.optionImageUrls.length &&
+                  question.optionImageUrls[optionIndex].isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    question.optionImageUrls[optionIndex],
+                    fit: BoxFit.cover,
+                    height: 140,
+                    width: double.infinity,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 140,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F1F5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 30,
+                            height: 30,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF3B82F6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 140,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F1F5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Text(
-                  question.options[optionIndex],
-                  style: const TextStyle(
-                    color: Color(0xFF202436),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    height: 1.5,
-                  ),
-                ),
-              ),
+              ],
             ],
           ),
         ),
@@ -1040,7 +1195,9 @@ class _QuestionNavigatorSheet extends StatelessWidget {
                   final correctIndex =
                       controller.questions[index].correctOptionIndex;
                   final isCorrect =
-                      isAnswered && correctIndex != null && selected == correctIndex;
+                      isAnswered &&
+                      correctIndex != null &&
+                      selected == correctIndex;
 
                   return _QuestionNumberButton(
                     number: index + 1,
@@ -1146,7 +1303,9 @@ class _QuestionNumberButton extends StatelessWidget {
           : const Color(0xFFE9EDF3);
     }
 
-    final bool isFilled = isReview ? isAnswered : (isCurrent || isMarked || isAnswered);
+    final bool isFilled = isReview
+        ? isAnswered
+        : (isCurrent || isMarked || isAnswered);
     final textColor = isFilled ? Colors.white : const Color(0xFF667085);
 
     return InkWell(

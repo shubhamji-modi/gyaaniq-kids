@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../routes/app_routes.dart';
+
 class SessionManager extends GetxService {
   static SessionManager get instance => Get.find<SessionManager>();
 
@@ -115,6 +117,21 @@ class SessionManager extends GetxService {
     await _prefs?.remove(_keyUserData);
     await _prefs?.remove(_keyUserEmail);
     await _prefs?.remove(_keyProfilePic);
+  }
+
+  bool _hasNavigatedToLogin = false;
+
+  /// Navigate to login once. This prevents multiple simultaneous navigations
+  /// originating from different parts of the app (API interceptor, controllers).
+  void navigateToLoginIfNeeded() {
+    if (_hasNavigatedToLogin) return;
+    _hasNavigatedToLogin = true;
+    Get.offAllNamed(AppRoutes.login);
+  }
+
+  /// Reset navigation guard (call after a successful login)
+  void resetLoginNavigationGuard() {
+    _hasNavigatedToLogin = false;
   }
 
   // Update token
