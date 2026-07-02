@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/service/api_service.dart';
 import '../../chapter/controller/learn_chapter_controller.dart';
+import '../../common/learn_media.dart';
 
 class LearnEbookRepository {
   static const List<String> filters = [
@@ -286,6 +287,56 @@ class LearnEbookModel {
       teacherName: teacherName,
     );
   }
+
+  /// All openable resources (PDFs, videos, images) for this e-book, combining
+  /// `media[]` with the single `pdfUrl` / `videoUrl` fields, de-duplicated.
+  List<LearnResource> get resources {
+    final list = <LearnResource>[];
+    final seen = <String>{};
+
+    void add(String url, String name, LearnMediaKind kind, int size) {
+      final trimmed = url.trim();
+      if (trimmed.isEmpty || !seen.add(trimmed)) return;
+      list.add(
+        LearnResource(
+          title: name.trim().isEmpty ? fileNameFromUrl(trimmed) : name,
+          url: trimmed,
+          kind: kind,
+          size: size,
+        ),
+      );
+    }
+
+    for (final item in media) {
+      add(
+        item.url,
+        item.originalName,
+        classifyMedia(item.mimeType, item.url),
+        item.size,
+      );
+    }
+    if (videoUrl.trim().isNotEmpty) {
+      add(videoUrl, 'Video', LearnMediaKind.video, 0);
+    }
+    if (pdfUrl.trim().isNotEmpty) {
+      add(pdfUrl, 'Document', LearnMediaKind.pdf, 0);
+    }
+    return list;
+  }
+
+  List<LearnResource> get imageResources =>
+      resources.where((r) => r.kind == LearnMediaKind.image).toList();
+
+  List<LearnResource> get videoResources =>
+      resources.where((r) => r.kind == LearnMediaKind.video).toList();
+
+  List<LearnResource> get documentResources => resources
+      .where(
+        (r) => r.kind == LearnMediaKind.pdf || r.kind == LearnMediaKind.other,
+      )
+      .toList();
+
+  int get resourceCount => resources.length;
 }
 
 class LearnEbookMediaModel {
