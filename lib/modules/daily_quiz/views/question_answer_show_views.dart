@@ -17,6 +17,7 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   late final QuestionAnswerShowController controller;
   Timer? _timer;
   Worker? _funFactWorker;
+  Worker? _funFactPrecacheWorker;
   int _lastQuestionIndex = 0;
   bool _isFunFactOpen = false;
 
@@ -36,6 +37,26 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
         controller.currentQuestionIndex,
         _onQuestionIndexChanged,
       );
+
+      // Warm the image cache so each fun fact story opens instantly. Facts
+      // may already be loaded, or arrive shortly after (async fetch).
+      WidgetsBinding.instance.addPostFrameCallback((_) => _precacheFunFacts());
+      _funFactPrecacheWorker = ever(
+        controller.funFactUrls,
+        (_) => _precacheFunFacts(),
+      );
+    }
+  }
+
+  void _precacheFunFacts() {
+    if (!mounted) {
+      return;
+    }
+    for (final url in controller.funFactUrls) {
+      if (url.isEmpty) {
+        continue;
+      }
+      unawaited(precacheImage(NetworkImage(url), context).catchError((_) {}));
     }
   }
 
@@ -86,17 +107,46 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   void dispose() {
     _timer?.cancel();
     _funFactWorker?.dispose();
+    _funFactPrecacheWorker?.dispose();
     super.dispose();
+  }
+
+  /// Asks the child to confirm before leaving an in-progress quiz.
+  Future<bool> _confirmExitQuiz() async {
+    final shouldExit = await Get.dialog<bool>(
+      const _ExitQuizDialog(),
+      barrierDismissible: true,
+    );
+    return shouldExit == true;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const _QuestionTopBar(),
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) {
+          return;
+        }
+        final navigator = Navigator.of(context);
+        // Review mode: no in-progress work, just leave.
+        if (controller.isReviewMode.value) {
+          if (navigator.canPop()) {
+            navigator.pop();
+          }
+          return;
+        }
+        final shouldExit = await _confirmExitQuiz();
+        if (shouldExit && navigator.canPop()) {
+          navigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F7FC),
+        body: SafeArea(
+          child: Column(
+            children: [
+              const _QuestionTopBar(),
             Expanded(
               child: Obx(() {
                 final question = controller.currentQuestion;
@@ -243,6 +293,7 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -278,7 +329,8 @@ class _QuestionTopBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: Get.back,
+            // Route through maybePop so the exit-confirm PopScope runs.
+            onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(
               Icons.arrow_back_ios_new_rounded,
               color: Color(0xFF113A90),
@@ -1526,12 +1578,13 @@ class _FunFactStoryView extends StatefulWidget {
 
 class _FunFactStoryViewState extends State<_FunFactStoryView>
     with SingleTickerProviderStateMixin {
-  static const Duration _slideDuration = Duration(seconds: 6);
+  static const Duration _slideDuration = Duration(seconds: 8);
 
   late final AnimationController _progress;
   int _currentIndex = 0;
   bool _timerStarted = false;
   bool _closed = false;
+  DateTime? _pressDownAt;
 
   @override
   void initState() {
@@ -1593,6 +1646,38 @@ class _FunFactStoryViewState extends State<_FunFactStoryView>
     }
   }
 
+  // ---- Touch handling (Instagram-style) ----
+  // Press down pauses immediately. A quick tap navigates (left third → back,
+  // rest → forward); a longer hold just pauses and resumes on release, so the
+  // child can keep looking at the image without accidentally skipping it.
+  void _onTapDown(TapDownDetails details) {
+    _pressDownAt = DateTime.now();
+    _pause();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    final downAt = _pressDownAt;
+    _pressDownAt = null;
+    final wasHold =
+        downAt != null &&
+        DateTime.now().difference(downAt) > const Duration(milliseconds: 220);
+    if (wasHold) {
+      _resume();
+      return;
+    }
+    final width = MediaQuery.of(context).size.width;
+    if (details.globalPosition.dx < width / 3) {
+      _previous();
+    } else {
+      _next();
+    }
+  }
+
+  void _onTapCancel() {
+    _pressDownAt = null;
+    _resume();
+  }
+
   void _close() {
     if (_closed) {
       return;
@@ -1603,16 +1688,6 @@ class _FunFactStoryViewState extends State<_FunFactStoryView>
     }
   }
 
-  void _handleTapUp(TapUpDetails details) {
-    final width = MediaQuery.of(context).size.width;
-    // Left third → previous, rest → next (Instagram convention).
-    if (details.globalPosition.dx < width / 3) {
-      _previous();
-    } else {
-      _next();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final url = widget.imageUrls[_currentIndex];
@@ -1620,9 +1695,9 @@ class _FunFactStoryViewState extends State<_FunFactStoryView>
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
-        onTapUp: _handleTapUp,
-        onLongPressStart: (_) => _pause(),
-        onLongPressEnd: (_) => _resume(),
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
         onVerticalDragEnd: (details) {
           if ((details.primaryVelocity ?? 0) > 250) {
             _close();
@@ -1631,11 +1706,11 @@ class _FunFactStoryViewState extends State<_FunFactStoryView>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // ---- Full-bleed poster image (the API delivers the whole design) ----
+            // ---- Poster image (the API delivers the whole design) ----
             Image.network(
               url,
               key: ValueKey<int>(_currentIndex),
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               width: double.infinity,
               height: double.infinity,
               // Start the timer only once the first frame is on screen.
@@ -1795,6 +1870,122 @@ class _StorySegment extends StatelessWidget {
                   child: Container(color: Colors.white),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Confirmation shown when the child tries to leave a quiz that's in progress.
+class _ExitQuizDialog extends StatelessWidget {
+  const _ExitQuizDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 430),
+        padding: const EdgeInsets.fromLTRB(26, 28, 26, 22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 32,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDECEC),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.logout_rounded,
+                    color: Color(0xFFD64545),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'Exit Quiz?',
+                    style: TextStyle(
+                      color: Color(0xFF111421),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Do you want to exit the quiz? Your progress will not be saved.',
+              style: TextStyle(
+                color: Color(0xFF777D8D),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Get.back<bool>(result: false),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF6B7183),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => Get.back<bool>(result: true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD64545),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    child: const Text('Exit'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

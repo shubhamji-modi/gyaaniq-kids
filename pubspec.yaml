@@ -68,6 +68,7 @@ flutter:
     - assets/daily_quiz.png
     - assets/practice_test.png
     - assets/mock_test.png
+    - assets/ringtone/
 
   fonts:
     - family: Lexend
