@@ -39,7 +39,7 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF6F7FC),
       body: SafeArea(
         child: Column(
           children: [
@@ -78,383 +78,103 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                             key: ValueKey<int>(
                               controller.currentQuestionIndex.value,
                             ),
-                            padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (!isReview)
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _QuizActionButton(
-                                          label: 'Questions',
-                                          icon: Icons.apps_rounded,
-                                          onTap: () {
-                                            Get.bottomSheet<void>(
-                                              _QuestionNavigatorSheet(
-                                                controller: controller,
-                                              ),
-                                              isScrollControlled: true,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              barrierColor: Colors.black
-                                                  .withValues(alpha: 0.55),
-                                            );
-                                          },
-                                          foregroundColor: const Color(
-                                            0xFF0865B7,
-                                          ),
-                                          backgroundColor: const Color(
-                                            0xFFE9F4FF,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _QuizActionButton(
-                                          label:
-                                              controller.isSubmittingQuiz.value
-                                              ? 'Submitting...'
-                                              : 'Submit',
-                                          icon: Icons
-                                              .check_circle_outline_rounded,
-                                          onTap:
-                                              controller.totalQuestions > 0 &&
-                                                  !controller
-                                                      .isReviewMode
-                                                      .value &&
-                                                  !controller
-                                                      .isSubmittingQuiz
-                                                      .value
-                                              ? () async {
-                                                  final shouldSubmit =
-                                                      await Get.dialog<bool>(
-                                                        _SubmitQuizDialog(
-                                                          totalQuestions:
-                                                              controller
-                                                                  .totalQuestions,
-                                                          attemptedQuestions:
-                                                              controller
-                                                                  .answeredCount,
-                                                        ),
-                                                        barrierDismissible:
-                                                            true,
-                                                      );
-
-                                                  if (shouldSubmit == true) {
-                                                    await controller
-                                                        .submitQuiz();
-                                                  }
-                                                }
-                                              : null,
-                                          foregroundColor: Colors.white,
-                                          backgroundColor: const Color(
-                                            0xFF0865B7,
-                                          ),
-                                          disabledBackgroundColor: const Color(
-                                            0xFFC9CCDE,
-                                          ),
-                                          showLoader:
-                                              controller.isSubmittingQuiz.value,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                const SizedBox(height: 12),
+                                // ---- Progress header (attempt mode) ----
                                 if (!isReview) ...[
                                   const Text(
-                                    'Quiz Progress',
+                                    'QUIZ PROGRESS',
                                     style: TextStyle(
-                                      color: Color(0xFF4D4D60),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF9AA0B4),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.2,
                                     ),
                                   ),
                                   const SizedBox(height: 10),
                                   Row(
                                     children: [
-                                      Text(
-                                        'Question $questionNumber of ${controller.totalQuestions}',
-                                        style: const TextStyle(
-                                          color: Color(0xFF1E2230),
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE4E2FF),
-                                          borderRadius: BorderRadius.circular(
-                                            22,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          controller.progressLabel,
-                                          style: const TextStyle(
-                                            color: Color(0xFF4D4FE1),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(99),
-                                    child: LinearProgressIndicator(
-                                      value: controller.answeredProgress,
-                                      minHeight: 7,
-                                      backgroundColor: const Color(0xFFE0E4EB),
-                                      valueColor:
-                                          const AlwaysStoppedAnimation<Color>(
-                                            Color(0xFF4D4FE1),
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                                const SizedBox(height: 14),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFFB046F6),
-                                          Color(0xFF7B2DE3),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(24),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(
-                                            0xFF8F40E9,
-                                          ).withValues(alpha: 0.25),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      controller.isReviewMode.value
-                                          ? 'Review Mode'
-                                          : 'Time ${controller.formattedElapsedTime}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 22),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    22,
-                                    22,
-                                    22,
-                                    20,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(32),
-                                    border: Border.all(
-                                      color: const Color(0xFFD1CEEF),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(
-                                          0xFFDCE2F3,
-                                        ).withValues(alpha: 0.55),
-                                        blurRadius: 24,
-                                        offset: const Offset(0, 14),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 5,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF4D4FE1),
+                                      Expanded(
+                                        child: ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             99,
                                           ),
-                                        ),
-                                      ),
-                                      Transform.translate(
-                                        offset: const Offset(20, -40),
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 18,
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Q. $questionNumber ${question.question}',
-                                                style: const TextStyle(
-                                                  color: Color(0xFF202436),
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                  height: 1.8,
-                                                ),
-                                              ),
-                                              if (question
-                                                  .questionImageUrl
-                                                  .isNotEmpty) ...[
-                                                const SizedBox(height: 12),
-                                                ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  child: Image.network(
-                                                    question.questionImageUrl,
-                                                    fit: BoxFit.cover,
-                                                    height: 180,
-                                                    width: double.infinity,
-                                                    loadingBuilder:
-                                                        (
-                                                          context,
-                                                          child,
-                                                          loadingProgress,
-                                                        ) {
-                                                          if (loadingProgress ==
-                                                              null) {
-                                                            return child;
-                                                          }
-                                                          return Container(
-                                                            height: 180,
-                                                            color: const Color(
-                                                              0xFFF0F1F5,
-                                                            ),
-                                                            child: const Center(
-                                                              child: CircularProgressIndicator(
-                                                                valueColor:
-                                                                    AlwaysStoppedAnimation<
-                                                                      Color
-                                                                    >(
-                                                                      Color(
-                                                                        0xFF4A4FD9,
-                                                                      ),
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                          );
-                                                        },
-                                                    errorBuilder:
-                                                        (
-                                                          context,
-                                                          error,
-                                                          stackTrace,
-                                                        ) {
-                                                          return Container(
-                                                            height: 180,
-                                                            decoration: BoxDecoration(
-                                                              color:
-                                                                  const Color(
-                                                                    0xFFF0F1F5,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                            ),
-                                                            child: const Center(
-                                                              child: Icon(
-                                                                Icons
-                                                                    .image_not_supported,
-                                                                color: Color(
-                                                                  0xFF9CA3AF,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          );
-                                                        },
-                                                  ),
-                                                ),
-                                              ],
-                                              const SizedBox(height: 15),
-                                              Wrap(
-                                                spacing: 10,
-                                                runSpacing: 10,
-                                                children: question.tags
-                                                    .map(
-                                                      (tag) => Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 11,
-                                                              vertical: 7,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(
-                                                            0xFFF0F1F5,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                24,
-                                                              ),
-                                                        ),
-                                                        child: Text(
-                                                          tag,
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Color(
-                                                                  0xFF505165,
-                                                                ),
-                                                                fontSize: 11,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    )
-                                                    .toList(),
-                                              ),
-                                            ],
+                                          child: LinearProgressIndicator(
+                                            value: controller.answeredProgress,
+                                            minHeight: 7,
+                                            backgroundColor: const Color(
+                                              0xFFE0E4EB,
+                                            ),
+                                            valueColor:
+                                                const AlwaysStoppedAnimation<
+                                                  Color
+                                                >(Color(0xFF4D4FE1)),
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 0),
+                                      const SizedBox(width: 14),
+                                      Text(
+                                        'Q.$questionNumber of ${controller.totalQuestions}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF1E2230),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                ),
-                                Transform.translate(
-                                  offset: const Offset(0, 20),
-                                  child: Column(
+                                  const SizedBox(height: 14),
+                                  Row(
                                     children: [
-                                      ...List.generate(
-                                        question.options.length,
-                                        (index) {
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 16,
-                                            ),
-                                            child: _OptionTile(
-                                              optionIndex: index,
-                                            ),
-                                          );
-                                        },
+                                      _InfoPill(
+                                        label: controller.progressLabel,
+                                        background: const Color(0xFFE4E2FF),
+                                        foreground: const Color(0xFF4D4FE1),
                                       ),
-                                      if (controller.isReviewMode.value)
-                                        _ExplanationSection(question: question),
+                                      const Spacer(),
+                                      _InfoPill(
+                                        label:
+                                            'Time ${controller.formattedElapsedTime}',
+                                        icon: Icons.timer_outlined,
+                                        background: const Color(0xFFF3E8CE),
+                                        foreground: const Color(0xFF98773A),
+                                      ),
                                     ],
                                   ),
+                                  const SizedBox(height: 20),
+                                ],
+                                // ---- Review-mode banner ----
+                                if (isReview) ...[
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: _InfoPill(
+                                      label: 'Review Mode',
+                                      icon: Icons.visibility_outlined,
+                                      background: const Color(0xFFEDE7FF),
+                                      foreground: const Color(0xFF6B39D6),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                                // ---- Question card ----
+                                _QuestionCard(
+                                  questionNumber: questionNumber,
+                                  question: question,
                                 ),
+                                const SizedBox(height: 18),
+                                // ---- Options ----
+                                ...List.generate(question.options.length, (
+                                  index,
+                                ) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: _OptionTile(optionIndex: index),
+                                  );
+                                }),
+                                if (isReview)
+                                  _ExplanationSection(question: question),
                               ],
                             ),
                           ),
@@ -475,6 +195,20 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   }
 }
 
+/// Confirms then submits the quiz. Shared by the top-bar Submit button.
+Future<void> _confirmAndSubmit(QuestionAnswerShowController controller) async {
+  final shouldSubmit = await Get.dialog<bool>(
+    _SubmitQuizDialog(
+      totalQuestions: controller.totalQuestions,
+      attemptedQuestions: controller.answeredCount,
+    ),
+    barrierDismissible: true,
+  );
+  if (shouldSubmit == true) {
+    await controller.submitQuiz();
+  }
+}
+
 class _QuestionTopBar extends StatelessWidget {
   const _QuestionTopBar();
 
@@ -483,8 +217,7 @@ class _QuestionTopBar extends StatelessWidget {
     final controller = Get.find<QuestionAnswerShowController>();
 
     return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.fromLTRB(6, 8, 12, 8),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE4E7F0))),
@@ -505,19 +238,266 @@ class _QuestionTopBar extends StatelessWidget {
                 controller.quizTitle.value.isEmpty
                     ? 'Quiz'
                     : controller.quizTitle.value,
-                textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF123887),
-                  fontSize: 18,
+                  fontSize: 17,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 10),
+          Obx(() {
+            if (controller.isReviewMode.value) {
+              return const SizedBox.shrink();
+            }
+            final submitting = controller.isSubmittingQuiz.value;
+            final enabled = controller.totalQuestions > 0 && !submitting;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: enabled ? () => _confirmAndSubmit(controller) : null,
+                borderRadius: BorderRadius.circular(22),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: enabled
+                        ? const Color(0xFF4D4FE1)
+                        : const Color(0xFFC9CCDE),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (submitting)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.check_circle_outline_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      const SizedBox(width: 6),
+                      Text(
+                        submitting ? 'Submitting' : 'Submit',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
         ],
+      ),
+    );
+  }
+}
+
+/// Small rounded status pill ("9% Done", "Time 00:01", "Review Mode").
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    this.icon,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: foreground, size: 15),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionCard extends StatelessWidget {
+  const _QuestionCard({required this.questionNumber, required this.question});
+
+  final int questionNumber;
+  final QuizQuestion question;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE6E4F5)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFDCE2F3).withValues(alpha: 0.5),
+            blurRadius: 20,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 5, color: const Color(0xFF4D4FE1)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Q.$questionNumber ${question.question}',
+                      style: const TextStyle(
+                        color: Color(0xFF202436),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        height: 1.6,
+                      ),
+                    ),
+                    if (question.questionImageUrl.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          question.questionImageUrl,
+                          fit: BoxFit.cover,
+                          height: 180,
+                          width: double.infinity,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 180,
+                              color: const Color(0xFFF0F1F5),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF4A4FD9),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 180,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F1F5),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  color: Color(0xFF9CA3AF),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    if (question.tags.isNotEmpty) ...[
+                      const SizedBox(height: 15),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: question.tags
+                            .map((tag) => _QuestionTagChip(tag: tag))
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Colours a question tag by its meaning: difficulty (easy/medium/hard),
+/// marks, or a neutral chip for subject names.
+class _QuestionTagChip extends StatelessWidget {
+  const _QuestionTagChip({required this.tag});
+
+  final String tag;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tag.trim().toLowerCase();
+    Color background = const Color(0xFFEFF0F4);
+    Color foreground = const Color(0xFF505165);
+
+    if (t == 'easy') {
+      background = const Color(0xFFE7F8EF);
+      foreground = const Color(0xFF1E9E5A);
+    } else if (t == 'medium' || t == 'moderate') {
+      background = const Color(0xFFFFF1DC);
+      foreground = const Color(0xFFC9820E);
+    } else if (t == 'hard' || t == 'difficult') {
+      background = const Color(0xFFFDE7E7);
+      foreground = const Color(0xFFD64545);
+    } else if (t.contains('mark')) {
+      background = const Color(0xFFE6EEFF);
+      foreground = const Color(0xFF2E6BE6);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Text(
+        tag,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -539,14 +519,14 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
       final showReviewColors =
           controller.isReviewMode.value && controller.hasAnswerKey;
 
-      Color borderColor = const Color(0xFFD1CEEF);
+      Color borderColor = const Color(0xFFE6E4F5);
       Color fillColor = Colors.white;
-      Color bubbleColor = const Color(0xFFE8EBF0);
-      Color bubbleTextColor = const Color(0xFF202436);
+      Color bubbleColor = const Color(0xFFEAEFFF);
+      Color bubbleTextColor = const Color(0xFF5B6472);
 
       if (isSelected) {
         borderColor = const Color(0xFF4D4FE1);
-        fillColor = const Color(0xFFE0DEFF);
+        fillColor = const Color(0xFFEEEDFF);
         bubbleColor = const Color(0xFF4D4FE1);
         bubbleTextColor = Colors.white;
       }
@@ -564,17 +544,17 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
       }
 
       return InkWell(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => controller.selectAnswer(optionIndex),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: fillColor,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: borderColor,
-              width: isSelected ? 2.5 : 1.4,
+              width: isSelected ? 2 : 1.3,
             ),
           ),
           child: Column(
@@ -583,31 +563,31 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
               Row(
                 children: [
                   Container(
-                    width: 30,
-                    height: 30,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
                       color: bubbleColor,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       String.fromCharCode(65 + optionIndex),
                       style: TextStyle(
                         color: bubbleTextColor,
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 18),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       question.options[optionIndex],
                       style: const TextStyle(
                         color: Color(0xFF202436),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
                       ),
                     ),
                   ),
@@ -863,10 +843,19 @@ class _BottomActionBar extends StatelessWidget {
 
   final QuestionAnswerShowController controller;
 
+  void _openNavigator() {
+    Get.bottomSheet<void>(
+      _QuestionNavigatorSheet(controller: controller),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFE4E7F0))),
@@ -888,27 +877,21 @@ class _BottomActionBar extends StatelessWidget {
                               !controller.isReviewMode.value
                           ? controller.clearCurrentAnswer
                           : null,
-                      foregroundColor: const Color(0xFF697181),
-                      backgroundColor: const Color(0xFFE8ECF2),
-                      disabledBackgroundColor: const Color(0xFFE8ECF2),
-                      disabledForegroundColor: const Color(0xFF9AA1AD),
+                      foregroundColor: const Color(0xFF5B5F72),
+                      backgroundColor: const Color(0xFFEDECFB),
+                      disabledBackgroundColor: const Color(0xFFEDECFB),
+                      disabledForegroundColor: const Color(0xFFA7ABBC),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _QuizActionButton(
-                      label: controller.isCurrentQuestionMarked
-                          ? 'Marked'
-                          : 'Mark',
-                      icon: controller.isCurrentQuestionMarked
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      onTap: controller.isReviewMode.value
-                          ? null
-                          : controller.toggleMarkCurrentQuestion,
-                      foregroundColor: const Color(0xFFC45A12),
+                      label: 'Question',
+                      icon: Icons.grid_view_rounded,
+                      onTap: _openNavigator,
+                      foregroundColor: const Color(0xFF6B7183),
                       backgroundColor: Colors.white,
-                      borderColor: const Color(0xFFF0C8B5),
+                      borderColor: const Color(0xFFD9DCEA),
                     ),
                   ),
                 ],
@@ -925,18 +908,16 @@ class _BottomActionBar extends StatelessWidget {
                               !controller.isReviewMode.value
                           ? controller.skipCurrentQuestion
                           : null,
-                      foregroundColor: const Color(0xFF697181),
-                      backgroundColor: const Color(0xFFE8ECF2),
-                      disabledBackgroundColor: const Color(0xFFE8ECF2),
-                      disabledForegroundColor: const Color(0xFF9AA1AD),
+                      foregroundColor: const Color(0xFF5B5F72),
+                      backgroundColor: const Color(0xFFEDECFB),
+                      disabledBackgroundColor: const Color(0xFFEDECFB),
+                      disabledForegroundColor: const Color(0xFFA7ABBC),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _QuizActionButton(
-                      label: controller.hasNextQuestion
-                          ? 'Save & Next'
-                          : 'Save',
+                      label: controller.hasNextQuestion ? 'Next' : 'Save',
                       icon: controller.hasNextQuestion
                           ? Icons.arrow_forward_rounded
                           : Icons.done_rounded,
@@ -945,7 +926,7 @@ class _BottomActionBar extends StatelessWidget {
                           ? null
                           : controller.saveAndNextQuestion,
                       foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xFF0865B7),
+                      backgroundColor: const Color(0xFF4D4FE1),
                       disabledBackgroundColor: const Color(0xFFC9CCDE),
                     ),
                   ),
@@ -1002,12 +983,12 @@ class _ReviewNavBar extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(30),
                 child: Container(
-                  height: 35,
+                  height: 46,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEEF1F6),
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1061,7 +1042,6 @@ class _QuizActionButton extends StatelessWidget {
     this.disabledBackgroundColor,
     this.borderColor,
     this.iconAfterLabel = false,
-    this.showLoader = false,
   });
 
   final String label;
@@ -1073,7 +1053,6 @@ class _QuizActionButton extends StatelessWidget {
   final Color? disabledBackgroundColor;
   final Color? borderColor;
   final bool iconAfterLabel;
-  final bool showLoader;
 
   @override
   Widget build(BuildContext context) {
@@ -1085,16 +1064,7 @@ class _QuizActionButton extends StatelessWidget {
         ? backgroundColor
         : (disabledBackgroundColor ?? const Color(0xFFC9CCDE));
 
-    final iconWidget = showLoader
-        ? SizedBox(
-            width: 12,
-            height: 5,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: effectiveForeground,
-            ),
-          )
-        : Icon(icon, size: 15, color: effectiveForeground);
+    final iconWidget = Icon(icon, size: 18, color: effectiveForeground);
 
     final labelWidget = Flexible(
       child: Text(
@@ -1103,8 +1073,8 @@ class _QuizActionButton extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: effectiveForeground,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
           height: 1,
         ),
       ),
@@ -1114,13 +1084,13 @@ class _QuizActionButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          height: 35,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: effectiveBackground,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isEnabled
                   ? (borderColor ?? effectiveBackground)
@@ -1286,8 +1256,6 @@ class _QuestionNumberButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color backgroundColor;
     if (isReview) {
-      // Review mode: color by correctness.
-      // green = correct, red = wrong, gray = not visited/unanswered.
       backgroundColor = !isAnswered
           ? const Color(0xFFE9EDF3)
           : isCorrect
@@ -1527,40 +1495,6 @@ class _SubmitQuizStatCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CircleNavButton extends StatelessWidget {
-  const _CircleNavButton({required this.icon, this.onTap});
-
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isEnabled = onTap != null;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 45,
-        height: 45,
-        decoration: BoxDecoration(
-          color: isEnabled ? const Color(0xFF5D63F0) : Colors.white,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isEnabled
-                ? const Color(0xFF5D63F0)
-                : const Color(0xFFD1CEEF),
-            width: 1.6,
-          ),
-        ),
-        child: Icon(
-          icon,
-          color: isEnabled ? Colors.white : const Color(0xFF585C70),
-          size: 22,
-        ),
       ),
     );
   }

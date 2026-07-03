@@ -133,7 +133,6 @@ class QuizDailyResult extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _AttemptMetaCard(
-                        attemptId: controller.attemptId,
                         timeTaken: controller.formattedElapsedTime,
                         totalQuestions: controller.totalQuestions,
                       ),
@@ -331,12 +330,10 @@ class _ResultTopBar extends StatelessWidget {
 
 class _AttemptMetaCard extends StatelessWidget {
   const _AttemptMetaCard({
-    required this.attemptId,
     required this.timeTaken,
     required this.totalQuestions,
   });
 
-  final String attemptId;
   final String timeTaken;
   final int totalQuestions;
 
@@ -348,11 +345,6 @@ class _AttemptMetaCard extends StatelessWidget {
       decoration: _cardDecoration(borderColor: const Color(0xFFD9D8FF)),
       child: Column(
         children: [
-          _AttemptMetaRow(
-            label: 'Attempt ID',
-            value: attemptId.isEmpty ? '-' : attemptId,
-          ),
-          const SizedBox(height: 10),
           _AttemptMetaRow(
             label: 'Questions Attempted',
             value: '$totalQuestions',
@@ -437,6 +429,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             title,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               color: Color(0xFF202436),
               fontSize: 15,
@@ -446,6 +439,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             subtitle,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               color: Color(0xFF505165),
               fontSize: 14,

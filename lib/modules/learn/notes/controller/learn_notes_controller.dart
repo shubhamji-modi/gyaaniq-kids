@@ -2,351 +2,50 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/service/api_service.dart';
 import '../../chapter/controller/learn_chapter_controller.dart';
+import '../../common/learn_media.dart';
+
+/// One page of lesson notes plus the server pagination metadata.
+class LearnNotesPage {
+  const LearnNotesPage({
+    required this.notes,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+  });
+
+  final List<LearnNoteModel> notes;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+
+  bool get hasMore => page < totalPages;
+}
 
 class LearnNotesRepository {
-  static const List<String> filters = ['All Notes', 'Mathematics', 'Physics'];
-
-  static final List<LearnNoteModel> notes = [
-    LearnNoteModel(
-      id: 'algebra_basics',
-      subject: 'Mathematics',
-      title: 'Algebra Basics',
-      description:
-          'Comprehensive guide to linear equations, variables, and balancing.',
-      tag: 'TEACHER PROVIDED',
-      tagColor: const Color(0xFFFFD6A7),
-      accent: const Color(0xFF4A4FD9),
-      chapterOrAuthor: 'Chapter 1',
-      secondaryLabel: '15 Pages',
-      fileCountLabel: '12 Files',
-      cardStyle: LearnNoteCardStyle.simple,
-      type: LearnNoteType.teacher,
-      readTime: '5 min read',
-      gradeLabel: 'Math • Grade 8',
-      statusLabel: 'Finalized Notes',
-      detailTitle: 'Chapter 1: The Beauty\nof Variables',
-      detailParagraphs: const [
-        'Algebra is the language of patterns. Instead of working with specific numbers, we use letters called variables to represent values that can change.',
-        'When we solve for x, we are finding the exact value that makes the statement true. This helps us model real-life problems clearly and quickly.',
-      ],
-      figureCaption: 'Figure 1.1: Anatomy of a Linear Expression',
-      stepTitle: 'Step 1: Subtract 5 from both sides',
-      sectionHeading: '1.1 Core Components',
-      bulletPoints: const [
-        'Coefficient: The number multiplying the variable (e.g., the 3 in 3x).',
-        'Variable: The unknown value, usually represented by x, y, or z.',
-        'Constant: A fixed number that does not change.',
-      ],
-      secondSectionHeading: '1.2 Real-World Application',
-      calloutTitle: 'Word Problem Translation:',
-      calloutEquation: '5w + 15 = 60',
-    ),
-    LearnNoteModel(
-      id: 'formula_cheat_sheet',
-      subject: 'Mathematics',
-      title: 'Formulas Cheat\nSheet',
-      description: 'Trigonometry and Geometry quick reference guide for exams.',
-      tag: 'STUDENT NOTE',
-      tagColor: const Color(0xFFEBD2FF),
-      accent: const Color(0xFFBEBFCB),
-      chapterOrAuthor: 'Reference',
-      secondaryLabel: 'Alex J.',
-      fileCountLabel: '12 Files',
-      cardStyle: LearnNoteCardStyle.simple,
-      type: LearnNoteType.student,
-      readTime: '3 min read',
-      gradeLabel: 'Math • Grade 8',
-      statusLabel: 'Quick Revision',
-      detailTitle: 'Formula Reference and\nMemory Tricks',
-      detailParagraphs: const [
-        'This quick sheet brings together the most-used geometry and trigonometry formulas for last-minute revision.',
-        'Use short visual memory tricks and grouped identities to revise faster before practice sessions or exams.',
-      ],
-      figureCaption: 'Figure 2.1: Formula Grouping Strategy',
-      stepTitle: 'Tip: Group similar formulas for faster recall',
-      sectionHeading: '2.1 What to Memorize',
-      bulletPoints: const [
-        'Area and perimeter formulas for common shapes.',
-        'Basic trigonometric ratios and angle values.',
-        'Shortcut identities used in exam-style problems.',
-      ],
-      secondSectionHeading: '2.2 Revision Strategy',
-      calloutTitle: 'Memory Pattern:',
-      calloutEquation: 'sin²x + cos²x = 1',
-    ),
-    LearnNoteModel(
-      id: 'laws_of_motion_1',
-      subject: 'Physics',
-      title: 'Laws of Motion',
-      description:
-          'In-depth analysis of Newton’s three laws with real-world application examples and solved numerical problems.',
-      tag: 'TEACHER PROVIDED',
-      tagColor: const Color(0xFFFFD6A7),
-      accent: const Color(0xFF4A4FD9),
-      chapterOrAuthor: 'View PDF',
-      secondaryLabel: 'Download',
-      fileCountLabel: '8 Files',
-      cardStyle: LearnNoteCardStyle.featured,
-      type: LearnNoteType.teacher,
-      readTime: '8 min read',
-      gradeLabel: 'Physics • Grade 8',
-      statusLabel: 'Teacher Notes',
-      detailTitle: 'Newton’s Laws in Action',
-      detailParagraphs: const [
-        'Motion explains how forces change the state of rest or movement of an object. Newton’s laws help us predict these changes.',
-        'From buses starting suddenly to rockets launching upward, the laws of motion give us the tools to describe and calculate what happens.',
-      ],
-      figureCaption: 'Figure 3.1: Force Interaction Diagram',
-      stepTitle: 'Key Idea: Force equals mass multiplied by acceleration',
-      sectionHeading: '3.1 Core Laws',
-      bulletPoints: const [
-        'First law explains inertia and resistance to change in motion.',
-        'Second law connects force, mass, and acceleration.',
-        'Third law states every action has an equal and opposite reaction.',
-      ],
-      secondSectionHeading: '3.2 Real-World Examples',
-      calloutTitle: 'Equation:',
-      calloutEquation: 'F = ma',
-    ),
-    LearnNoteModel(
-      id: 'optics_summary',
-      subject: 'Physics',
-      title: 'Optics Summary',
-      description:
-          'Personal shorthand notes on light reflection, refraction, and lenses.',
-      tag: 'STUDENT NOTE',
-      tagColor: const Color(0xFFEBD2FF),
-      accent: const Color(0xFF7D31E2),
-      chapterOrAuthor: 'AJ  SK',
-      secondaryLabel: '2 MB',
-      fileCountLabel: '8 Files',
-      cardStyle: LearnNoteCardStyle.author,
-      type: LearnNoteType.student,
-      readTime: '4 min read',
-      gradeLabel: 'Physics • Grade 8',
-      statusLabel: 'Student Summary',
-      detailTitle: 'Optics: Light and Lenses',
-      detailParagraphs: const [
-        'Optics studies how light behaves when it travels, reflects, or bends through different materials.',
-        'Understanding ray diagrams and lens behavior makes it easier to solve questions about images and vision.',
-      ],
-      figureCaption: 'Figure 4.1: Lens and Ray Path',
-      stepTitle: 'Tip: Track the path of at least two rays',
-      sectionHeading: '4.1 Important Terms',
-      bulletPoints: const [
-        'Reflection is the bouncing back of light.',
-        'Refraction is the bending of light between media.',
-        'Convex and concave lenses form different kinds of images.',
-      ],
-      secondSectionHeading: '4.2 Question Approach',
-      calloutTitle: 'Formula Reminder:',
-      calloutEquation: '1/f = 1/v - 1/u',
-    ),
-    LearnNoteModel(
-      id: 'laws_of_motion_2',
-      subject: 'Physics',
-      title: 'Laws of Motion',
-      description:
-          'In-depth analysis of Newton’s three laws with real-world application examples and solved numerical problems.',
-      tag: 'TEACHER PROVIDED',
-      tagColor: const Color(0xFFFFD6A7),
-      accent: const Color(0xFF4A4FD9),
-      chapterOrAuthor: 'View PDF',
-      secondaryLabel: 'Download',
-      fileCountLabel: '8 Files',
-      cardStyle: LearnNoteCardStyle.featured,
-      type: LearnNoteType.teacher,
-      readTime: '8 min read',
-      gradeLabel: 'Physics • Grade 8',
-      statusLabel: 'Teacher Notes',
-      detailTitle: 'Newton’s Laws in Action',
-      detailParagraphs: const [
-        'Motion explains how forces change the state of rest or movement of an object. Newton’s laws help us predict these changes.',
-        'From buses starting suddenly to rockets launching upward, the laws of motion give us the tools to describe and calculate what happens.',
-      ],
-      figureCaption: 'Figure 3.1: Force Interaction Diagram',
-      stepTitle: 'Key Idea: Force equals mass multiplied by acceleration',
-      sectionHeading: '3.1 Core Laws',
-      bulletPoints: const [
-        'First law explains inertia and resistance to change in motion.',
-        'Second law connects force, mass, and acceleration.',
-        'Third law states every action has an equal and opposite reaction.',
-      ],
-      secondSectionHeading: '3.2 Real-World Examples',
-      calloutTitle: 'Equation:',
-      calloutEquation: 'F = ma',
-    ),
-  ];
-
-  static Future<ApiResponse<List<LearnNoteModel>>> fetchStudentNotes() async {
-    final subjectsResponse = await LearnCatalogData.getUserSubjects();
-    debugPrint(
-      'NOTES DEBUG subjects success=${subjectsResponse.success} '
-      'count=${subjectsResponse.data?.length ?? 0} '
-      'message=${subjectsResponse.message}',
-    );
-
-    if (!subjectsResponse.success) {
-      return ApiResponse<List<LearnNoteModel>>(
-        success: false,
-        message: subjectsResponse.message,
-        statusCode: subjectsResponse.statusCode,
-      );
-    }
-
-    final subjects = subjectsResponse.data ?? const <LearnSubjectModel>[];
-    final notes = <LearnNoteModel>[];
-
-    // Collect all lesson IDs from all subjects
-    final allLessonIds = <String>[];
-    final lessonMetadata =
-        <
-          String,
-          (LearnSubjectModel, String)
-        >{}; // lessonId -> (subject, lessonTitle)
-
-    for (final subject in subjects) {
-      debugPrint(
-        'NOTES DEBUG loading lessons subjectId=${subject.id} '
-        'subject=${subject.title}',
-      );
-      final lessonsResponse = await LearnCatalogData.getUserLessons(
-        subject: subject,
-      );
-      debugPrint(
-        'NOTES DEBUG lessons subject=${subject.title} '
-        'success=${lessonsResponse.success} '
-        'count=${lessonsResponse.data?.length ?? 0} '
-        'message=${lessonsResponse.message}',
-      );
-      if (!lessonsResponse.success) {
-        return ApiResponse<List<LearnNoteModel>>(
-          success: false,
-          message: lessonsResponse.message,
-          statusCode: lessonsResponse.statusCode,
-        );
-      }
-
-      for (final chapter
-          in lessonsResponse.data ?? const <LearnChapterModel>[]) {
-        for (final topic in chapter.topics) {
-          allLessonIds.add(topic.lesson.id);
-          lessonMetadata[topic.lesson.id] = (subject, topic.lesson.title);
-        }
-      }
-    }
-
-    debugPrint(
-      'NOTES DEBUG total lessons to fetch notes for: ${allLessonIds.length}',
-    );
-
-    // Fetch notes in batches (3 parallel requests per batch to avoid overwhelming server)
-    final batchSize = 3;
-    for (int i = 0; i < allLessonIds.length; i += batchSize) {
-      final batch = allLessonIds.skip(i).take(batchSize).toList();
-
-      final batchResponses = await Future.wait(
-        batch.map((lessonId) {
-          final metadata = lessonMetadata[lessonId];
-          return fetchNotesByLesson(
-            lessonId: lessonId,
-            fallbackSubject: metadata?.$1,
-            fallbackLessonTitle: metadata?.$2 ?? 'Unknown',
-          );
-        }),
-      );
-
-      for (final response in batchResponses) {
-        if (!response.success) {
-          debugPrint('NOTES DEBUG batch call failed: ${response.message}');
-          continue; // Skip failed lessons, don't abort entire operation
-        }
-        notes.addAll(response.data ?? const <LearnNoteModel>[]);
-      }
-
-      // Add delay between batches to avoid rate limiting
-      if (i + batchSize < allLessonIds.length) {
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
-    }
-
-    debugPrint('NOTES DEBUG total parsed notes=${notes.length}');
-    return ApiResponse<List<LearnNoteModel>>(
-      success: true,
-      data: notes,
-      message: 'Notes fetched successfully',
-      statusCode: 200,
-    );
-  }
-
-  /// Fetch notes for a single lesson (batched approach)
-  static Future<ApiResponse<List<LearnNoteModel>>> fetchNotesByLesson({
-    required String lessonId,
-    required LearnSubjectModel? fallbackSubject,
-    required String fallbackLessonTitle,
-  }) async {
-    final response = await ApiService.instance.post<dynamic>(
-      endpoint: ApiService.FETCH_NOTES_BY_LESSON,
-      showLoader: false,
-      fromJson: (json) => json,
-      data: {'lessonId': lessonId}, // Send ONE lessonId
-    );
-
-    if (!response.success || response.data is! Map<String, dynamic>) {
-      return ApiResponse<List<LearnNoteModel>>(
-        success: false,
-        message: response.message,
-        statusCode: response.statusCode,
-      );
-    }
-
-    final body = response.data as Map<String, dynamic>;
-    final notesJson =
-        ((body['data'] as Map<String, dynamic>?)?['notes']) as List<dynamic>? ??
-        const [];
-
-    final notes = <LearnNoteModel>[];
-    for (final noteJson in notesJson.whereType<Map<String, dynamic>>()) {
-      if (fallbackSubject != null) {
-        final note = LearnNoteModel.fromApi(
-          noteJson,
-          fallbackSubject: fallbackSubject,
-          fallbackLessonTitle: fallbackLessonTitle,
-        );
-        notes.add(note);
-      }
-    }
-
-    return ApiResponse<List<LearnNoteModel>>(
-      success: true,
-      data: notes,
-      message: 'Notes fetched',
-      statusCode: 200,
-    );
-  }
-
-  // Old fetchNotesByLesson kept for backward compatibility
-  static Future<ApiResponse<List<LearnNoteModel>>> fetchNotesByLessonOld({
+  /// Fetch a single page of notes for a SINGLE lesson.
+  ///
+  /// This is the only notes endpoint the UI should call, and it is triggered
+  /// lazily when the user opens a specific lesson — never in bulk for every
+  /// lesson of every subject. That keeps `FETCH_NOTES_BY_LESSON` to one call
+  /// per opened page instead of dozens on screen load.
+  static Future<ApiResponse<LearnNotesPage>> fetchNotesByLesson({
     required String lessonId,
     required LearnSubjectModel fallbackSubject,
     required String fallbackLessonTitle,
+    int page = 1,
+    int limit = 10,
   }) async {
     final response = await ApiService.instance.post<dynamic>(
       endpoint: ApiService.FETCH_NOTES_BY_LESSON,
       showLoader: false,
       fromJson: (json) => json,
-      data: {'lessonId': lessonId},
-    );
-    debugPrint(
-      'NOTES DEBUG API lessonId=$lessonId '
-      'success=${response.success} '
-      'status=${response.statusCode} '
-      'message=${response.message} '
-      'raw=${response.data}',
+      data: {'lessonId': lessonId, 'page': page, 'limit': limit},
     );
 
     if (!response.success || response.data is! Map<String, dynamic>) {
-      return ApiResponse<List<LearnNoteModel>>(
+      return ApiResponse<LearnNotesPage>(
         success: false,
         message: response.message,
         statusCode: response.statusCode,
@@ -354,13 +53,10 @@ class LearnNotesRepository {
     }
 
     final body = response.data as Map<String, dynamic>;
-    final notesJson =
-        ((body['data'] as Map<String, dynamic>?)?['notes']) as List<dynamic>? ??
-        const [];
-    debugPrint(
-      'NOTES DEBUG raw notes lessonId=$lessonId count=${notesJson.length} '
-      'data=$notesJson',
-    );
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final notesJson = (data['notes']) as List<dynamic>? ?? const [];
+    final pagination = (data['pagination'] as Map<String, dynamic>?) ?? const {};
+
     final notes = notesJson
         .whereType<Map<String, dynamic>>()
         .map(
@@ -371,18 +67,23 @@ class LearnNotesRepository {
           ),
         )
         .toList();
-    for (final note in notes) {
-      debugPrint(
-        'NOTES DEBUG note id=${note.id} title=${note.title} '
-        'subject=${note.subject} lessonId=${note.lessonId} '
-        'lesson=${note.lessonTitle} pdf=${note.pdfUrl} '
-        'media=${note.media.length}',
-      );
-    }
 
-    return ApiResponse<List<LearnNoteModel>>(
+    final resolvedPage = (pagination['page'] as num?)?.toInt() ?? page;
+    final resolvedLimit = (pagination['limit'] as num?)?.toInt() ?? limit;
+    final total = (pagination['total'] as num?)?.toInt() ?? notes.length;
+    final totalPages =
+        (pagination['totalPages'] as num?)?.toInt() ??
+        (notes.isEmpty ? resolvedPage : resolvedPage + (notes.length < resolvedLimit ? 0 : 1));
+
+    return ApiResponse<LearnNotesPage>(
       success: true,
-      data: notes,
+      data: LearnNotesPage(
+        notes: notes,
+        page: resolvedPage,
+        limit: resolvedLimit,
+        total: total,
+        totalPages: totalPages,
+      ),
       message: body['message']?.toString() ?? response.message,
       statusCode: response.statusCode,
     );
@@ -403,7 +104,6 @@ class LearnNoteModel {
   final Color accent;
   final String chapterOrAuthor;
   final String secondaryLabel;
-  final String fileCountLabel;
   final LearnNoteCardStyle cardStyle;
   final LearnNoteType type;
   final String readTime;
@@ -436,7 +136,6 @@ class LearnNoteModel {
     required this.accent,
     required this.chapterOrAuthor,
     required this.secondaryLabel,
-    required this.fileCountLabel,
     required this.cardStyle,
     required this.type,
     required this.readTime,
@@ -507,7 +206,6 @@ class LearnNoteModel {
       accent: fallbackSubject.accent,
       chapterOrAuthor: lessonTitle,
       secondaryLabel: teacherName.isEmpty ? 'Teacher' : teacherName,
-      fileCountLabel: '${media.length} File${media.length == 1 ? '' : 's'}',
       cardStyle: LearnNoteCardStyle.simple,
       type: LearnNoteType.teacher,
       readTime: _readTimeLabel(plainContent),
@@ -532,6 +230,60 @@ class LearnNoteModel {
       lessonTitle: lessonTitle,
     );
   }
+
+  /// All openable resources (PDFs, videos, images) for this note, combining
+  /// `media[]` with the single `pdfUrl` / `videoUrl` fields, de-duplicated.
+  List<LearnResource> get resources {
+    final list = <LearnResource>[];
+    final seen = <String>{};
+
+    void add(String url, String name, LearnMediaKind kind, int size) {
+      final trimmed = url.trim();
+      if (trimmed.isEmpty || !seen.add(trimmed)) return;
+      list.add(
+        LearnResource(
+          title: name.trim().isEmpty ? fileNameFromUrl(trimmed) : name,
+          url: trimmed,
+          kind: kind,
+          size: size,
+        ),
+      );
+    }
+
+    for (final item in media) {
+      add(
+        item.url,
+        item.originalName,
+        classifyMedia(item.mimeType, item.url),
+        item.size,
+      );
+    }
+    if (videoUrl.trim().isNotEmpty) {
+      add(videoUrl, 'Lesson video', LearnMediaKind.video, 0);
+    }
+    if (pdfUrl.trim().isNotEmpty) {
+      add(pdfUrl, 'Document', LearnMediaKind.pdf, 0);
+    }
+    return list;
+  }
+
+  List<LearnResource> get imageResources =>
+      resources.where((r) => r.kind == LearnMediaKind.image).toList();
+
+  List<LearnResource> get videoResources =>
+      resources.where((r) => r.kind == LearnMediaKind.video).toList();
+
+  List<LearnResource> get documentResources => resources
+      .where(
+        (r) => r.kind == LearnMediaKind.pdf || r.kind == LearnMediaKind.other,
+      )
+      .toList();
+
+  /// Total attachments (used for the dynamic "N Files" label).
+  int get resourceCount => resources.length;
+
+  /// Whether the note carries any real HTML body worth rendering.
+  bool get hasHtmlContent => _stripHtml(content).trim().isNotEmpty;
 }
 
 class LearnNoteMediaModel {

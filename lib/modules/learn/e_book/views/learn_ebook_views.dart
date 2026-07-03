@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../chapter/views/learn_subject_views.dart';
+import '../../common/subject_visual.dart';
 import '../controller/learn_ebook_controller.dart';
 import 'learn_ebook_discription_views.dart';
 
@@ -67,6 +68,13 @@ class _LearnEbookViewsState extends State<LearnEbookViews> {
           book.title.toLowerCase().contains(q);
       return filterMatch && queryMatch;
     }).toList();
+
+    // Group the (filtered) books by subject so each subject shows once.
+    final grouped = <String, List<LearnEbookModel>>{};
+    for (final book in books) {
+      grouped.putIfAbsent(book.subject, () => []).add(book);
+    }
+    final groups = grouped.entries.toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
@@ -195,7 +203,7 @@ class _LearnEbookViewsState extends State<LearnEbookViews> {
                         actionLabel: 'Retry',
                         onAction: _loadBooks,
                       )
-                    else if (books.isEmpty)
+                    else if (groups.isEmpty)
                       const _EbookStateView(
                         icon: Icons.library_books_outlined,
                         title: 'No e-books found',
@@ -205,16 +213,20 @@ class _LearnEbookViewsState extends State<LearnEbookViews> {
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: books.length,
+                        itemCount: groups.length,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               crossAxisSpacing: 14,
                               mainAxisSpacing: 16,
-                              childAspectRatio: 0.56,
+                              childAspectRatio: 0.74,
                             ),
                         itemBuilder: (context, index) {
-                          return _EbookCard(book: books[index]);
+                          final entry = groups[index];
+                          return _SubjectGroupCard(
+                            subject: entry.key,
+                            books: entry.value,
+                          );
                         },
                       ),
                   ],
@@ -296,373 +308,255 @@ class _EbookStateView extends StatelessWidget {
   }
 }
 
-class _EbookCard extends StatelessWidget {
-  const _EbookCard({required this.book});
+/// One card per subject. All e-books of that subject live behind it; tapping
+/// opens a bottom sheet listing them (they are never shown as separate cards).
+class _SubjectGroupCard extends StatelessWidget {
+  const _SubjectGroupCard({required this.subject, required this.books});
 
-  final LearnEbookModel book;
+  final String subject;
+  final List<LearnEbookModel> books;
+
+  void _openSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD5D8E6),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  subject,
+                  style: const TextStyle(
+                    color: Color(0xFF1D2231),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${books.length} ${books.length == 1 ? ' E-book Available' : ' E-books Available'}',
+                  style: const TextStyle(
+                    color: Color(0xFF72788D),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: books.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final book = books[index];
+                      return _EbookSheetTile(
+                        book: book,
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          Get.to(() => LearnEbookDiscriptionViews(book: book));
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final accentLight = Color.lerp(book.accent, Colors.white, 0.78)!;
-    final accentSoft = Color.lerp(book.accent, Colors.white, 0.9)!;
+    final visual = subjectVisualFor(subject);
+    final count = books.length;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [accentSoft, Colors.white],
+    return InkWell(
+      onTap: () => _openSheet(context),
+      borderRadius: BorderRadius.circular(26),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: visual.softBackground,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: visual.color.withValues(alpha: 0.22)),
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFC8C7F1)),
-        boxShadow: [
-          BoxShadow(
-            color: book.accent.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Subject icon tile (same style as the Learn "My Subjects" cards).
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: visual.color,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: visual.color.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(visual.icon, color: Colors.white, size: 24),
+                ),
+                const Spacer(),
+                // Count badge, top-right.
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: visual.color,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              subject,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF1D2231),
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$count E-Book${count == 1 ? '' : 's'} Available',
+              style: const TextStyle(
+                color: Color(0xFF6F7588),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _openSheet(context),
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: visual.color.withValues(alpha: 0.14),
+                  foregroundColor: visual.color,
+                  minimumSize: const Size.fromHeight(42),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
+                label: const Text(
+                  'View',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(
-                fit: StackFit.expand,
+    );
+  }
+}
+
+class _EbookSheetTile extends StatelessWidget {
+  const _EbookSheetTile({required this.book, required this.onTap});
+
+  final LearnEbookModel book;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = book.resourceCount;
+    final visual = subjectVisualFor(book.subject);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FD),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFDDE0EE)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: visual.color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(visual.icon, color: visual.color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [accentLight, Colors.white],
+                  Text(
+                    book.title.replaceAll('\n', ' '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF1D2231),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (count > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '$count ${count == 1 ? 'file' : 'files'}',
+                      style: const TextStyle(
+                        color: Color(0xFF72788D),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: -18,
-                    right: -6,
-                    child: Container(
-                      width: 78,
-                      height: 78,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: book.accent.withValues(alpha: 0.12),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: -12,
-                    bottom: -24,
-                    child: Container(
-                      width: 92,
-                      height: 92,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.75),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.9,
-                      child: _EbookCoverArt(style: book.coverStyle),
-                    ),
-                  ),
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: Container(
-                      height: 34,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.white.withValues(alpha: 0.82),
-                            Colors.white.withValues(alpha: 0.28),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            book.subject,
-            style: TextStyle(
-              color: book.accent,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            book.title,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1D2231),
-              fontSize: 14,
-              height: 1.35,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () =>
-                  Get.to(() => LearnEbookDiscriptionViews(book: book)),
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: const Color(0xFFE4E7EC),
-                foregroundColor: const Color(0xFF4A4FD9),
-                minimumSize: const Size.fromHeight(40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(26),
-                ),
-              ),
-              child: const Text(
-                'Read Now',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EbookCoverArt extends StatelessWidget {
-  const _EbookCoverArt({required this.style});
-
-  final LearnEbookCoverStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    switch (style) {
-      case LearnEbookCoverStyle.math:
-        return CustomPaint(painter: _MathBookPainter());
-      case LearnEbookCoverStyle.chemistry:
-        return CustomPaint(painter: _ChemistryBookPainter());
-      case LearnEbookCoverStyle.history:
-        return CustomPaint(painter: _HistoryBookPainter());
-      case LearnEbookCoverStyle.english:
-        return CustomPaint(painter: _EnglishBookPainter());
-      case LearnEbookCoverStyle.biology:
-        return CustomPaint(painter: _BiologyBookPainter());
-    }
-  }
-}
-
-class _MathBookPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bg = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF9A86A8), Color(0xFFD5C1E2)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, bg);
-
-    final orange = Paint()..color = const Color(0xFFFF8E1B);
-    final purple = Paint()
-      ..color = const Color(0xFFBA85D8).withValues(alpha: 0.8);
-    canvas.drawCircle(
-      Offset(size.width * 0.14, size.height * 0.55),
-      34,
-      orange,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.76, size.height * 0.45),
-      32,
-      orange,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.88, size.height * 0.66),
-      18,
-      purple,
-    );
-
-    final bookRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        size.width * 0.24,
-        size.height * 0.16,
-        size.width * 0.48,
-        size.height * 0.66,
-      ),
-      const Radius.circular(12),
-    );
-    canvas.drawRRect(bookRect, orange);
-    canvas.drawRect(
-      Rect.fromLTWH(
-        size.width * 0.275,
-        size.height * 0.16,
-        6,
-        size.height * 0.66,
-      ),
-      Paint()..color = const Color(0xFFFFB14D),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ChemistryBookPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bg = Paint()
-      ..shader = const RadialGradient(
-        colors: [Color(0xFF6A418A), Color(0xFF191325)],
-      ).createShader(Offset(size.width * 0.5, size.height * 0.48) & size);
-    canvas.drawRect(Offset.zero & size, bg);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          size.width * 0.16,
-          size.height * 0.1,
-          size.width * 0.68,
-          size.height * 0.78,
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFFB4B8CC)),
+          ],
         ),
-        const Radius.circular(10),
       ),
-      Paint()..color = const Color(0xFF11131B),
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.56, size.height * 0.28),
-      12,
-      Paint()..color = const Color(0xFFF2A5FF),
-    );
-    final atom = Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(size.width * 0.57, size.height * 0.28),
-        width: 70,
-        height: 28,
-      ),
-      atom,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(size.width * 0.57, size.height * 0.28),
-        width: 30,
-        height: 72,
-      ),
-      atom,
     );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _HistoryBookPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bg = Paint()
-      ..shader = const RadialGradient(
-        colors: [Color(0xFF1B3C36), Color(0xFF071113)],
-      ).createShader(Offset(size.width * 0.5, size.height * 0.45) & size);
-    canvas.drawRect(Offset.zero & size, bg);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          size.width * 0.18,
-          size.height * 0.18,
-          size.width * 0.48,
-          size.height * 0.52,
-        ),
-        const Radius.circular(8),
-      ),
-      Paint()..color = const Color(0xFF1E8A8E),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(
-        size.width * 0.28,
-        size.height * 0.28,
-        size.width * 0.26,
-        size.height * 0.12,
-      ),
-      Paint()..color = const Color(0xFFE6C384),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _EnglishBookPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bg = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF5F7682), Color(0xFFF4FAFF)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, bg);
-    final feather = Paint()..color = const Color(0xFFF6FDFF);
-    final path = Path()
-      ..moveTo(size.width * 0.75, size.height * 0.08)
-      ..quadraticBezierTo(
-        size.width * 0.62,
-        size.height * 0.38,
-        size.width * 0.5,
-        size.height * 0.78,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.67,
-        size.height * 0.46,
-        size.width * 0.88,
-        size.height * 0.08,
-      )
-      ..close();
-    canvas.drawPath(path, feather);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BiologyBookPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bg = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFFB2D6FF), Color(0xFFEEF7FF)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, bg);
-    canvas.drawCircle(
-      Offset(size.width * 0.5, size.height * 0.46),
-      size.width * 0.28,
-      Paint()..color = const Color(0xFFA6B0FF),
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.52, size.height * 0.44),
-      size.width * 0.18,
-      Paint()..color = const Color(0xFF6D78E7),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(size.width * 0.38, size.height * 0.58),
-        width: 58,
-        height: 24,
-      ),
-      Paint()..color = const Color(0xFFF1B8E8),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

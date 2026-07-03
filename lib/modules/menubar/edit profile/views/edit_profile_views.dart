@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
+import '../controller/edit_profile_controller.dart';
 
 class EditProfileViews extends StatefulWidget {
   const EditProfileViews({super.key});
@@ -55,39 +56,14 @@ class _EditProfileViewsState extends State<EditProfileViews> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD4D7E2),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _ImageSourceTile(
-                  icon: Icons.camera_alt_outlined,
-                  title: 'Camera',
-                  onTap: () => Navigator.pop(context, ImageSource.camera),
-                ),
-                const SizedBox(height: 10),
-                _ImageSourceTile(
-                  icon: Icons.photo_library_outlined,
-                  title: 'Gallery',
-                  onTap: () => Navigator.pop(context, ImageSource.gallery),
-                ),
-              ],
-            ),
-          ),
+        return _ProfilePhotoSheet(
+          currentProfilePic: _profilePic,
+          onAvatarSelected: _onAvatarSelected,
         );
       },
     );
@@ -98,6 +74,25 @@ class _EditProfileViewsState extends State<EditProfileViews> {
 
     await Future<void>.delayed(const Duration(milliseconds: 250));
     await _pickProfileImage(source);
+  }
+
+  /// Called when a library avatar is picked. The Select API has already set the
+  /// profile picture server-side; here we mirror it locally and into the shared
+  /// [UserProfileProvider] so it shows everywhere the profile photo appears.
+  void _onAvatarSelected(String url) {
+    if (!mounted || url.trim().isEmpty) {
+      return;
+    }
+    final provider = context.read<UserProfileProvider>();
+    final current = provider.profile;
+    if (current != null) {
+      provider.setProfile(current.copyWith(profilePic: url));
+    }
+    setState(() {
+      _profilePic = url;
+      _selectedImageFile = null;
+    });
+    _showMessage('Avatar updated successfully.');
   }
 
   Future<void> _pickProfileImage(ImageSource source) async {
@@ -585,6 +580,377 @@ class _ProfileFallbackIcon extends StatelessWidget {
     return const CircleAvatar(
       backgroundColor: Color(0xFFFFD0AF),
       child: Icon(Icons.person_rounded, size: 45, color: Color(0xFF7D4B2C)),
+    );
+  }
+}
+
+/// Bottom sheet that offers the admin avatar library (API-backed, paginated)
+/// plus the Camera / Gallery sources.
+class _ProfilePhotoSheet extends StatefulWidget {
+  const _ProfilePhotoSheet({
+    required this.currentProfilePic,
+    required this.onAvatarSelected,
+  });
+
+  final String currentProfilePic;
+  final void Function(String url) onAvatarSelected;
+
+  @override
+  State<_ProfilePhotoSheet> createState() => _ProfilePhotoSheetState();
+}
+
+class _ProfilePhotoSheetState extends State<_ProfilePhotoSheet> {
+  static const int _pageSize = 24;
+
+  final ScrollController _scrollController = ScrollController();
+  final List<AvatarItem> _avatars = [];
+
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  int _page = 0;
+  String _error = '';
+  String? _selectingId;
+  late String _selectedUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedUrl = widget.currentProfilePic.trim();
+    _scrollController.addListener(_onScroll);
+    _loadFirstPage();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _loadingMore || _loading) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 160) {
+      _loadNextPage();
+    }
+  }
+
+  Future<void> _loadFirstPage() async {
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+    final response = await EditProfileAvatarRepository.fetchAvatars(
+      page: 1,
+      limit: _pageSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (response.success && response.data != null) {
+        final page = response.data!;
+        _avatars
+          ..clear()
+          ..addAll(page.avatars);
+        _page = page.page;
+        _hasMore = page.hasMore;
+      } else {
+        _error = response.message;
+        _hasMore = false;
+      }
+    });
+  }
+
+  Future<void> _loadNextPage() async {
+    setState(() => _loadingMore = true);
+    final response = await EditProfileAvatarRepository.fetchAvatars(
+      page: _page + 1,
+      limit: _pageSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _loadingMore = false;
+      if (response.success && response.data != null) {
+        final page = response.data!;
+        _avatars.addAll(page.avatars);
+        _page = page.page;
+        _hasMore = page.hasMore;
+      } else {
+        _hasMore = false;
+      }
+    });
+  }
+
+  Future<void> _selectAvatar(AvatarItem avatar) async {
+    if (_selectingId != null) return;
+    setState(() => _selectingId = avatar.id);
+    final response = await EditProfileAvatarRepository.selectAvatar(avatar.id);
+    if (!mounted) return;
+    setState(() => _selectingId = null);
+
+    if (response.success) {
+      final url = (response.data ?? '').isNotEmpty ? response.data! : avatar.url;
+      widget.onAvatarSelected(url);
+      Navigator.pop(context);
+    } else {
+      Get.snackbar(
+        'Error',
+        response.message,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFB42318),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(14),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4D7E2),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Avatar Library',
+              style: TextStyle(
+                color: Color(0xFF1D2231),
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Select your character',
+              style: TextStyle(
+                color: Color(0xFF7B7C91),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(height: 100, child: _buildAvatarRow()),
+            const SizedBox(height: 18),
+            _ImageSourceTile(
+              icon: Icons.camera_alt_outlined,
+              title: 'Camera',
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            const SizedBox(height: 10),
+            _ImageSourceTile(
+              icon: Icons.photo_library_outlined,
+              title: 'Gallery',
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarRow() {
+    if (_loading) {
+      return const Center(
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4B49E3)),
+          ),
+        ),
+      );
+    }
+
+    if (_error.isNotEmpty) {
+      return Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                _error,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF9A2F2F),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(onPressed: _loadFirstPage, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    if (_avatars.isEmpty) {
+      return const Center(
+        child: Text(
+          'No avatars yet. Ask your admin to add some!',
+          style: TextStyle(
+            color: Color(0xFF7B7C91),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      itemCount: _avatars.length + (_hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= _avatars.length) {
+          return const SizedBox(
+            width: 60,
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4B49E3)),
+                ),
+              ),
+            ),
+          );
+        }
+        final avatar = _avatars[index];
+        return _AvatarTile(
+          avatar: avatar,
+          selected: _selectedUrl.isNotEmpty && _selectedUrl == avatar.url,
+          loading: _selectingId == avatar.id,
+          onTap: () => _selectAvatar(avatar),
+        );
+      },
+    );
+  }
+}
+
+class _AvatarTile extends StatelessWidget {
+  const _AvatarTile({
+    required this.avatar,
+    required this.selected,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final AvatarItem avatar;
+  final bool selected;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          width: 84,
+          padding: EdgeInsets.all(selected ? 3 : 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F6FF),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF4B49E3)
+                  : const Color(0xFFE4E6F1),
+              width: selected ? 3 : 1.5,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.network(
+                  avatar.url,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const ColoredBox(
+                      color: Color(0xFFEDEFFA),
+                      child: Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFF4B49E3),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => const ColoredBox(
+                    color: Color(0xFFEDEFFA),
+                    child: Icon(
+                      Icons.person_rounded,
+                      color: Color(0xFF9BA1C4),
+                      size: 30,
+                    ),
+                  ),
+                ),
+                if (loading)
+                  const ColoredBox(
+                    color: Color(0x66000000),
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (selected)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF4B49E3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
