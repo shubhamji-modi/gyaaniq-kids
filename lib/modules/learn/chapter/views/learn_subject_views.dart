@@ -187,9 +187,13 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
 }
 
 class LearnTopBar extends StatelessWidget {
-  const LearnTopBar({super.key, required this.title});
+  const LearnTopBar({super.key, required this.title, this.trailing});
 
   final String title;
+
+  /// Optional trailing action (e.g. a search icon). Kept the same width as the
+  /// leading back button so the title stays centered.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -221,7 +225,10 @@ class LearnTopBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 48),
+          SizedBox(
+            width: 48,
+            child: trailing == null ? null : Center(child: trailing),
+          ),
         ],
       ),
     );

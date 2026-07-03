@@ -8,7 +8,7 @@ class AppColors {
   static const Color transparent = Colors.transparent;
   static const Color black = Colors.black;
 
-  static const Color scaffoldBackground = Color(0xFFF6F8FD);
+  static const Color scaffoldBackground = Color(0xFFFFFFFF);
   static const Color cardBackground = Color(0xFFFFFFFF);
   static const Color cardBorder = Color(0xFFE3E8F4);
   static const Color cardShadow = Color(0xFFCBD4ED);

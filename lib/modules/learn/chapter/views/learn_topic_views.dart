@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/service/learn_progress_refresh_service.dart';
+import '../../exercise/views/lesson_qa_views.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_lesson_player_views.dart';
 import 'learn_subject_views.dart';
@@ -293,10 +294,18 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
                       padding: const EdgeInsets.only(bottom: 18),
                       child: _TopicCard(
                         topic: topic,
+                        accent: widget.subject.accent,
                         status: _resolvedStatus(topic),
                         progress: _resolvedProgress(topic),
                         isStarting: _startingLessonId == topic.lesson.id,
                         onTap: () => _openTopic(topic),
+                        onExerciseTap: () => Get.to(
+                          () => LessonQaViews(
+                            lessonId: topic.lesson.id,
+                            lessonTitle: topic.title,
+                            accent: widget.subject.accent,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -313,17 +322,21 @@ class _LearnTopicViewsState extends State<LearnTopicViews> {
 class _TopicCard extends StatelessWidget {
   const _TopicCard({
     required this.topic,
+    required this.accent,
     required this.status,
     required this.progress,
     required this.isStarting,
     required this.onTap,
+    required this.onExerciseTap,
   });
 
   final LearnTopicModel topic;
+  final Color accent;
   final LearnTopicStatus status;
   final double progress;
   final bool isStarting;
   final VoidCallback onTap;
+  final VoidCallback onExerciseTap;
 
   @override
   Widget build(BuildContext context) {
@@ -484,9 +497,55 @@ class _TopicCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 14),
+                    _ExerciseButton(accent: accent, onTap: onExerciseTap),
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExerciseButton extends StatelessWidget {
+  const _ExerciseButton({required this.accent, required this.onTap});
+
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: accent.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.assignment_outlined, color: accent, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Exercise',
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.arrow_forward_rounded, color: accent, size: 18),
             ],
           ),
         ),
