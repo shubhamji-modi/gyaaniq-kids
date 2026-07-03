@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
+
 import '../../../core/service/api_service.dart';
 import '../../../core/models/xp_config_data.dart';
-import 'package:get/get.dart';
 
 import '../controller/quiz_daily_result_controller.dart';
 import '../views/question_answer_show_views.dart';
@@ -148,6 +150,12 @@ class QuestionAnswerShowController extends GetxController {
   final RxMap<String, String> explanationErrorByQuestionId =
       <String, String>{}.obs;
 
+  /// Teacher-curated fun-fact image URLs, fetched once at quiz start and shown
+  /// between questions to keep the child engaged.
+  final RxList<String> funFactUrls = <String>[].obs;
+  int _funFactCursor = 0;
+  final Set<int> _shownFunFactBoundaries = <int>{};
+
   List<QuizQuestion> questions = const [];
 
   @override
@@ -236,6 +244,116 @@ class QuestionAnswerShowController extends GetxController {
     explanationLoadingByQuestionId.clear();
     explanationErrorByQuestionId.clear();
     resetQuiz();
+    // Fire-and-forget: fun facts are optional; the quiz never waits on them.
+    fetchFunFacts();
+  }
+
+  /// A fun fact appears after every 2 questions the child completes.
+  int get funFactInterval => 2;
+
+  /// Fetches a personalised batch of fun-fact images for this quiz session.
+  /// Subject is only sent for practice quizzes; daily quiz and mock test send
+  /// no subject so the server returns a mix across all of the child's subjects.
+  Future<void> fetchFunFacts() async {
+    funFactUrls.clear();
+    _funFactCursor = 0;
+    _shownFunFactBoundaries.clear();
+
+    // Number of "between question" gaps we could fill. Nothing to show for a
+    // single-question quiz, so skip the call entirely.
+    final gaps = ((totalQuestions - 1) / funFactInterval).floor();
+    if (gaps <= 0) {
+      debugPrint('[FunFact] Skipped: only $totalQuestions question(s).');
+      return;
+    }
+    final count = gaps.clamp(1, 20);
+
+    final subject = _funFactSubject();
+    debugPrint(
+      '[FunFact] Fetching count=$count subject=${subject ?? '(mixed)'} '
+      'daily=${isDailyQuiz.value} mock=${isMockTest.value}',
+    );
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.FUN_FACTS,
+      showLoader: false,
+      queryParameters: {
+        if (subject != null) 'subject': subject,
+        'count': count,
+      },
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      debugPrint(
+        '[FunFact] Fetch failed: success=${response.success} '
+        'status=${response.statusCode} message=${response.message}',
+      );
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final list = data['funFacts'] as List<dynamic>? ?? const [];
+
+    final urls = <String>[];
+    for (final item in list) {
+      if (item is Map<String, dynamic>) {
+        final image = item['image'];
+        final url = image is Map<String, dynamic>
+            ? _safeText(image['url'])
+            : _safeText(image);
+        if (url.isNotEmpty) {
+          urls.add(url);
+        }
+      }
+    }
+
+    funFactUrls.assignAll(urls);
+    debugPrint('[FunFact] Loaded ${urls.length} image(s) from API.');
+  }
+
+  /// Maps the quiz's subject to the fixed fun-fact category enum. Only used for
+  /// practice quizzes. Returns null when there is no confident match so the
+  /// request omits `subject` (the server then returns a mixed batch) and never
+  /// 400s on an out-of-enum value.
+  String? _funFactSubject() {
+    if (isDailyQuiz.value || isMockTest.value) {
+      return null;
+    }
+
+    final s = subjectTitle.value.trim().toLowerCase();
+    if (s.isEmpty) {
+      return null;
+    }
+    if (s.contains('math')) return 'Mathematics';
+    if (s.contains('comput')) return 'Computer Science';
+    if (s.contains('science') && s.contains('social')) return 'Social Studies';
+    if (s.contains('social') || s.contains('sst') || s.contains('civics')) {
+      return 'Social Studies';
+    }
+    if (s.contains('science') || s.contains('evs')) return 'Science';
+    if (s.contains('english')) return 'English';
+    if (s.contains('hindi')) return 'Hindi';
+    if (s.contains('gk') || s.contains('general')) return 'General Knowledge';
+    return null;
+  }
+
+  /// Returns the next unseen fun-fact image URL when the child crosses a fun
+  /// fact boundary (identified by the number of the question they just left),
+  /// or null when there is nothing to show. Each boundary fires at most once.
+  String? consumeFunFactForBoundary(int leftQuestionNumber) {
+    if (isReviewMode.value) {
+      return null;
+    }
+    if (_shownFunFactBoundaries.contains(leftQuestionNumber)) {
+      return null;
+    }
+    if (_funFactCursor >= funFactUrls.length) {
+      return null;
+    }
+    _shownFunFactBoundaries.add(leftQuestionNumber);
+    return funFactUrls[_funFactCursor++];
   }
 
   void selectAnswer(int optionIndex) {

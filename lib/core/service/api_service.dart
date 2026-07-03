@@ -62,6 +62,7 @@ class ApiService extends GetxService {
   static const String HOMEWORK_UPLOAD_ATTACHMENT =
       'user/homework/upload-attachment';
   static const String HOMEWORK_MY_SUBMISSIONS = 'user/homework/my-submissions';
+  static const String FUN_FACTS = 'user/fun-facts';
   static const String USER_ATTENDANCE = 'user/attendance';
   static const String USER_ATTENDANCE_SUMMARY = 'user/attendance/summary';
   static const String FORGOT_PASSWORD = 'auth/forgot-password';

@@ -16,6 +16,9 @@ class QuestionAnswerShowViews extends StatefulWidget {
 class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   late final QuestionAnswerShowController controller;
   Timer? _timer;
+  Worker? _funFactWorker;
+  int _lastQuestionIndex = 0;
+  bool _isFunFactOpen = false;
 
   @override
   void initState() {
@@ -27,12 +30,62 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         controller.incrementTimer();
       });
+
+      _lastQuestionIndex = controller.currentQuestionIndex.value;
+      _funFactWorker = ever<int>(
+        controller.currentQuestionIndex,
+        _onQuestionIndexChanged,
+      );
     }
+  }
+
+  /// Shows a fun-fact interstitial when the child advances forward past a fun
+  /// fact boundary (i.e. after finishing every Nth question).
+  void _onQuestionIndexChanged(int newIndex) {
+    final previousIndex = _lastQuestionIndex;
+    _lastQuestionIndex = newIndex;
+
+    if (controller.isReviewMode.value || _isFunFactOpen) {
+      return;
+    }
+    // Only when moving forward.
+    if (newIndex <= previousIndex) {
+      return;
+    }
+    // The human question number the child just left.
+    final leftQuestionNumber = previousIndex + 1;
+    if (leftQuestionNumber % controller.funFactInterval != 0) {
+      return;
+    }
+
+    final url = controller.consumeFunFactForBoundary(leftQuestionNumber);
+    debugPrint(
+      '[FunFact] Boundary after Q$leftQuestionNumber → '
+      '${url == null || url.isEmpty ? 'nothing to show '
+          '(loaded=${controller.funFactUrls.length})' : 'showing story'}',
+    );
+    if (url == null || url.isEmpty) {
+      return;
+    }
+    _showFunFact(url);
+  }
+
+  Future<void> _showFunFact(String url) async {
+    _isFunFactOpen = true;
+    await Get.to<void>(
+      () => _FunFactStoryView(imageUrls: [url]),
+      fullscreenDialog: true,
+      opaque: false,
+      transition: Transition.fadeIn,
+      duration: const Duration(milliseconds: 220),
+    );
+    _isFunFactOpen = false;
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _funFactWorker?.dispose();
     super.dispose();
   }
 
@@ -1450,6 +1503,298 @@ class _SubmitQuizDialog extends StatelessWidget {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A full-screen, Instagram-story-style interstitial that plays teacher-curated
+/// fun fact images between quiz questions. Each slide auto-advances on a timer
+/// bar; the child can tap right/left to skip forward/back, tap-and-hold to
+/// pause, or swipe down / tap ✕ to return to the quiz. A missing image
+/// (teacher just deleted it) is skipped automatically.
+class _FunFactStoryView extends StatefulWidget {
+  const _FunFactStoryView({required this.imageUrls});
+
+  final List<String> imageUrls;
+
+  @override
+  State<_FunFactStoryView> createState() => _FunFactStoryViewState();
+}
+
+class _FunFactStoryViewState extends State<_FunFactStoryView>
+    with SingleTickerProviderStateMixin {
+  static const Duration _slideDuration = Duration(seconds: 6);
+
+  late final AnimationController _progress;
+  int _currentIndex = 0;
+  bool _timerStarted = false;
+  bool _closed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress = AnimationController(vsync: this, duration: _slideDuration)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _next();
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _progress.dispose();
+    super.dispose();
+  }
+
+  /// Starts the timer bar for the current slide, once its image has rendered.
+  void _startTimerOnce() {
+    if (_timerStarted || _closed) {
+      return;
+    }
+    _timerStarted = true;
+    _progress.forward(from: 0);
+  }
+
+  void _goToSlide(int index) {
+    _progress.stop();
+    _progress.reset();
+    setState(() {
+      _currentIndex = index;
+      _timerStarted = false;
+    });
+  }
+
+  void _next() {
+    if (_currentIndex >= widget.imageUrls.length - 1) {
+      _close();
+      return;
+    }
+    _goToSlide(_currentIndex + 1);
+  }
+
+  void _previous() {
+    // On the first slide, just restart it; otherwise step back.
+    _goToSlide(_currentIndex == 0 ? 0 : _currentIndex - 1);
+  }
+
+  void _pause() {
+    if (_timerStarted) {
+      _progress.stop();
+    }
+  }
+
+  void _resume() {
+    if (_timerStarted && !_progress.isAnimating && !_progress.isCompleted) {
+      _progress.forward();
+    }
+  }
+
+  void _close() {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    final width = MediaQuery.of(context).size.width;
+    // Left third → previous, rest → next (Instagram convention).
+    if (details.globalPosition.dx < width / 3) {
+      _previous();
+    } else {
+      _next();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = widget.imageUrls[_currentIndex];
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTapUp: _handleTapUp,
+        onLongPressStart: (_) => _pause(),
+        onLongPressEnd: (_) => _resume(),
+        onVerticalDragEnd: (details) {
+          if ((details.primaryVelocity ?? 0) > 250) {
+            _close();
+          }
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // ---- Full-bleed poster image (the API delivers the whole design) ----
+            Image.network(
+              url,
+              key: ValueKey<int>(_currentIndex),
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              // Start the timer only once the first frame is on screen.
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                if (wasSynchronouslyLoaded || frame != null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _startTimerOnce();
+                  });
+                }
+                return child;
+              },
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFFF7A45),
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                // Teacher likely deleted this image — skip to the next slide.
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _next();
+                });
+                return const SizedBox.shrink();
+              },
+            ),
+            // ---- Top scrim so the progress bar & Skip stay legible ----
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.35),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  // ---- Segmented progress bar ----
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+                    child: Row(
+                      children: List.generate(widget.imageUrls.length, (index) {
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: _StorySegment(
+                              controller: _progress,
+                              isPast: index < _currentIndex,
+                              isActive: index == _currentIndex,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                  // ---- Skip button ----
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 14, 0),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _StorySkipButton(onTap: _close),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Rounded outline "Skip ›" pill shown top-right of a fun fact story.
+class _StorySkipButton extends StatelessWidget {
+  const _StorySkipButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.12),
+      shape: StadiumBorder(
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.75)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 12, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Skip',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One segment of the Instagram-style progress bar. Past slides read full,
+/// future slides read empty, and the active slide fills with its timer.
+class _StorySegment extends StatelessWidget {
+  const _StorySegment({
+    required this.controller,
+    required this.isPast,
+    required this.isActive,
+  });
+
+  final AnimationController controller;
+  final bool isPast;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: SizedBox(
+        height: 3.5,
+        child: Stack(
+          children: [
+            Container(color: Colors.white.withValues(alpha: 0.35)),
+            if (isPast)
+              Container(color: Colors.white)
+            else if (isActive)
+              AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) => FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: controller.value,
+                  child: Container(color: Colors.white),
+                ),
+              ),
           ],
         ),
       ),
