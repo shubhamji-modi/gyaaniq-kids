@@ -24,7 +24,6 @@ class DashboardTabbarViewsScreen extends StatefulWidget {
   @override
   State<DashboardTabbarViewsScreen> createState() =>
       _DashboardTabbarViewsScreenState();
-
 }
 
 class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
@@ -210,9 +209,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Exit App',
           style: TextStyle(
@@ -555,6 +552,7 @@ class _HomeTab extends StatelessWidget {
             ],
             const _DailyQuizMiniCard(),
             const SizedBox(height: 18),
+            const _HomeMockTestCard(),
             const _LeaderboardStripCard(),
           ],
         ),
@@ -969,10 +967,15 @@ IconData _subjectIcon(String name, IconData fallback) {
   bool has(String s) => key.contains(s);
 
   if (has('math') || has('गणित')) return Icons.calculate_rounded;
-  if (has('hindi') || has('हिंदी') || has('हिन्दी')) return Icons.translate_rounded;
+  if (has('hindi') || has('हिंदी') || has('हिन्दी')) {
+    return Icons.translate_rounded;
+  }
   if (has('english') || has('अंग्रेज')) return Icons.menu_book_rounded;
   if (has('science') || has('विज्ञान')) return Icons.science_rounded;
-  if (has('social') || has('sst') || has('history') || has('civics') ||
+  if (has('social') ||
+      has('sst') ||
+      has('history') ||
+      has('civics') ||
       has('geograph')) {
     return Icons.public_rounded;
   }
@@ -996,17 +999,26 @@ Color _subjectColor(String name, Color fallback) {
     return const Color(0xFFE4572E); // warm red
   }
   if (has('english') || has('अंग्रेज')) return const Color(0xFF19945F); // green
-  if (has('science') || has('विज्ञान')) return const Color(0xFFE8590C); // orange
-  if (has('social') || has('sst') || has('history') || has('civics') ||
+  if (has('science') || has('विज्ञान')) {
+    return const Color(0xFFE8590C); // orange
+  }
+  if (has('social') ||
+      has('sst') ||
+      has('history') ||
+      has('civics') ||
       has('geograph')) {
     return const Color(0xFF8A2CD5); // purple
   }
   if (has('computer') || has('coding') || has('comp')) {
     return const Color(0xFF1671D9); // blue
   }
-  if (has('sanskrit') || has('संस्कृत')) return const Color(0xFFB8860B); // amber
+  if (has('sanskrit') || has('संस्कृत')) {
+    return const Color(0xFFB8860B); // amber
+  }
   if (has('evs') || has('environ')) return const Color(0xFF12A594); // teal
-  if (has('gk') || has('general knowledge')) return const Color(0xFFD6336C); // pink
+  if (has('gk') || has('general knowledge')) {
+    return const Color(0xFFD6336C); // pink
+  }
   return fallback;
 }
 
@@ -1038,7 +1050,10 @@ class _DailyQuizMiniCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFC833),
                   borderRadius: BorderRadius.circular(20),
@@ -1046,7 +1061,11 @@ class _DailyQuizMiniCard extends StatelessWidget {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.star_rounded, color: Color(0xFF1B2C8A), size: 14),
+                    Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFF1B2C8A),
+                      size: 14,
+                    ),
                     SizedBox(width: 5),
                     Text(
                       'BONUS +10 XP',
@@ -1110,6 +1129,138 @@ class _DailyQuizMiniCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _HomeMockTestCard extends StatelessWidget {
+  const _HomeMockTestCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<DashboardTabbarController>();
+
+    return Obx(() {
+      final mockTest = controller.liveMockTest;
+      if (controller.isLoadingMockTests.value ||
+          controller.mockTestsError.value.isNotEmpty ||
+          mockTest == null) {
+        return const SizedBox.shrink();
+      }
+
+      return Column(
+        children: [
+          InkWell(
+            onTap: () {
+              if (!mockTest.canStart) {
+                Get.snackbar(
+                  'Mock Test',
+                  mockTest.attemptStatus == 'attempted'
+                      ? 'You have already attempted this mock test.'
+                      : 'Mock test is ${mockTest.statusLabel.toLowerCase()}.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+                return;
+              }
+              Get.to(() => StartQuizViews(mockTestId: mockTest.id))?.then((_) {
+                controller.reloadQuizTabData();
+              });
+            },
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: _cardDecoration(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.warningSoft,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.alarm_rounded,
+                          color: AppColors.warningTextDark,
+                          size: 25,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Color(0xFFC8BCE0),
+                        size: 28,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    mockTest.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textHeading,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Real exam simulation with timers.',
+                    style: TextStyle(
+                      color: AppColors.textSecondaryAlt,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.neutralSurface4,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.event_note_rounded,
+                          color: AppColors.primaryBright,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            mockTest.windowLabel,
+                            style: const TextStyle(
+                              color: AppColors.neutralText4,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _Tag(label: mockTest.statusLabel),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+        ],
+      );
+    });
   }
 }
 
@@ -2432,7 +2583,11 @@ class _MockTestCard extends StatelessWidget {
                   );
                   return;
                 }
-                Get.to(() => StartQuizViews(mockTestId: mockTest.id));
+                Get.to(() => StartQuizViews(mockTestId: mockTest.id))?.then((
+                  _,
+                ) {
+                  dashboardController.reloadQuizTabData();
+                });
               },
         borderRadius: BorderRadius.circular(28),
         child: Container(

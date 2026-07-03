@@ -68,6 +68,7 @@ class DashboardTabbarController extends GetxController {
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
   final String appBuild = 'App Build: v1.0.2';
   bool _isReloadingHomeTabData = false;
+  bool _isReloadingQuizTabData = false;
 
   final List<DashboardNavItemData> navItems = const [
     DashboardNavItemData(label: 'Home', icon: Icons.home_rounded),
@@ -205,6 +206,10 @@ class DashboardTabbarController extends GetxController {
       reloadHomeTabData();
       return;
     }
+    if (index == 2) {
+      reloadQuizTabData();
+      return;
+    }
     if (index == 3 &&
         liveClassSchedules.isEmpty &&
         !isLoadingLiveClasses.value) {
@@ -252,6 +257,29 @@ class DashboardTabbarController extends GetxController {
     } finally {
       _isReloadingHomeTabData = false;
     }
+  }
+
+  Future<void> reloadQuizTabData() async {
+    if (_isReloadingQuizTabData) {
+      return;
+    }
+
+    _isReloadingQuizTabData = true;
+    try {
+      await loadMockTests();
+      await loadDailyQuizAnalytics();
+    } finally {
+      _isReloadingQuizTabData = false;
+    }
+  }
+
+  MockTestCardData? get liveMockTest {
+    for (final mockTest in mockTests) {
+      if (mockTest.phase == 'live') {
+        return mockTest;
+      }
+    }
+    return null;
   }
 
   Future<void> loadAttendanceSummary() async {
