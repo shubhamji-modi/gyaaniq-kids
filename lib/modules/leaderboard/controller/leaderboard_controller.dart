@@ -129,6 +129,7 @@ class LeaderboardUser {
     required this.initials,
     required this.avatarGradient,
     required this.ringColor,
+    required this.profilePic,
     this.subtitle,
     this.isChampion = false,
   });
@@ -139,6 +140,7 @@ class LeaderboardUser {
   final String initials;
   final List<Color> avatarGradient;
   final Color ringColor;
+  final String profilePic;
   final String? subtitle;
   final bool isChampion;
 
@@ -160,6 +162,7 @@ class LeaderboardUser {
           : rank == 2
           ? const Color(0xFFD6D0EF)
           : const Color(0xFFFFB46A),
+      profilePic: _safeText(student['profilePic']),
       subtitle: subtitle,
       isChampion: rank == 1,
     );

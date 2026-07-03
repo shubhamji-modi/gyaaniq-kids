@@ -188,7 +188,18 @@ class LearnHomeworkRepository {
       fromJson: (json) => json,
     );
 
+    /// Error Response
     if (!response.success || response.data is! Map<String, dynamic>) {
+      Get.snackbar(
+        "Error",
+        response.message,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.all(12),
+      );
+
       return ApiResponse<HomeworkSubmission>(
         success: false,
         message: response.message,
@@ -198,18 +209,43 @@ class LearnHomeworkRepository {
 
     final body = response.data as Map<String, dynamic>;
     final data = body['data'];
+
     if (data is! Map<String, dynamic>) {
+      Get.snackbar(
+        "Error",
+        "Submission response not found.",
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.all(12),
+      );
+
       return ApiResponse<HomeworkSubmission>(
         success: false,
-        message: 'Submission response not found.',
+        message: "Submission response not found.",
         statusCode: response.statusCode,
       );
     }
 
+    /// Success Message
+    final successMessage =
+        body['message']?.toString() ?? 'Homework submitted successfully';
+
+    Get.snackbar(
+      "Success",
+      successMessage,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 3),
+      margin: const EdgeInsets.all(12),
+    );
+
     return ApiResponse<HomeworkSubmission>(
       success: true,
       data: HomeworkSubmission.fromApi(data),
-      message: body['message']?.toString() ?? 'Homework submitted',
+      message: successMessage,
       statusCode: response.statusCode,
     );
   }

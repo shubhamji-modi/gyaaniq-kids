@@ -603,6 +603,7 @@ class _TopRankCard extends GetView<LeaderboardController> {
           children: [
             _AvatarBubble(
               initials: user.initials,
+              imageUrl: user.profilePic,
               size: avatarSize,
               ringColor: user.ringColor,
               gradient: user.avatarGradient,
@@ -710,6 +711,7 @@ class _CurrentUserCard extends GetView<LeaderboardController> {
         children: [
           _AvatarBubble(
             initials: user.initials,
+            imageUrl: user.profilePic,
             size: 40,
             ringColor: Colors.white,
             gradient: user.avatarGradient,
@@ -794,6 +796,7 @@ class _RankingListTile extends GetView<LeaderboardController> {
           const SizedBox(width: 14),
           _AvatarBubble(
             initials: user.initials,
+            imageUrl: user.profilePic,
             size: 45,
             ringColor: const Color(0xFFF1F4F8),
             gradient: user.avatarGradient,
@@ -830,6 +833,7 @@ class _RankingListTile extends GetView<LeaderboardController> {
 class _AvatarBubble extends StatelessWidget {
   const _AvatarBubble({
     required this.initials,
+    required this.imageUrl,
     required this.size,
     required this.ringColor,
     required this.gradient,
@@ -837,6 +841,7 @@ class _AvatarBubble extends StatelessWidget {
   });
 
   final String initials;
+  final String imageUrl;
   final double size;
   final Color ringColor;
   final List<Color> gradient;
@@ -860,6 +865,7 @@ class _AvatarBubble extends StatelessWidget {
         ],
       ),
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
@@ -869,14 +875,37 @@ class _AvatarBubble extends StatelessWidget {
           ),
         ),
         alignment: Alignment.center,
-        child: Text(
-          initials,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: fontSize,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
+        child: imageUrl.trim().isNotEmpty
+            ? Image.network(
+                imageUrl,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _AvatarInitials(
+                  initials: initials,
+                  fontSize: fontSize,
+                ),
+              )
+            : _AvatarInitials(initials: initials, fontSize: fontSize),
+      ),
+    );
+  }
+}
+
+class _AvatarInitials extends StatelessWidget {
+  const _AvatarInitials({required this.initials, required this.fontSize});
+
+  final String initials;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      initials,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w800,
       ),
     );
   }

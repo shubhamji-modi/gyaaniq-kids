@@ -987,12 +987,14 @@ class LeaderboardStripStudent {
     required this.rank,
     required this.name,
     required this.initials,
+    required this.profilePic,
     required this.color,
   });
 
   final int rank;
   final String name;
   final String initials;
+  final String profilePic;
   final Color color;
 
   factory LeaderboardStripStudent.fromApi(Map<String, dynamic> json) {
@@ -1004,6 +1006,7 @@ class LeaderboardStripStudent {
       rank: rank,
       name: name,
       initials: _initials(name),
+      profilePic: _safeText(student['profilePic']),
       color: _leaderboardAvatarColor(rank),
     );
   }

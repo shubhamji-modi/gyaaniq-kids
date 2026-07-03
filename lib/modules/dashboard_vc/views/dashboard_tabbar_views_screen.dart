@@ -4261,18 +4261,7 @@ class _AvatarStack extends StatelessWidget {
           for (var index = 0; index < students.length; index++)
             Positioned(
               left: index * 20,
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: students[index].color,
-                child: Text(
-                  students[index].initials,
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+              child: _LeaderboardStripAvatar(student: students[index]),
             ),
           if (showRemaining)
             Positioned(
@@ -4291,6 +4280,53 @@ class _AvatarStack extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _LeaderboardStripAvatar extends StatelessWidget {
+  const _LeaderboardStripAvatar({required this.student});
+
+  final LeaderboardStripStudent student;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 17,
+      backgroundColor: student.color,
+      child: ClipOval(
+        child: student.profilePic.trim().isNotEmpty
+            ? Image.network(
+                student.profilePic,
+                width: 34,
+                height: 34,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _LeaderboardStripInitials(
+                  initials: student.initials,
+                ),
+              )
+            : _LeaderboardStripInitials(initials: student.initials),
+      ),
+    );
+  }
+}
+
+class _LeaderboardStripInitials extends StatelessWidget {
+  const _LeaderboardStripInitials({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: AppColors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

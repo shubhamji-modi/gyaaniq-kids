@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../chapter/views/learn_subject_views.dart';
+import '../../common/learn_media.dart';
 import '../controller/learn_homework_controller.dart';
 
 class LearnHomeworkSumbitViews extends StatefulWidget {
@@ -249,8 +251,8 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
 
   Future<void> _submitHomework() async {
     final answer = _notesController.text.trim();
-    if (answer.isEmpty && _uploadedAttachments.isEmpty) {
-      _showError('Please add notes or upload at least one attachment.');
+    if (_uploadedAttachments.isEmpty) {
+      _showError('Please upload an image or PDF file to submit.');
       return;
     }
 
@@ -297,6 +299,42 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
       colorText: Colors.white,
       margin: const EdgeInsets.all(14),
     );
+  }
+
+  /// Maps a teacher-provided instruction file into an openable resource,
+  /// classifying it as image / video / pdf / other.
+  LearnResource _resourceFor(HomeworkAttachment attachment) {
+    return LearnResource(
+      title: attachment.originalName,
+      url: attachment.url,
+      kind: classifyMedia(attachment.mimeType, attachment.url),
+      size: attachment.size,
+    );
+  }
+
+  /// Opens an instruction attachment. Images, videos and PDFs use the in-app
+  /// viewers; Word and any other file type open in an external app.
+  Future<void> _openAttachment(HomeworkAttachment attachment) async {
+    final resource = _resourceFor(attachment);
+
+    if (resource.url.trim().isEmpty) {
+      _showError('This attachment is unavailable.');
+      return;
+    }
+
+    if (resource.kind == LearnMediaKind.other) {
+      final uri = Uri.tryParse(resource.url.trim());
+      if (uri == null ||
+          !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        _showError('Unable to open ${attachment.originalName}.');
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    openLearnResource(context, resource);
   }
 
   @override
@@ -414,6 +452,27 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                        if (homework.attachments.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          const Text(
+                            'Attachments',
+                            style: TextStyle(
+                              color: Color(0xFF1D2231),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ...homework.attachments.map(
+                            (attachment) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: LearnResourceTile(
+                                resource: _resourceFor(attachment),
+                                onTap: () => _openAttachment(attachment),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -589,16 +648,16 @@ class _LearnHomeworkSumbitViewsState extends State<LearnHomeworkSumbitViews> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'By submitting, you agree to the Lumina\nAcademic Honesty Policy.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF4C5164),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  // const SizedBox(height: 10),
+                  // const Text(
+                  //   'By submitting, you agree to the Lumina\nAcademic Honesty Policy.',
+                  //   textAlign: TextAlign.center,
+                  //   style: TextStyle(
+                  //     color: Color(0xFF4C5164),
+                  //     fontSize: 11,
+                  //     fontWeight: FontWeight.w500,
+                  //   ),
+                  // ),
                 ],
               ),
             ),

@@ -324,7 +324,7 @@ class _PendingHomeworkCard extends StatelessWidget {
                 children: [
                   Text(
                     item.status == LearnHomeworkStatus.overdue
-                        ? 'Submit Late'
+                        ? 'Submit'
                         : 'Submit Assignment',
                     style: const TextStyle(
                       fontSize: 14,

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -122,7 +123,7 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                       ),
                       const SizedBox(width: 28),
                       _PlayerTab(
-                        label: 'Notes',
+                        label: 'AI Notes',
                         isSelected: !_showVideo,
                         onTap: () {
                           setState(() {
@@ -162,16 +163,22 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                         ),
                       );
                     },
-                    child: Text(
-                      _showVideo ? lesson.description : lesson.notes,
-                      key: ValueKey<bool>(_showVideo),
-                      style: const TextStyle(
-                        color: Color(0xFF4C4F5E),
-                        fontSize: 14,
-                        height: 1.6,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    child: _showVideo
+                        ? Text(
+                            lesson.description,
+                            key: const ValueKey<String>('lesson-description'),
+                            style: const TextStyle(
+                              color: Color(0xFF4C4F5E),
+                              fontSize: 14,
+                              height: 1.6,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          )
+                        : _LessonContentBody(
+                            key: const ValueKey<String>('lesson-content'),
+                            htmlContent: lesson.content,
+                            fallbackText: lesson.notes,
+                          ),
                   ),
                   const SizedBox(height: 34),
                   const Row(
@@ -313,6 +320,172 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
         returnToLessonOnResultBack: true,
       ),
     );
+  }
+}
+
+class _LessonContentBody extends StatelessWidget {
+  const _LessonContentBody({
+    super.key,
+    required this.htmlContent,
+    required this.fallbackText,
+  });
+
+  final String htmlContent;
+  final String fallbackText;
+
+  @override
+  Widget build(BuildContext context) {
+    final html = htmlContent.trim();
+    final teacherLine = _teacherLineFromFallback(fallbackText);
+    if (html.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HtmlWidget(
+            html,
+            textStyle: const TextStyle(
+              color: Color(0xFF4C4F5E),
+              fontSize: 14,
+              height: 1.58,
+              fontWeight: FontWeight.w500,
+            ),
+            customStylesBuilder: (element) {
+              switch (element.localName) {
+                case 'h1':
+                  return {
+                    'color': '#1D2231',
+                    'font-size': '24px',
+                    'font-weight': '800',
+                    'line-height': '1.25',
+                    'margin': '18px 0 10px',
+                  };
+                case 'h2':
+                  return {
+                    'color': '#1D2231',
+                    'font-size': '22px',
+                    'font-weight': '800',
+                    'line-height': '1.28',
+                    'margin': '18px 0 10px',
+                  };
+                case 'h3':
+                  return {
+                    'color': '#1D2231',
+                    'font-size': '18px',
+                    'font-weight': '800',
+                    'line-height': '1.32',
+                    'margin': '16px 0 8px',
+                  };
+                case 'p':
+                  return {
+                    'margin': '0 0 12px',
+                    'line-height': '1.65',
+                  };
+                case 'strong':
+                case 'b':
+                  return {
+                    'color': '#1D2231',
+                    'font-weight': '800',
+                  };
+                case 'em':
+                case 'i':
+                  return {
+                    'font-style': 'italic',
+                  };
+                case 'ol':
+                case 'ul':
+                  return {
+                    'margin': '8px 0 12px',
+                    'padding-left': '20px',
+                  };
+                case 'li':
+                  return {
+                    'margin': '0 0 8px',
+                    'line-height': '1.58',
+                  };
+                case 'blockquote':
+                  return {
+                    'border-left': '3px solid #D7DAEA',
+                    'color': '#4C4F5E',
+                    'font-style': 'italic',
+                    'margin': '10px 0 14px',
+                    'padding': '2px 0 2px 12px',
+                  };
+                case 'code':
+                  return {
+                    'background-color': '#EEF0FF',
+                    'color': '#4D49E8',
+                    'font-size': '13px',
+                    'padding': '2px 4px',
+                  };
+              }
+              return null;
+            },
+          ),
+          if (teacherLine.isNotEmpty &&
+              !html.toLowerCase().contains('teacher:')) ...[
+            const SizedBox(height: 18),
+            Text(
+              teacherLine,
+              style: const TextStyle(
+                color: Color(0xFF4C4F5E),
+                fontSize: 14,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    final paragraphs = fallbackText
+        .split(RegExp(r'\n{2,}'))
+        .map((paragraph) => paragraph.trim())
+        .where((paragraph) => paragraph.isNotEmpty)
+        .toList();
+
+    if (paragraphs.isEmpty) {
+      return const Text(
+        'Lesson notes will be available soon.',
+        style: TextStyle(
+          color: Color(0xFF4C4F5E),
+          fontSize: 14,
+          height: 1.6,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final paragraph in paragraphs) ...[
+          Text(
+            paragraph,
+            style: const TextStyle(
+              color: Color(0xFF4C4F5E),
+              fontSize: 14,
+              height: 1.6,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  String _teacherLineFromFallback(String value) {
+    final lines = value
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty);
+    for (final line in lines) {
+      if (line.toLowerCase().startsWith('teacher:')) {
+        return line;
+      }
+    }
+    return '';
   }
 }
 
