@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../../../core/utils/google_drive_url_utils.dart';
 import '../chapter/views/learn_subject_views.dart';
 
 /// The kind of a media/resource item coming from the API.
@@ -152,15 +153,21 @@ class _LearnPdfViewerViewState extends State<LearnPdfViewerView> {
         _isLoading = true;
       });
 
+      final sourceUrl = widget.pdfUrl.trim();
+      final downloadUrl = pdfDownloadUrl(sourceUrl);
       final response = await http
-          .get(Uri.parse(widget.pdfUrl.trim()), headers: kPdfRequestHeaders)
+          .get(Uri.parse(downloadUrl), headers: kPdfRequestHeaders)
           .timeout(const Duration(seconds: 12));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('HTTP ${response.statusCode}');
       }
+      if (isHtmlResponse(response.headers) ||
+          !looksLikePdfBytes(response.bodyBytes)) {
+        throw Exception('Response is not a PDF');
+      }
 
       final directory = await getTemporaryDirectory();
-      final fileName = _safePdfFileName(widget.pdfUrl);
+      final fileName = _safePdfFileName(sourceUrl);
       final file = File('${directory.path}/$fileName');
       await file.writeAsBytes(response.bodyBytes, flush: true);
 
@@ -194,7 +201,10 @@ class _LearnPdfViewerViewState extends State<LearnPdfViewerView> {
           },
         ),
       )
-      ..loadRequest(Uri.parse(widget.pdfUrl.trim()), headers: kPdfRequestHeaders);
+      ..loadRequest(
+        Uri.parse(pdfPreviewUrl(widget.pdfUrl)),
+        headers: kPdfRequestHeaders,
+      );
 
     setState(() {
       _webController = controller;
@@ -565,7 +575,9 @@ class LearnInlineImage extends StatelessWidget {
                 child: const Center(
                   child: CircularProgressIndicator(
                     strokeWidth: 2.4,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A4FD9)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF4A4FD9),
+                    ),
                   ),
                 ),
               );

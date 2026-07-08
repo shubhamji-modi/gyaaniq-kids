@@ -40,11 +40,38 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
 
       // Warm the image cache so each fun fact story opens instantly. Facts
       // may already be loaded, or arrive shortly after (async fetch).
-      WidgetsBinding.instance.addPostFrameCallback((_) => _precacheFunFacts());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _precacheFunFacts();
+        // Preload every question / option image up front so the picture is
+        // already on screen the moment the child reaches that question.
+        _precacheQuestionImages();
+      });
       _funFactPrecacheWorker = ever(
         controller.funFactUrls,
         (_) => _precacheFunFacts(),
       );
+    }
+  }
+
+  /// Preloads all question and option images for the quiz so they render
+  /// instantly instead of loading when the child lands on the question.
+  void _precacheQuestionImages() {
+    if (!mounted) {
+      return;
+    }
+    for (final question in controller.questions) {
+      final urls = <String>[
+        question.questionImageUrl,
+        ...question.optionImageUrls,
+      ];
+      for (final url in urls) {
+        if (url.isEmpty) {
+          continue;
+        }
+        unawaited(
+          precacheImage(NetworkImage(url), context).catchError((_) {}),
+        );
+      }
     }
   }
 
@@ -505,40 +532,34 @@ class _QuestionCard extends StatelessWidget {
                       const SizedBox(height: 12),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          question.questionImageUrl,
-                          fit: BoxFit.cover,
-                          height: 180,
+                        child: Container(
+                          height: 200,
                           width: double.infinity,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              height: 180,
-                              color: const Color(0xFFF0F1F5),
-                              child: const Center(
+                          color: const Color(0xFFF0F1F5),
+                          // BoxFit.contain shows the whole diagram inside the
+                          // box without cropping any edge.
+                          child: Image.network(
+                            question.questionImageUrl,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
                                 child: CircularProgressIndicator(
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     Color(0xFF4A4FD9),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 180,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0F1F5),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Center(
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
                                 child: Icon(
                                   Icons.image_not_supported,
                                   color: Color(0xFF9CA3AF),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ],
@@ -703,20 +724,17 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    question.optionImageUrls[optionIndex],
-                    fit: BoxFit.cover,
+                  child: Container(
                     height: 140,
                     width: double.infinity,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 140,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F1F5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Center(
+                    color: const Color(0xFFF0F1F5),
+                    // Show the full option image without cropping.
+                    child: Image.network(
+                      question.optionImageUrls[optionIndex],
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
                           child: SizedBox(
                             width: 30,
                             height: 30,
@@ -727,24 +745,17 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 140,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F1F5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Center(
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
                           child: Icon(
                             Icons.image_not_supported,
                             color: Color(0xFF9CA3AF),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -1647,34 +1658,52 @@ class _FunFactStoryViewState extends State<_FunFactStoryView>
   }
 
   // ---- Touch handling (Instagram-style) ----
-  // Press down pauses immediately. A quick tap navigates (left third → back,
-  // rest → forward); a longer hold just pauses and resumes on release, so the
-  // child can keep looking at the image without accidentally skipping it.
-  void _onTapDown(TapDownDetails details) {
+  // We listen to raw pointer events instead of tap gestures: a tap gesture is
+  // cancelled the moment the finger moves even a little (or a drag gesture
+  // takes over the arena), which would wrongly resume playback while the child
+  // is still holding. With a Listener, the slide stays paused for as long as
+  // the finger is physically down — regardless of any movement.
+  Offset? _downPosition;
+
+  void _onPointerDown(PointerDownEvent event) {
     _pressDownAt = DateTime.now();
+    _downPosition = event.position;
     _pause();
   }
 
-  void _onTapUp(TapUpDetails details) {
+  void _onPointerUp(PointerUpEvent event) {
     final downAt = _pressDownAt;
+    final downPos = _downPosition;
     _pressDownAt = null;
+    _downPosition = null;
+
+    // Swipe down to dismiss the story.
+    if (downPos != null && event.position.dy - downPos.dy > 100) {
+      _close();
+      return;
+    }
+
     final wasHold =
         downAt != null &&
         DateTime.now().difference(downAt) > const Duration(milliseconds: 220);
     if (wasHold) {
+      // Finger was held down → just resume where we paused.
       _resume();
       return;
     }
+    // Quick tap → navigate (left third → back, rest → forward).
     final width = MediaQuery.of(context).size.width;
-    if (details.globalPosition.dx < width / 3) {
+    final tapDx = (downPos ?? event.position).dx;
+    if (tapDx < width / 3) {
       _previous();
     } else {
       _next();
     }
   }
 
-  void _onTapCancel() {
+  void _onPointerCancel(PointerCancelEvent event) {
     _pressDownAt = null;
+    _downPosition = null;
     _resume();
   }
 
@@ -1694,15 +1723,10 @@ class _FunFactStoryViewState extends State<_FunFactStoryView>
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTapDown: _onTapDown,
-        onTapUp: _onTapUp,
-        onTapCancel: _onTapCancel,
-        onVerticalDragEnd: (details) {
-          if ((details.primaryVelocity ?? 0) > 250) {
-            _close();
-          }
-        },
+      body: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerUp: _onPointerUp,
+        onPointerCancel: _onPointerCancel,
         child: Stack(
           fit: StackFit.expand,
           children: [

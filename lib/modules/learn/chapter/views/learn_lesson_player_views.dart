@@ -6,12 +6,11 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/service/offline_download_service.dart';
+import '../../../../core/utils/google_drive_url_utils.dart';
 import '../../../daily_quiz/practice_test/Views/practice_quiz_overview.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_subject_views.dart';
@@ -35,7 +34,6 @@ class LearnLessonPlayerViews extends StatefulWidget {
 }
 
 class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
-  bool _showVideo = true;
   bool _isMarkingComplete = false;
   late bool _isCompleted;
 
@@ -48,7 +46,7 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
   @override
   Widget build(BuildContext context) {
     final lesson = widget.topic.lesson;
-    final hasVideo = lesson.videoUrl.trim().isNotEmpty;
+    final hasAdditionalContent = _hasAdditionalLessonContent(lesson);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
@@ -66,78 +64,25 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),
                 children: [
-                  Stack(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Container(
-                        height: 220,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F1720),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: hasVideo
-                              ? _LessonVideoPlayer(videoUrl: lesson.videoUrl)
-                              : const _VideoNotFoundCard(),
-                        ),
+                      _ChipTag(
+                        label: lesson.subjectLabel,
+                        icon: Icons.menu_book_rounded,
+                        background: const Color(0xFFDCD9FF),
+                        foreground: const Color(0xFF1F238B),
                       ),
-                      // Non-interactive context tags on top of the player.
-                      Positioned(
-                        top: 12,
-                        left: 12,
-                        right: 12,
-                        child: IgnorePointer(
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _ChipTag(
-                                label: lesson.subjectLabel,
-                                icon: Icons.menu_book_rounded,
-                                background: const Color(0xFFDCD9FF),
-                                foreground: const Color(0xFF1F238B),
-                              ),
-                              _ChipTag(
-                                label: lesson.chapterLabel,
-                                icon: Icons.bookmark_border_rounded,
-                                background: const Color(0xFFE7E8EE),
-                                foreground: const Color(0xFF4C4F5E),
-                              ),
-                            ],
-                          ),
-                        ),
+                      _ChipTag(
+                        label: lesson.chapterLabel,
+                        icon: Icons.bookmark_border_rounded,
+                        background: const Color(0xFFE7E8EE),
+                        foreground: const Color(0xFF4C4F5E),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 28),
-                  Row(
-                    children: [
-                      _PlayerTab(
-                        label: 'Video',
-                        isSelected: _showVideo,
-                        onTap: () {
-                          setState(() {
-                            _showVideo = true;
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 28),
-                      _PlayerTab(
-                        label: 'AI Notes',
-                        isSelected: !_showVideo,
-                        onTap: () {
-                          setState(() {
-                            _showVideo = false;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(height: 1.5, color: const Color(0xFFC9CBE3)),
                   const SizedBox(height: 24),
-                  _LessonDownloadActions(lesson: lesson),
-                  const SizedBox(height: 22),
                   Text(
                     lesson.title,
                     style: const TextStyle(
@@ -147,53 +92,38 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    switchInCurve: Curves.easeOut,
-                    switchOutCurve: Curves.easeIn,
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0.08, 0),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: _showVideo
-                        ? Text(
-                            lesson.description,
-                            key: const ValueKey<String>('lesson-description'),
-                            style: const TextStyle(
-                              color: Color(0xFF4C4F5E),
-                              fontSize: 14,
-                              height: 1.6,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          )
-                        : _LessonContentBody(
-                            key: const ValueKey<String>('lesson-content'),
-                            htmlContent: lesson.content,
-                            fallbackText: lesson.notes,
-                          ),
+                  Text(
+                    lesson.description,
+                    style: const TextStyle(
+                      color: Color(0xFF4C4F5E),
+                      fontSize: 14,
+                      height: 1.6,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
+                  if (hasAdditionalContent) ...[
+                    const SizedBox(height: 18),
+                    _LessonContentBody(
+                      htmlContent: lesson.content,
+                      fallbackText: lesson.notes,
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  _LessonDownloadActions(lesson: lesson),
                   const SizedBox(height: 34),
                   const Row(
                     children: [
                       Icon(
                         Icons.attach_file_rounded,
                         color: Color(0xFF4C4F5E),
-                        size: 28,
+                        size: 22,
                       ),
                       SizedBox(width: 6),
                       Text(
                         'LESSON RESOURCES',
                         style: TextStyle(
                           color: Color(0xFF4C4F5E),
-                          fontSize: 18,
+                          fontSize: 14,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.2,
                         ),
@@ -321,11 +251,17 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
       ),
     );
   }
+
+  bool _hasAdditionalLessonContent(LearnLessonModel lesson) {
+    final content = lesson.content.trim();
+    final notes = lesson.notes.trim();
+    final description = lesson.description.trim();
+    return content.isNotEmpty || (notes.isNotEmpty && notes != description);
+  }
 }
 
 class _LessonContentBody extends StatelessWidget {
   const _LessonContentBody({
-    super.key,
     required this.htmlContent,
     required this.fallbackText,
   });
@@ -376,32 +312,18 @@ class _LessonContentBody extends StatelessWidget {
                     'margin': '16px 0 8px',
                   };
                 case 'p':
-                  return {
-                    'margin': '0 0 12px',
-                    'line-height': '1.65',
-                  };
+                  return {'margin': '0 0 12px', 'line-height': '1.65'};
                 case 'strong':
                 case 'b':
-                  return {
-                    'color': '#1D2231',
-                    'font-weight': '800',
-                  };
+                  return {'color': '#1D2231', 'font-weight': '800'};
                 case 'em':
                 case 'i':
-                  return {
-                    'font-style': 'italic',
-                  };
+                  return {'font-style': 'italic'};
                 case 'ol':
                 case 'ul':
-                  return {
-                    'margin': '8px 0 12px',
-                    'padding-left': '20px',
-                  };
+                  return {'margin': '8px 0 12px', 'padding-left': '20px'};
                 case 'li':
-                  return {
-                    'margin': '0 0 8px',
-                    'line-height': '1.58',
-                  };
+                  return {'margin': '0 0 8px', 'line-height': '1.58'};
                 case 'blockquote':
                   return {
                     'border-left': '3px solid #D7DAEA',
@@ -667,196 +589,6 @@ class _MarkCompleteDialog extends StatelessWidget {
   }
 }
 
-class _LessonVideoPlayer extends StatefulWidget {
-  const _LessonVideoPlayer({required this.videoUrl});
-
-  final String videoUrl;
-
-  @override
-  State<_LessonVideoPlayer> createState() => _LessonVideoPlayerState();
-}
-
-class _LessonVideoPlayerState extends State<_LessonVideoPlayer> {
-  VideoPlayerController? _videoController;
-  YoutubePlayerController? _youtubeController;
-  bool _isLoading = true;
-  bool _hasError = false;
-  bool _isNativeVideo = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final videoUrl = widget.videoUrl.trim();
-    debugPrint('LESSON PLAYER videoUrl: $videoUrl');
-    _isNativeVideo = _isDirectVideoUrl(videoUrl);
-    if (_isNativeVideo) {
-      _initializeNativeVideo(videoUrl);
-    } else {
-      _initializeYoutubeVideo(videoUrl);
-    }
-  }
-
-  Future<void> _initializeNativeVideo(String videoUrl) async {
-    final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-    _videoController = controller;
-    try {
-      await controller.initialize();
-      await controller.play();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _isLoading = false);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
-    }
-  }
-
-  void _initializeYoutubeVideo(String videoUrl) {
-    final videoId = YoutubePlayerController.convertUrlToId(videoUrl);
-    if (videoId == null) {
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
-      return;
-    }
-
-    _youtubeController = YoutubePlayerController.fromVideoId(
-      videoId: videoId,
-      autoPlay: false,
-      params: const YoutubePlayerParams(
-        mute: false,
-        enableCaption: true,
-        showFullscreenButton: true,
-        strictRelatedVideos: true,
-        playsInline: true,
-      ),
-    );
-
-    setState(() => _isLoading = false);
-  }
-
-  @override
-  void dispose() {
-    _videoController?.dispose();
-    _youtubeController?.close();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final videoController = _videoController;
-    final youtubeController = _youtubeController;
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        if (_isNativeVideo &&
-            videoController != null &&
-            videoController.value.isInitialized)
-          Center(
-            child: AspectRatio(
-              aspectRatio: videoController.value.aspectRatio,
-              child: VideoPlayer(videoController),
-            ),
-          )
-        else if (!_isNativeVideo && youtubeController != null)
-          YoutubePlayer(
-            controller: youtubeController,
-            backgroundColor: const Color(0xFF0F1720),
-          ),
-        if (_isLoading)
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        if (_hasError)
-          const Padding(
-            padding: EdgeInsets.all(18),
-            child: Text(
-              'Unable to play this video in app.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        if (_isNativeVideo &&
-            videoController != null &&
-            videoController.value.isInitialized &&
-            !_isLoading &&
-            !_hasError)
-          InkWell(
-            onTap: () {
-              setState(() {
-                videoController.value.isPlaying
-                    ? videoController.pause()
-                    : videoController.play();
-              });
-            },
-            borderRadius: BorderRadius.circular(36),
-            child: Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.42),
-              ),
-              child: Icon(
-                videoController.value.isPlaying
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 34,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _VideoNotFoundCard extends StatelessWidget {
-  const _VideoNotFoundCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF263A2F), Color(0xFF10151D)],
-        ),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.videocam_off_rounded, color: Colors.white70, size: 44),
-            SizedBox(height: 12),
-            Text(
-              'Video not found',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _NoPdfStateCard extends StatelessWidget {
   const _NoPdfStateCard();
 
@@ -1088,15 +820,21 @@ class _LessonPdfViewState extends State<_LessonPdfView> {
         _isLoading = true;
       });
 
+      final sourceUrl = widget.pdfUrl.trim();
+      final downloadUrl = pdfDownloadUrl(sourceUrl);
       final response = await http
-          .get(Uri.parse(widget.pdfUrl.trim()), headers: _pdfRequestHeaders)
+          .get(Uri.parse(downloadUrl), headers: _pdfRequestHeaders)
           .timeout(const Duration(seconds: 12));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('HTTP ${response.statusCode}');
       }
+      if (isHtmlResponse(response.headers) ||
+          !looksLikePdfBytes(response.bodyBytes)) {
+        throw Exception('Response is not a PDF');
+      }
 
       final directory = await getTemporaryDirectory();
-      final fileName = _safePdfFileName(widget.pdfUrl);
+      final fileName = _safePdfFileName(sourceUrl);
       final file = File('${directory.path}/$fileName');
       await file.writeAsBytes(response.bodyBytes, flush: true);
 
@@ -1137,7 +875,7 @@ class _LessonPdfViewState extends State<_LessonPdfView> {
         ),
       )
       ..loadRequest(
-        Uri.parse(widget.pdfUrl.trim()),
+        Uri.parse(pdfPreviewUrl(widget.pdfUrl)),
         headers: _pdfRequestHeaders,
       );
 
@@ -1225,49 +963,6 @@ class _LessonPdfViewState extends State<_LessonPdfView> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PlayerTab extends StatelessWidget {
-  const _PlayerTab({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected
-                  ? const Color(0xFF4A4FD9)
-                  : const Color(0xFF7A7D8E),
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 70,
-            height: 5,
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF4A4FD9) : Colors.transparent,
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1393,16 +1088,6 @@ class _LessonResourceCard extends StatelessWidget {
       ),
     );
   }
-}
-
-bool _isDirectVideoUrl(String url) {
-  final lowerUrl = url.toLowerCase();
-  return lowerUrl.endsWith('.mp4') ||
-      lowerUrl.endsWith('.mov') ||
-      lowerUrl.endsWith('.m3u8') ||
-      lowerUrl.contains('.mp4?') ||
-      lowerUrl.contains('.mov?') ||
-      lowerUrl.contains('.m3u8?');
 }
 
 const Map<String, String> _pdfRequestHeaders = {

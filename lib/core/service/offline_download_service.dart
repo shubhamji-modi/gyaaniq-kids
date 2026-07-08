@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/google_drive_url_utils.dart';
 import 'api_service.dart';
 import 'session_manager.dart';
 
@@ -236,7 +237,7 @@ class OfflineDownloadService {
       return [trimmed];
     }
     if (uri.hasScheme) {
-      return [trimmed];
+      return {pdfDownloadUrl(trimmed), trimmed}.toList();
     }
 
     final base = Uri.parse(ApiService.baseUrl);
