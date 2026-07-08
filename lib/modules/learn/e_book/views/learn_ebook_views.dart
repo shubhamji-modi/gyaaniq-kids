@@ -219,7 +219,7 @@ class _LearnEbookViewsState extends State<LearnEbookViews> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 14,
                               mainAxisSpacing: 16,
-                              childAspectRatio: 0.74,
+                              childAspectRatio: 0.60,
                             ),
                         itemBuilder: (context, index) {
                           final entry = groups[index];
@@ -391,6 +391,9 @@ class _SubjectGroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final visual = subjectVisualFor(subject);
     final count = books.length;
+    final coverUrl = books
+        .map((book) => book.coverImage?.url.trim() ?? '')
+        .firstWhere((url) => url.isNotEmpty, orElse: () => '');
 
     return InkWell(
       onTap: () => _openSheet(context),
@@ -407,22 +410,12 @@ class _SubjectGroupCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                // Subject icon tile (same style as the Learn "My Subjects" cards).
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: visual.color,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: visual.color.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Icon(visual.icon, color: Colors.white, size: 24),
+                _EbookCoverThumb(
+                  imageUrl: coverUrl,
+                  visual: visual,
+                  width: 100,
+                  height: 120,
+                  borderRadius: 4,
                 ),
                 const Spacer(),
                 // Count badge, top-right.
@@ -503,6 +496,7 @@ class _EbookSheetTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final count = book.resourceCount;
     final visual = subjectVisualFor(book.subject);
+    final coverUrl = book.coverImage?.url.trim() ?? '';
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -515,14 +509,12 @@ class _EbookSheetTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: visual.color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(visual.icon, color: visual.color, size: 22),
+            _EbookCoverThumb(
+              imageUrl: coverUrl,
+              visual: visual,
+              width: 44,
+              height: 54,
+              borderRadius: 2,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -555,6 +547,83 @@ class _EbookSheetTile extends StatelessWidget {
             ),
             const Icon(Icons.chevron_right_rounded, color: Color(0xFFB4B8CC)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EbookCoverThumb extends StatelessWidget {
+  const _EbookCoverThumb({
+    required this.imageUrl,
+    required this.visual,
+    required this.width,
+    required this.height,
+    required this.borderRadius,
+  });
+
+  final String imageUrl;
+  final SubjectVisual visual;
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: visual.color,
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: visual.color.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Icon(visual.icon, color: Colors.white, size: width * 0.50),
+    );
+
+    if (imageUrl.isEmpty) {
+      return fallback;
+    }
+
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(color: Colors.white, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: ColoredBox(
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(3),
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => fallback,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
+                return fallback;
+              },
+            ),
+          ),
         ),
       ),
     );
