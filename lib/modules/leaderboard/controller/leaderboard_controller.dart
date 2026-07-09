@@ -188,7 +188,6 @@ class ClassPrize {
     );
   }
 
-
 }
 
 String _safeText(dynamic value, {String fallback = ''}) {

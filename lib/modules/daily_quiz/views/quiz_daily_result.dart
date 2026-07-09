@@ -20,308 +20,601 @@ class QuizDailyResult extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FC),
-        body: SafeArea(
-          child: Column(
-            children: [
-              const _ResultTopBar(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'Quiz Completed!',
-                        style: TextStyle(
-                          color: Color(0xFF4950DB),
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        controller.resultSubtitle,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFF505165),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                        decoration: _cardDecoration(),
-                        child: Column(
-                          children: [
-                            Text(
-                              controller.scoreLabel,
-                              style: const TextStyle(
-                                color: Color(0xFF484B60),
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.8,
+        backgroundColor: const Color(0xFFF2F1FB),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                controller.passed
+                    ? 'assets/images/result_win.jpg'
+                    : 'assets/images/result_lose.jpg',
+                fit: BoxFit.cover,
+              ),
+            ),
+            Column(
+              children: [
+                _ResultHeader(controller: controller),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: Column(
+                      children: [
+                        _FinalScoreCard(controller: controller),
+                        const SizedBox(height: 10),
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: _PercentageCard(controller: controller),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            RichText(
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: '${controller.score}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF4D4FE1),
-                                      fontSize: 50,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '/${controller.maxScore}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF6B6E82),
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: _ImprovementCard(controller: controller),
                               ),
-                            ),
-                            const SizedBox(height: 15),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(99),
-                              child: LinearProgressIndicator(
-                                value: controller.accuracy,
-                                minHeight: 8,
-                                backgroundColor: const Color(0xFFE2E5EC),
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF4D4FE1),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              icon: Icons.gps_fixed_rounded,
-                              iconBackground: const Color(0xFFF1D9FF),
-                              iconColor: const Color(0xFF8B36D9),
-                              title: controller.accuracyText,
-                              subtitle: controller.accuracyLabel,
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: _StatCard(
-                              icon: Icons.timer_outlined,
-                              iconBackground: controller.passed
-                                  ? const Color(0xFFE0F7E8)
-                                  : const Color(0xFFFFDBAB),
-                              iconColor: controller.passed
-                                  ? const Color(0xFF1E9E57)
-                                  : const Color(0xFF9C6200),
-                              title: controller.passStatusLabel,
-                              subtitle: 'Result',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _AttemptMetaCard(
-                        timeTaken: controller.formattedElapsedTime,
-                        totalQuestions: controller.totalQuestions,
-                      ),
-                      const SizedBox(height: 22),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: _cardDecoration(
-                          borderColor: const Color(0xFFD9D8FF),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 45,
-                              height: 45,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF5D63F0),
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF5D63F0,
-                                    ).withValues(alpha: 0.26),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.bolt_rounded,
-                                color: Colors.white,
-                                size: 25,
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Level Up!',
-                                    style: TextStyle(
-                                      color: Color(0xFF202436),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Obx(
-                                    () => Text(
-                                      controller.isLoadingXp.value
-                                          ? 'Calculating XP...'
-                                          : '+${controller.xpEarned} XP Gained',
-                                      style: const TextStyle(
-                                        color: Color(0xFF505165),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Obx(
-                              () => Text(
-                                controller.isLoadingXp.value
-                                    ? '...'
-                                    : '${controller.xpEarned} XP',
-                                style: const TextStyle(
-                                  color: Color(0xFF4D4FE1),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
+                        const SizedBox(height: 10),
+                        _AnswersBreakdownCard(controller: controller),
+                        const SizedBox(height: 10),
+                        _AttemptMetaCard(controller: controller),
+                        const SizedBox(height: 10),
+                        _LevelUpCard(controller: controller),
+                        const SizedBox(height: 12),
+                        _PrimaryButton(
+                          label: 'Review Answers',
+                          icon: Icons.menu_book_rounded,
                           onPressed: controller.reviewAnswers,
-                          icon: const Icon(
-                            Icons.assignment_turned_in_outlined,
-                            size: 22,
-                          ),
-                          label: Text('Review Answers'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4D4FE1),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(32),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
                         ),
-                      ),
-                      const SizedBox(height: 15),
-                      if (controller.canTryAgain)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: controller.tryAgain,
-                                icon: const Icon(
-                                  Icons.refresh_rounded,
-                                  size: 22,
+                        const SizedBox(height: 10),
+                        if (controller.canTryAgain)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _SecondaryButton(
+                                  label: 'Try Again',
+                                  icon: Icons.refresh_rounded,
+                                  onPressed: controller.tryAgain,
                                 ),
-                                label: const Text('Try Again'),
-                                style: _secondaryButtonStyle(),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: controller.goHome,
-                                icon: const Icon(Icons.home_outlined, size: 28),
-                                label: const Text('Home'),
-                                style: _secondaryButtonStyle(),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: _SecondaryButton(
+                                  label: 'Home',
+                                  icon: Icons.home_outlined,
+                                  onPressed: controller.goHome,
+                                ),
                               ),
-                            ),
-                          ],
-                        )
-                      else
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
+                            ],
+                          )
+                        else
+                          _SecondaryButton(
+                            label: 'Home',
+                            icon: Icons.home_outlined,
                             onPressed: controller.goHome,
-                            icon: const Icon(Icons.home_outlined, size: 28),
-                            label: const Text('Home'),
-                            style: _secondaryButtonStyle(),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ResultTopBar extends StatelessWidget {
-  const _ResultTopBar();
+class _ResultHeader extends StatelessWidget {
+  const _ResultHeader({required this.controller});
+
+  final QuizDailyResultController controller;
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<QuizDailyResultController>(
-      tag: 'daily_quiz_result',
-    );
+    final topPadding = MediaQuery.of(context).padding.top;
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E7F0))),
-      ),
-      child: Row(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(20, topPadding + 10, 20, 18),
+      child: Column(
         children: [
-          IconButton(
-            onPressed: controller.backToSubjects,
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: Color(0xFF113A90),
-              size: 20,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _CircleIconButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onPressed: controller.backToSubjects,
+              ),
+              _ShareButton(onPressed: () {}),
+            ],
+          ),
+          // Clear the boy/trophy artwork at the top of the background image
+          // so the text lands just below it.
+          SizedBox(height: screenHeight * 0.16),
+          const Text(
+            'Quiz Completed!',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const Expanded(
-            child: Text(
-              'Quiz',
-              textAlign: TextAlign.center,
+          const SizedBox(height: 6),
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: const TextStyle(
+                color: Color(0xFFE6DEFF),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
+              children: const [
+                TextSpan(
+                  text: 'Great job! You\'re one step closer to becoming a ',
+                ),
+                TextSpan(
+                  text: 'genius! ',
+                  style: TextStyle(
+                    color: Color(0xFFFFD54A),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextSpan(text: '⭐'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CircleIconButton extends StatelessWidget {
+  const _CircleIconButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(30),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
+      ),
+    );
+  }
+}
+
+class _ShareButton extends StatelessWidget {
+  const _ShareButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(30),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.ios_share_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Share',
               style: TextStyle(
-                color: Color(0xFF123887),
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FinalScoreCard extends StatelessWidget {
+  const _FinalScoreCard({required this.controller});
+
+  final QuizDailyResultController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'FINAL SCORE',
+                      style: TextStyle(
+                        color: Color(0xFF6B6E82),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${controller.score}',
+                            style: const TextStyle(
+                              color: Color(0xFF4D4FE1),
+                              fontSize: 40,
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '/${controller.maxScore}',
+                            style: const TextStyle(
+                              color: Color(0xFF6B6E82),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Image.asset(
+                'assets/images/star.png',
+                width: 76,
+                height: 76,
+                fit: BoxFit.contain,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _ScoreProgressBar(
+            value: controller.accuracy,
+            percentLabel: '${controller.percentInt}%',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScoreProgressBar extends StatelessWidget {
+  const _ScoreProgressBar({required this.value, required this.percentLabel});
+
+  final double value;
+  final String percentLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final clamped = value.clamp(0.0, 1.0);
+        final fullWidth = constraints.maxWidth;
+        const bubbleWidth = 44.0;
+        final thumbCenter = fullWidth * clamped;
+        var bubbleLeft = thumbCenter - bubbleWidth / 2;
+        if (bubbleLeft < 0) {
+          bubbleLeft = 0;
+        }
+        if (bubbleLeft > fullWidth - bubbleWidth) {
+          bubbleLeft = fullWidth - bubbleWidth;
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 24,
+              width: fullWidth,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: bubbleLeft,
+                    top: 0,
+                    child: Container(
+                      width: bubbleWidth,
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4D4FE1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        percentLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.centerLeft,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: clamped,
+                    minHeight: 8,
+                    backgroundColor: const Color(0xFFE2E5EC),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF4D4FE1),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: (thumbCenter - 8).clamp(0.0, fullWidth - 16),
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF4D4FE1),
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PercentageCard extends StatelessWidget {
+  const _PercentageCard({required this.controller});
+
+  final QuizDailyResultController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDecoration(color: const Color(0xFFF4FBF6)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: CircularProgressIndicator(
+                    value: controller.accuracy.clamp(0.0, 1.0),
+                    strokeWidth: 6,
+                    backgroundColor: const Color(0xFFDDF3E4),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF23A55A),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(13),
+                  child: Image.asset(
+                    'assets/images/graph.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${controller.percentInt}%',
+            style: const TextStyle(
+              color: Color(0xFF1E9E57),
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const Text(
+            'Percentage',
+            style: TextStyle(
+              color: Color(0xFF3B3D4A),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _Chip(
+            label: '${controller.performanceHeadline} 🎉',
+            background: const Color(0xFFD7F3E1),
+            textColor: const Color(0xFF1E9E57),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImprovementCard extends StatelessWidget {
+  const _ImprovementCard({required this.controller});
+
+  final QuizDailyResultController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDecoration(color: const Color(0xFFFDF8F1)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Image.asset(
+            'assets/images/target.png',
+            width: 46,
+            height: 46,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            controller.passed ? 'Well Done!' : 'Needs\nImprovement',
+            style: const TextStyle(
+              color: Color(0xFFE07A15),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            controller.passed ? 'Keep it up!' : 'You can do better!',
+            style: const TextStyle(
+              color: Color(0xFF3B3D4A),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const _Chip(
+            label: 'Keep Practicing! 💪',
+            background: Color(0xFFFCE9CE),
+            textColor: Color(0xFFE07A15),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnswersBreakdownCard extends StatelessWidget {
+  const _AnswersBreakdownCard({required this.controller});
+
+  final QuizDailyResultController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          _BreakdownRow(
+            iconBackground: const Color(0xFFAB63F0),
+            icon: Icons.format_list_bulleted_rounded,
+            label: 'Questions Attempted',
+            value: '${controller.attemptedQuestions}',
+            valueColor: const Color(0xFF202436),
+          ),
+          const Divider(height: 1, color: Color(0xFFEDEEF4)),
+          _BreakdownRow(
+            iconBackground: const Color(0xFF2E9BF0),
+            icon: Icons.check_rounded,
+            label: 'Correct Answers',
+            value: '${controller.correctAnswers}',
+            valueColor: const Color(0xFF1E9E57),
+          ),
+          const Divider(height: 1, color: Color(0xFFEDEEF4)),
+          _BreakdownRow(
+            iconBackground: const Color(0xFFF04848),
+            icon: Icons.close_rounded,
+            label: 'Wrong Answers',
+            value: '${controller.wrongAnswers}',
+            valueColor: const Color(0xFFF04848),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakdownRow extends StatelessWidget {
+  const _BreakdownRow({
+    required this.iconBackground,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  final Color iconBackground;
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconBackground,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF2C2F3E),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          const SizedBox(width: 48),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ),
     );
@@ -329,121 +622,81 @@ class _ResultTopBar extends StatelessWidget {
 }
 
 class _AttemptMetaCard extends StatelessWidget {
-  const _AttemptMetaCard({
-    required this.timeTaken,
-    required this.totalQuestions,
-  });
+  const _AttemptMetaCard({required this.controller});
 
-  final String timeTaken;
-  final int totalQuestions;
+  final QuizDailyResultController controller;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(borderColor: const Color(0xFFD9D8FF)),
-      child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: _cardDecoration(),
+      child: Row(
         children: [
-          _AttemptMetaRow(
-            label: 'Questions Attempted',
-            value: '$totalQuestions',
+          Expanded(
+            child: _MetaTile(
+              imagePath: 'assets/images/questions.png',
+              label: 'Questions Attempted',
+              value:
+                  '${controller.attemptedQuestions}/${controller.totalQuestions}',
+            ),
           ),
-          const SizedBox(height: 10),
-          _AttemptMetaRow(label: 'Time Taken', value: timeTaken),
+          Container(width: 1, height: 46, color: const Color(0xFFEDEEF4)),
+          Expanded(
+            child: _MetaTile(
+              imagePath: 'assets/images/Time.png',
+              label: 'Time Taken',
+              value: controller.formattedElapsedTime,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _AttemptMetaRow extends StatelessWidget {
-  const _AttemptMetaRow({required this.label, required this.value});
+class _MetaTile extends StatelessWidget {
+  const _MetaTile({
+    required this.imagePath,
+    required this.label,
+    required this.value,
+  });
 
+  final String imagePath;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF505165),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF202436),
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.iconBackground,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final Color iconBackground;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      decoration: _cardDecoration(),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: iconBackground,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF202436),
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF505165),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+          Image.asset(imagePath, width: 44, height: 44, fit: BoxFit.contain),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF6B6E82),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Color(0xFF4D4FE1),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -452,28 +705,231 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-BoxDecoration _cardDecoration({Color borderColor = const Color(0x00000000)}) {
-  final hasBorder = borderColor != const Color(0x00000000);
-  return BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(30),
-    border: hasBorder ? Border.all(color: borderColor, width: 1.6) : null,
-    boxShadow: [
-      BoxShadow(
-        color: const Color(0xFFDCE2F3).withValues(alpha: 0.55),
-        blurRadius: 26,
-        offset: const Offset(0, 16),
+class _LevelUpCard extends StatelessWidget {
+  const _LevelUpCard({required this.controller});
+
+  final QuizDailyResultController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF3EEFF), Color(0xFFEDE6FF)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD9CEFF), width: 1.4),
       ),
-    ],
-  );
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/images/rokcet.png',
+            width: 52,
+            height: 52,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Level Up!',
+                  style: TextStyle(
+                    color: Color(0xFF4D4FE1),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'You earned',
+                  style: TextStyle(
+                    color: Color(0xFF505165),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Obx(
+                  () => Text(
+                    controller.isLoadingXp.value
+                        ? 'Calculating XP...'
+                        : '+${controller.xpEarned} XP',
+                    style: const TextStyle(
+                      color: Color(0xFF4D4FE1),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _XpBadge(controller: controller),
+        ],
+      ),
+    );
+  }
 }
 
-ButtonStyle _secondaryButtonStyle() {
-  return OutlinedButton.styleFrom(
-    foregroundColor: const Color(0xFF202436),
-    side: const BorderSide(color: Color(0xFFD1CEEF), width: 1.6),
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+class _XpBadge extends StatelessWidget {
+  const _XpBadge({required this.controller});
+
+  final QuizDailyResultController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 70,
+      height: 70,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Image.asset(
+            'assets/images/xp.png',
+            width: 70,
+            height: 70,
+            fit: BoxFit.contain,
+          ),
+          Obx(
+            () => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  controller.isLoadingXp.value
+                      ? '...'
+                      : '${controller.xpEarned}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+                const Text(
+                  'XP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.background,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color background;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  const _PrimaryButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 22),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF5B2CD6),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(32),
+          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryButton extends StatelessWidget {
+  const _SecondaryButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 22, color: const Color(0xFF5B2CD6)),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF2C2F3E),
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFFE0DCF2), width: 1.4),
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+BoxDecoration _cardDecoration({Color color = Colors.white}) {
+  return BoxDecoration(
+    color: color,
+    borderRadius: BorderRadius.circular(24),
+    boxShadow: [
+      BoxShadow(
+        color: const Color(0xFFDCE2F3).withValues(alpha: 0.5),
+        blurRadius: 24,
+        offset: const Offset(0, 12),
+      ),
+    ],
   );
 }

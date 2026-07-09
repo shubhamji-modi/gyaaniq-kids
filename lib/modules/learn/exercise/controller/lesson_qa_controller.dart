@@ -310,8 +310,8 @@ class LessonQaItem {
   final String lessonTitle;
 
   factory LessonQaItem.fromApi(Map<String, dynamic> json) {
-    final subject = (json['subject'] as Map<String, dynamic>?) ?? const {};
-    final lesson = (json['lesson'] as Map<String, dynamic>?) ?? const {};
+    final subject = _asMap(json['subject']);
+    final lesson = _asMap(json['lesson']);
     return LessonQaItem(
       id: _safeText(json['_id']),
       sequence: (json['sequence'] as num?)?.toInt() ?? 0,
@@ -333,9 +333,16 @@ class LessonQaItem {
   String get sourceLabel => isPdf ? 'From Textbook' : 'Teacher';
 }
 
+Map<String, dynamic> _asMap(dynamic value) {
+  return value is Map<String, dynamic> ? value : const {};
+
+}
+
 String _safeText(dynamic value, {String fallback = ''}) {
+
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? fallback : text;
+
 }
 
 String _stripHtml(String value) {

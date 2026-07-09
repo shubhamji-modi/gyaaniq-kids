@@ -53,6 +53,43 @@ class QuizDailyResultController extends GetxController {
 
   int get xpEarned => configuredXpEarned.value ?? 0;
 
+  int get correctAnswers {
+    if (feedback.isEmpty) {
+      return score;
+    }
+    return feedback.values.where((item) => item.isCorrect).length;
+  }
+
+  int get attemptedQuestions {
+    if (feedback.isEmpty) {
+      return totalQuestions;
+    }
+    final attempted = feedback.values
+        .where((item) => item.selectedIndex != null)
+        .length;
+    return attempted == 0 ? totalQuestions : attempted;
+  }
+
+  int get wrongAnswers {
+    final wrong = totalQuestions - correctAnswers;
+    return wrong < 0 ? 0 : wrong;
+  }
+
+  int get percentInt => (percentage).round().clamp(0, 100);
+
+  String get performanceHeadline {
+    if (percentInt >= 80) {
+      return 'Excellent Work!';
+    }
+    if (percentInt >= 60) {
+      return 'Great Work!';
+    }
+    if (percentInt >= 40) {
+      return 'Good Effort!';
+    }
+    return 'Keep Practicing!';
+  }
+
   String get rewardSourceLabel {
     switch (rewardSource) {
       case QuizRewardSource.dailyQuiz:
