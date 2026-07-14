@@ -5,7 +5,11 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-
+    // Firebase: applies google-services.json + enables Crashlytics upload.
+    // The FlutterFire plugins (firebase_core/analytics/crashlytics) pull in the
+    // native SDKs, so no manual firebase dependencies are needed here.
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 val keystoreProperties = Properties()

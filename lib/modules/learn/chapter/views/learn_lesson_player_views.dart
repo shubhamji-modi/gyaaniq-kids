@@ -59,7 +59,7 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
       body: SafeArea(
         child: Column(
           children: [
-            const LearnTopBar(title: 'Lesson Player'),
+            const LearnTopBar(title: 'Lesson Overview'),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),

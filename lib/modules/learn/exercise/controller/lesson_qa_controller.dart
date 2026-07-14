@@ -66,6 +66,17 @@ class LessonQaController extends GetxController {
       _totalPages = 1;
     }
 
+    // Without a lesson id the endpoint 404s — fail fast with a clear message
+    // instead of leaving the screen spinning.
+    if (lessonId.trim().isEmpty) {
+      rows.clear();
+      isLoading.value = false;
+      isLoadingMore.value = false;
+      errorMessage.value =
+          'This lesson is missing its id, so the exercise cannot be loaded.';
+      return;
+    }
+
     if (_page == 1) {
       isLoading.value = true;
       errorMessage.value = '';
@@ -73,41 +84,49 @@ class LessonQaController extends GetxController {
       isLoadingMore.value = true;
     }
 
-    final response = await LessonQaRepository.fetchByLesson(
-      lessonId: lessonId,
-      page: _page,
-      limit: _limit,
-    );
+    try {
+      final response = await LessonQaRepository.fetchByLesson(
+        lessonId: lessonId,
+        page: _page,
+        limit: _limit,
+      );
 
-    if (_page == 1) {
-      isLoading.value = false;
-    } else {
-      isLoadingMore.value = false;
-    }
+      if (!response.success || response.data == null) {
+        if (_page == 1) {
+          rows.clear();
+          errorMessage.value = response.message;
+        } else {
+          // Roll back the optimistic page bump so loadMore can be retried.
+          _page--;
+        }
+        return;
+      }
 
-    if (!response.success || response.data == null) {
+      final page = response.data!;
+      errorMessage.value = '';
+      _totalPages = page.pagination.totalPages;
+      totalCount.value = page.pagination.total;
+      if (page.lessonTitle.isNotEmpty) {
+        resolvedLessonTitle.value = page.lessonTitle;
+      }
+
+      if (_page == 1) {
+        rows.assignAll(page.rows);
+      } else {
+        rows.addAll(page.rows);
+      }
+    } catch (e) {
+      // Any unexpected failure (parsing, etc.) — surface it instead of hanging.
       if (_page == 1) {
         rows.clear();
-        errorMessage.value = response.message;
+        errorMessage.value = 'Something went wrong while loading the exercise.';
       } else {
-        // Roll back the optimistic page bump so loadMore can be retried.
         _page--;
       }
-      return;
-    }
-
-    final page = response.data!;
-    errorMessage.value = '';
-    _totalPages = page.pagination.totalPages;
-    totalCount.value = page.pagination.total;
-    if (page.lessonTitle.isNotEmpty) {
-      resolvedLessonTitle.value = page.lessonTitle;
-    }
-
-    if (_page == 1) {
-      rows.assignAll(page.rows);
-    } else {
-      rows.addAll(page.rows);
+    } finally {
+      // Guarantee the loader always clears, whatever happened above.
+      isLoading.value = false;
+      isLoadingMore.value = false;
     }
   }
 
@@ -310,8 +329,18 @@ class LessonQaItem {
   final String lessonTitle;
 
   factory LessonQaItem.fromApi(Map<String, dynamic> json) {
-    final subject = (json['subject'] as Map<String, dynamic>?) ?? const {};
-    final lesson = (json['lesson'] as Map<String, dynamic>?) ?? const {};
+    // `subject`/`lesson` come back as a populated object on the search endpoint
+    // but as a plain id string on the by-lesson endpoint — handle both.
+    final subjectRaw = json['subject'];
+    final subject = subjectRaw is Map<String, dynamic>
+        ? subjectRaw
+        : const <String, dynamic>{};
+
+    final lessonRaw = json['lesson'];
+    final lesson = lessonRaw is Map<String, dynamic>
+        ? lessonRaw
+        : const <String, dynamic>{};
+
     return LessonQaItem(
       id: _safeText(json['_id']),
       sequence: (json['sequence'] as num?)?.toInt() ?? 0,
@@ -323,7 +352,10 @@ class LessonQaItem {
         json['classLevel'],
         fallback: _safeText(subject['classLevel']),
       ),
-      lessonId: _safeText(lesson['_id']),
+      lessonId: _safeText(
+        lesson['_id'],
+        fallback: lessonRaw is String ? lessonRaw : '',
+      ),
       lessonTitle: _safeText(lesson['title']),
     );
   }

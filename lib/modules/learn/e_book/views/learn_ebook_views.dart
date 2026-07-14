@@ -6,6 +6,21 @@ import '../../common/subject_visual.dart';
 import '../controller/learn_ebook_controller.dart';
 import 'learn_ebook_discription_views.dart';
 
+/// e.g. "Official NCERT Textbook for Class 6 English".
+String _ncertTextbookLabel(String subject, String classLevel) {
+  final number = RegExp(r'\d+').firstMatch(classLevel)?.group(0) ?? '';
+  final classPart = number.isEmpty ? '' : 'Class $number ';
+  return 'Official NCERT Textbook for $classPart$subject';
+}
+
+/// Subtitle for each chapter tile, e.g. "NCERT Textbook • Class 6".
+String _ncertChapterSubtitle(String classLevel) {
+  final number = RegExp(r'\d+').firstMatch(classLevel)?.group(0) ?? '';
+  return number.isEmpty
+      ? 'Official NCERT Textbook'
+      : 'NCERT Textbook • Class $number';
+}
+
 class LearnEbookViews extends StatefulWidget {
   const LearnEbookViews({super.key});
 
@@ -88,6 +103,8 @@ class _LearnEbookViewsState extends State<LearnEbookViews> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(14, 16, 14, 28),
                   children: [
+                    const _EbookDisclaimer(),
+                    const SizedBox(height: 16),
                     TextField(
                       onChanged: (value) {
                         setState(() {
@@ -240,6 +257,90 @@ class _LearnEbookViewsState extends State<LearnEbookViews> {
   }
 }
 
+/// NCERT attribution shown at the top of the E-Books screen.
+class _EbookDisclaimer extends StatelessWidget {
+  const _EbookDisclaimer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF0FB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD6D9EE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: Color(0xFF4A4FD9),
+              ),
+              SizedBox(width: 6),
+              Text(
+                'Disclaimer',
+                style: TextStyle(
+                  color: Color(0xFF4A4FD9),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'This application provides access to textbooks published by NCERT '
+            'for educational purposes only. All textbook copyrights belong to '
+            'the National Council of Educational Research and Training (NCERT).',
+            style: TextStyle(
+              color: Color(0xFF515873),
+              fontSize: 12.5,
+              height: 1.55,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          // const SizedBox(height: 8),
+          // InkWell(
+          //   onTap: _openSource,
+          //   borderRadius: BorderRadius.circular(6),
+          //   child: Padding(
+          //     padding: const EdgeInsets.symmetric(vertical: 2),
+          //     child: Text.rich(
+          //       TextSpan(
+          //         children: const [
+          //           TextSpan(
+          //             text: 'Source: ',
+          //             style: TextStyle(
+          //               color: Color(0xFF515873),
+          //               fontSize: 12.5,
+          //               fontWeight: FontWeight.w600,
+          //             ),
+          //           ),
+          //           TextSpan(
+          //             text: 'ncert.nic.in',
+          //             style: TextStyle(
+          //               color: Color(0xFF4A4FD9),
+          //               fontSize: 12.5,
+          //               fontWeight: FontWeight.w700,
+          //               decoration: TextDecoration.underline,
+          //             ),
+          //           ),
+          //         ],
+          //       ),
+          //     ),
+          //   ),
+          // ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EbookStateView extends StatelessWidget {
   const _EbookStateView({
     required this.icon,
@@ -352,11 +453,12 @@ class _SubjectGroupCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  '${books.length} ${books.length == 1 ? ' E-book Available' : ' E-books Available'}',
-                  style: const TextStyle(
+                const Text(
+                  'This textbook is published by NCERT. Copyright belongs to NCERT.',
+                  style: TextStyle(
                     color: Color(0xFF72788D),
                     fontSize: 13,
+                    height: 1.4,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -427,7 +529,7 @@ class _SubjectGroupCard extends StatelessWidget {
                     color: visual.color,
                     shape: BoxShape.circle,
                   ),
-                  child: Text(
+                  child: Text(  
                     '$count',
                     style: const TextStyle(
                       color: Colors.white,
@@ -445,17 +547,21 @@ class _SubjectGroupCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Color(0xFF1D2231),
-                fontSize: 17,
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              '$count E-Book${count == 1 ? '' : 's'} Available',
+              _ncertTextbookLabel(
+                subject,
+                books.isNotEmpty ? books.first.classLevel : '',
+              ),
               style: const TextStyle(
                 color: Color(0xFF6F7588),
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
+                height: 1.35,
               ),
             ),
             const SizedBox(height: 12),
@@ -494,9 +600,6 @@ class _EbookSheetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final count = book.resourceCount;
-    final visual = subjectVisualFor(book.subject);
-    final coverUrl = book.coverImage?.url.trim() ?? '';
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -509,14 +612,6 @@ class _EbookSheetTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _EbookCoverThumb(
-              imageUrl: coverUrl,
-              visual: visual,
-              width: 44,
-              height: 54,
-              borderRadius: 2,
-            ),
-            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,17 +626,29 @@ class _EbookSheetTile extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (count > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '$count ${count == 1 ? 'file' : 'files'}',
-                      style: const TextStyle(
-                        color: Color(0xFF72788D),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.menu_book_rounded,
+                        size: 13,
+                        color: Color(0xFF4A4FD9),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          _ncertChapterSubtitle(book.classLevel),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF5A6076),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

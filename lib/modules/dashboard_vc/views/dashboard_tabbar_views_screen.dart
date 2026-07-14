@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
 import '../../../../core/service/app_route_observer.dart';
+import '../../../../core/service/app_update_service.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/theme/appcolors.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
+// import '../../subscription/subscription_views.dart'; // restore with Subscription button
 import '../../daily_quiz/views/start_quiz_views.dart';
 import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../daily_quiz/result/preview_result/views/preview_result_views.dart';
@@ -50,6 +52,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
       _handleLaunchArgs();
       _reloadHomeTabApis();
       _fetchProfile();
+      AppUpdateService.instance.checkForUpdate();
     });
   }
 
@@ -736,6 +739,28 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
             );
           }),
           const SizedBox(height: 18),
+          // Subscription button hidden for now. To restore, un-comment below.
+          // SizedBox(
+          //   width: double.infinity,
+          //   child: ElevatedButton.icon(
+          //     onPressed: () => Get.to(() => const SubscriptionViews()),
+          //     icon: const Icon(Icons.workspace_premium),
+          //     label: const Text('Subscription'),
+          //     style: ElevatedButton.styleFrom(
+          //       backgroundColor: AppColors.purpleDark2,
+          //       foregroundColor: AppColors.white,
+          //       padding: const EdgeInsets.symmetric(vertical: 16),
+          //       shape: RoundedRectangleBorder(
+          //         borderRadius: BorderRadius.circular(26),
+          //       ),
+          //       textStyle: const TextStyle(
+          //         fontSize: 16,
+          //         fontWeight: FontWeight.w700,
+          //       ),
+          //     ),
+          //   ),
+          // ),
+          // const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
               color: AppColors.white,

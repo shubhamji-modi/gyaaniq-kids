@@ -1,10 +1,17 @@
+import 'dart:async';
+import 'dart:ui';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import 'core/service/analytics_service.dart';
 import 'core/service/api_service.dart';
 import 'core/service/app_route_observer.dart';
 import 'core/service/session_manager.dart';
+import 'firebase_options.dart';
 import 'modules/auth/views/create_account_screen.dart';
 import 'modules/auth/views/forgot_password_views.dart';
 import 'modules/auth/views/login_screen.dart';
@@ -19,16 +26,48 @@ import 'package:provider/provider.dart';
 import 'core/data/user_profile_provider.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  await Get.putAsync(() => SessionManager().init());
-  Get.put(ApiService());
-  runApp(
-    MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => UserProfileProvider())],
-      child: const EduPathApp(),
-    ),
-  );
+  runZonedGuarded<Future<void>>(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+    // Guarded so a not-yet-configured platform (e.g. iOS before the
+    // GoogleService-Info.plist is added) can't crash app launch — Firebase
+    // simply stays off there.
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
+      // Route uncaught Flutter framework errors to Crashlytics.
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
+      // Route uncaught async/platform errors to Crashlytics.
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+
+      // Only now is it safe to touch FirebaseAnalytics.
+      AnalyticsService.instance.enable();
+    } catch (e) {
+      // Not configured on this platform yet (e.g. iOS before its
+      // GoogleService-Info.plist is added) — run without Firebase.
+      debugPrint('Firebase not initialized: $e');
+    }
+
+    await Get.putAsync(() => SessionManager().init());
+    Get.put(ApiService());
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => UserProfileProvider()),
+        ],
+        child: const EduPathApp(),
+      ),
+    );
+  }, (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  });
 }
 
 class EduPathApp extends StatelessWidget {
@@ -40,7 +79,7 @@ class EduPathApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'EduPath',
       initialRoute: AppRoutes.splash,
-      navigatorObservers: [appRouteObserver],
+      navigatorObservers: [appRouteObserver, AnalyticsService.instance.observer],
       getPages: [
         GetPage(name: AppRoutes.splash, page: () => const SplashView()),
         GetPage(name: AppRoutes.login, page: () => const LoginScreen()),

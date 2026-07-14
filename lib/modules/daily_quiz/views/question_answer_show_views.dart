@@ -21,6 +21,10 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   int _lastQuestionIndex = 0;
   bool _isFunFactOpen = false;
 
+  /// Master switch for the between-questions fun-fact interstitial.
+  /// Set to `true` to bring the feature back.
+  static const bool _funFactEnabled = false;
+
   @override
   void initState() {
     super.initState();
@@ -93,7 +97,7 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
     final previousIndex = _lastQuestionIndex;
     _lastQuestionIndex = newIndex;
 
-    if (controller.isReviewMode.value || _isFunFactOpen) {
+    if (!_funFactEnabled || controller.isReviewMode.value || _isFunFactOpen) {
       return;
     }
     // Only when moving forward.

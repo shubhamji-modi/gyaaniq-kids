@@ -194,6 +194,7 @@ enum LearnEbookCoverStyle { math, chemistry, history, english, biology }
 class LearnEbookModel {
   final String id;
   final String subject;
+  final String classLevel;
   final String title;
   final String filter;
   final Color accent;
@@ -215,6 +216,7 @@ class LearnEbookModel {
   const LearnEbookModel({
     required this.id,
     required this.subject,
+    this.classLevel = '',
     required this.title,
     required this.filter,
     required this.accent,
@@ -263,6 +265,10 @@ class LearnEbookModel {
     return LearnEbookModel(
       id: _safeText(json['_id']),
       subject: subjectName,
+      classLevel: _safeText(
+        json['classLevel'],
+        fallback: fallbackSubject.classLevel,
+      ),
       title: title,
       filter: subjectName,
       accent: fallbackSubject.accent,

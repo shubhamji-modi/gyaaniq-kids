@@ -314,8 +314,8 @@ class _ClassPrizesSheet extends StatelessWidget {
                         Obx(
                           () => Text(
                             controller.prizesClassLevel.value.isEmpty
-                                ? 'Top 5 prizes for your class'
-                                : 'Top 5 prizes for Class ${controller.prizesClassLevel.value}',
+                                ? 'Top 3 prizes for your class'
+                                : 'Top 3 prizes for Class ${controller.prizesClassLevel.value}',
                             style: const TextStyle(
                               color: Color(0xFF8A8F9C),
                               fontSize: 13,

@@ -25,20 +25,6 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
 
   final List<String> _languages = const [
     'English',
-    'Hindi',
-    'Marathi',
-    'Tamil',
-    'Telugu',
-    'Gujarati',
-    'Malayalam',
-    'Bengali',
-    'Other',
-    'Odia',
-    'Kashmiri',
-    'Nepali',
-    'Manipuri',
-    'Bodo',
-    'Konkani',
   ];
 
   final List<String> _classes = const [
@@ -52,27 +38,10 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
 
   final List<String> _primaryBoards = const [
     'CBSE',
-    'ICSE',
-    'IGCSE',
-    'State Board',
-    'Maharashtra Board',
   ];
 
   final List<String> _allBoards = const [
-    'Andhra Pradesh Board of Intermediate Education - BIEAP',
-    'Andhra Pradesh Board of Secondary Education - BSEAP',
-    'Andhra Pradesh Open School Society, SCERT Campus - APOSS',
-    'Assam Higher Secondary Education Council - AHSEC',
-    'Board of Secondary Education Assam - SEBA',
-    'Bihar Intermediate Education Council - BIEC',
-    'Bihar School Examination Board - BSEB',
-    'Bihar Sanskrit Shiksha Board - BSSB Patna',
-    'Bihar Board of Open Schooling & Examination - BBOSE',
     'CBSE',
-    'ICSE',
-    'IGCSE',
-    'Maharashtra Board',
-    'State Board',
   ];
 
   int _currentStep = 0;
