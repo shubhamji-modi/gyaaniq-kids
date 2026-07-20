@@ -36,6 +36,7 @@ class SubscriptionViews extends StatelessWidget {
                     _PlanCard(features: _features),
                     const SizedBox(height: 14),
                     const _SubscriptionActions(),
+                    const _CancelSubscriptionButton(),
                     const SizedBox(height: 20),
                     const _SubscriptionFooter(),
                   ],
@@ -48,6 +49,7 @@ class SubscriptionViews extends StatelessWidget {
     );
   }
 }
+
 
 class _SubscriptionTopBar extends StatelessWidget {
   const _SubscriptionTopBar();
@@ -277,8 +279,12 @@ class _PlanCard extends StatelessWidget {
                 child: GetBuilder<SubscriptionController>(
                   builder: (controller) => Obx(() {
                     final bool busy = controller.purchasing.value;
+                    final bool active =
+                        controller.subscription.value?.isActive == true;
                     return ElevatedButton(
-                      onPressed: busy ? null : controller.buy,
+                      onPressed: (busy || active)
+                          ? null
+                          : controller.initializePayment,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -301,19 +307,24 @@ class _PlanCard extends StatelessWidget {
                                     AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Row(
+                          : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Choose Pro',
-                                  style: TextStyle(
+                                  active ? 'Subscribed' : 'Choose Pro',
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                SizedBox(width: 10),
-                                Icon(Icons.rocket_launch_outlined, size: 22),
+                                const SizedBox(width: 10),
+                                Icon(
+                                  active
+                                      ? Icons.check_circle_outline
+                                      : Icons.rocket_launch_outlined,
+                                  size: 22,
+                                ),
                               ],
                             ),
                     );
@@ -387,6 +398,40 @@ class _SubscriptionActions extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CancelSubscriptionButton extends StatelessWidget {
+  const _CancelSubscriptionButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GetBuilder<SubscriptionController>(
+      builder: (controller) => Obx(() {
+        final bool active = controller.subscription.value?.isActive == true;
+        // Cancelling only makes sense for an active subscription.
+        if (!active) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: TextButton.icon(
+            onPressed: controller.cancelSubscription,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFC62828),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            icon: const Icon(Icons.cancel_outlined, size: 18),
+            label: const Text(
+              'Cancel Subscription',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }

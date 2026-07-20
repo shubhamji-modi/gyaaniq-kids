@@ -14,7 +14,7 @@ class ApiService extends GetxService {
   late Dio _dio;
 
   ///BASE URL
-  // static String baseUrl = 'https://cb4f-2405-201-301c-203c-747a-d121-9934-34f4.ngrok-free.app/api/v1/';
+  // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
   static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
 
   ///End points
@@ -63,6 +63,7 @@ class ApiService extends GetxService {
       'user/homework/upload-attachment';
   static const String HOMEWORK_MY_SUBMISSIONS = 'user/homework/my-submissions';
   static const String FUN_FACTS = 'user/fun-facts';
+  static const String FUN_FACT_BG_SOUNDS = 'user/fun-fact-bg-sounds';
   static const String USER_ATTENDANCE = 'user/attendance';
   static const String USER_ATTENDANCE_SUMMARY = 'user/attendance/summary';
   static const String FORGOT_PASSWORD = 'auth/forgot-password';
@@ -72,6 +73,9 @@ class ApiService extends GetxService {
   static const String USER_XP = 'user/xp';
   static const String LESSON_QA_BY_LESSON = 'user/lesson-qa/by-lesson/:lessonId';
   static const String LESSON_QA_SEARCH = 'user/lesson-qa/search';
+  static const String purchaseInitEndpoint = 'user/subscription/purchase-init';
+  static const String subscriptionEndpoint = 'user/subscription';
+
 
   @override
   void onInit() {

@@ -17,6 +17,10 @@ import '../../daily_quiz/views/start_quiz_views.dart';
 import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../daily_quiz/result/preview_result/views/preview_result_views.dart';
 import '../../daily_quiz/practice_test/Views/quiz_practice_paper_subject_views.dart';
+import '../../fun_fact/controller/fun_fact_controller.dart';
+import '../../fun_fact/fun_fact_image.dart';
+import '../../fun_fact/views/fun_fact_story_views.dart';
+import '../../subscription/subscription_views.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
 import 'performance_dna_views.dart';
 
@@ -93,6 +97,8 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
     final controller = Get.put(DashboardTabbarController());
     if (controller.currentTabIndex.value == 0) {
       controller.reloadHomeTabData();
+    } else if (controller.currentTabIndex.value == 2) {
+      controller.reloadQuizTabData();
     }
   }
 
@@ -263,16 +269,35 @@ class _BottomNavBar extends GetView<DashboardTabbarController> {
 
   static const List<int> _visibleTabIndexes = [0, 1, 2, 4];
 
+  // ---------------------------------------------------------------------------
+  // Palette — the app's original bottom-bar colours.
+  // ---------------------------------------------------------------------------
+  /// Bar background.
+  static const Color _barColor = AppColors.white;
+
+  /// Subtle rim around the bar.
+  static const Color _barBorder = Color(0xFFE7EAF4);
+
+  /// Active tab accent (filled pill).
+  static const Color _accent = AppColors.primaryBright;
+
+  /// Icon + label colour on the active accent pill.
+  static const Color _onAccent = AppColors.white;
+
+  /// Idle icons.
+  static const Color _inactive = AppColors.navUnselected;
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(28),
+          color: _barColor,
+          borderRadius: BorderRadius.circular(34),
+          border: Border.all(color: _barBorder),
           boxShadow: [
             BoxShadow(
               color: AppColors.primaryShadow.withValues(alpha: 0.18),
@@ -283,52 +308,85 @@ class _BottomNavBar extends GetView<DashboardTabbarController> {
         ),
         child: Obx(
           () => Row(
-            children: List.generate(_visibleTabIndexes.length, (index) {
-              final tabIndex = _visibleTabIndexes[index];
-              final item = controller.navItems[tabIndex];
-              final isSelected = controller.currentTabIndex.value == tabIndex;
-
-              return Expanded(
-                child: InkWell(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final tabIndex in _visibleTabIndexes)
+                _NavPill(
+                  item: controller.navItems[tabIndex],
+                  selected: controller.currentTabIndex.value == tabIndex,
+                  accent: _accent,
+                  onAccent: _onAccent,
+                  inactive: _inactive,
                   onTap: () => controller.changeTab(tabIndex),
-                  borderRadius: BorderRadius.circular(24),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primaryBright
-                          : AppColors.transparent,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          item.icon,
-                          color: isSelected
-                              ? AppColors.white
-                              : AppColors.navUnselected,
-                          size: 18,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          item.label,
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppColors.white
-                                : AppColors.navUnselected,
-                            fontSize: 7,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-              );
-            }),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One tab: an icon that expands into an accent pill with its label when
+/// selected, and collapses back to a bare icon when not.
+class _NavPill extends StatelessWidget {
+  const _NavPill({
+    required this.item,
+    required this.selected,
+    required this.accent,
+    required this.onAccent,
+    required this.inactive,
+    required this.onTap,
+  });
+
+  final DashboardNavItemData item;
+  final bool selected;
+  final Color accent;
+  final Color onAccent;
+  final Color inactive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.symmetric(
+          horizontal: selected ? 18 : 13,
+          vertical: 11,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(item.icon, size: 22, color: selected ? onAccent : inactive),
+            // The label only exists for the selected tab; AnimatedSize slides
+            // the pill open/closed as selection moves.
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              child: selected
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        item.label,
+                        style: TextStyle(
+                          fontFamily: 'Lexend',
+                          color: onAccent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ),
       ),
     );
@@ -553,6 +611,8 @@ class _HomeTab extends StatelessWidget {
               const _JourneyCard(),
               const SizedBox(height: 18),
             ],
+            const _FunFactCard(),
+            const SizedBox(height: 18),
             const _DailyQuizMiniCard(),
             const SizedBox(height: 18),
             const _HomeMockTestCard(),
@@ -740,7 +800,8 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
           }),
           const SizedBox(height: 18),
           // Subscription button hidden for now. To restore, un-comment below.
-          // SizedBox(
+          // Platform.isIOS
+          //     ? SizedBox(
           //   width: double.infinity,
           //   child: ElevatedButton.icon(
           //     onPressed: () => Get.to(() => const SubscriptionViews()),
@@ -759,7 +820,9 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
           //       ),
           //     ),
           //   ),
-          // ),
+          // )
+          //     : const SizedBox.shrink(),
+
           // const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
@@ -994,14 +1057,16 @@ IconData _subjectIcon(String name, IconData fallback) {
     return Icons.translate_rounded;
   }
   if (has('english') || has('अंग्रेज')) return Icons.menu_book_rounded;
-  if (has('science') || has('विज्ञान')) return Icons.science_rounded;
+  // Social Science contains "science", so this must be checked first.
   if (has('social') ||
       has('sst') ||
       has('history') ||
       has('civics') ||
-      has('geograph')) {
+      has('geograph') ||
+      has('सामाजिक')) {
     return Icons.public_rounded;
   }
+  if (has('science') || has('विज्ञान')) return Icons.science_rounded;
   if (has('computer') || has('coding') || has('comp')) {
     return Icons.computer_rounded;
   }
@@ -1022,15 +1087,17 @@ Color _subjectColor(String name, Color fallback) {
     return const Color(0xFFE4572E); // warm red
   }
   if (has('english') || has('अंग्रेज')) return const Color(0xFF19945F); // green
-  if (has('science') || has('विज्ञान')) {
-    return const Color(0xFFE8590C); // orange
-  }
+  // Social Science contains "science", so this must be checked first.
   if (has('social') ||
       has('sst') ||
       has('history') ||
       has('civics') ||
-      has('geograph')) {
+      has('geograph') ||
+      has('सामाजिक')) {
     return const Color(0xFF8A2CD5); // purple
+  }
+  if (has('science') || has('विज्ञान')) {
+    return const Color(0xFFE8590C); // orange
   }
   if (has('computer') || has('coding') || has('comp')) {
     return const Color(0xFF1671D9); // blue
@@ -1045,7 +1112,235 @@ Color _subjectColor(String name, Color fallback) {
   return fallback;
 }
 
-class _DailyQuizMiniCard extends StatelessWidget {
+/// Horizontal, story-style strip of the child's own subjects. Sits above the
+/// Daily Quiz card on the Home tab.
+class _FunFactCard extends StatefulWidget {
+  const _FunFactCard();
+
+  /// Ring size, label gap and label line height. Kept here so the strip's
+  /// SizedBox height below stays in sync with the item it holds.
+  static const double _ringSize = 62;
+  static const double _labelGap = 8;
+  static const double _labelHeight = 16;
+
+  @override
+  State<_FunFactCard> createState() => _FunFactCardState();
+}
+
+class _FunFactCardState extends State<_FunFactCard> {
+  /// URLs already handed to the image cache, so a rebuild does not re-warm
+  /// what is already warm.
+  final Set<String> _warmedUrls = <String>{};
+
+  /// Decodes each story's opening image ahead of the tap, so the story opens
+  /// on a picture rather than a spinner.
+  void _warmStoryImages() {
+    if (!mounted) {
+      return;
+    }
+    for (final url in FunFactController.instance.openingImageUrls) {
+      if (_warmedUrls.add(url)) {
+        final startedAt = DateTime.now();
+        // onError is required, not optional: precacheImage completes normally
+        // on failure and raises an unhandled framework error without it. A
+        // deleted fun fact must not surface as a crash on the Home tab.
+        precacheImage(
+          funFactImage(url),
+          context,
+          onError: (_, _) => debugPrint('[FunFact] warm FAILED: $url'),
+        ).then((_) {
+          debugPrint(
+            '[FunFact] warmed in '
+            '${DateTime.now().difference(startedAt).inMilliseconds}ms: $url',
+          );
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<DashboardTabbarController>();
+
+    return Obx(() {
+      // Read inside the Obx so this rebuilds as the preload lands, then warm
+      // after the frame — precaching is a side effect and cannot run in build.
+      final openingUrls = FunFactController.instance.openingImageUrls;
+      if (openingUrls.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _warmStoryImages());
+      }
+
+      // Optional strip: nothing to show without subjects, so drop the whole
+      // card rather than leaving an empty box on the Home tab.
+      if (controller.learnSubjectsError.value.isNotEmpty ||
+          (!controller.isLoadingLearnSubjects.value &&
+              controller.learnSubjects.isEmpty)) {
+        return const SizedBox.shrink();
+      }
+
+      final isLoading = controller.isLoadingLearnSubjects.value;
+
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(18, 16, 0, 16),
+        decoration: _cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Fun Fact',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height:
+                  _FunFactCard._ringSize +
+                  _FunFactCard._labelGap +
+                  _FunFactCard._labelHeight,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(right: 18),
+                itemCount: isLoading ? 4 : controller.learnSubjects.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  if (isLoading) {
+                    return const _FunFactSkeletonItem();
+                  }
+                  return _FunFactSubjectItem(
+                    subject: controller.learnSubjects[index],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _FunFactSubjectItem extends StatelessWidget {
+  const _FunFactSubjectItem({required this.subject});
+
+  final SubjectCardData subject;
+
+  /// Stories with anything left to watch get the warm gradient; the ring only
+  /// goes flat grey once the whole batch has been seen, the same signal
+  /// Instagram uses.
+  static const LinearGradient _unwatchedRing = LinearGradient(
+    begin: Alignment.bottomLeft,
+    end: Alignment.topRight,
+    colors: [Color(0xFFF97C3C), Color(0xFFDD2A7B)],
+  );
+  static const LinearGradient _watchedRing = LinearGradient(
+    colors: [Color(0xFFD8DAE0), Color(0xFFD8DAE0)],
+  );
+
+  void _openStory() {
+    final accent = _subjectColor(subject.title, subject.accent);
+    Get.to<void>(
+      () => FunFactStoryViews(
+        subjectId: subject.subjectId,
+        subjectTitle: subject.title,
+        subjectIcon: _subjectIcon(subject.title, subject.icon),
+        subjectAccent: accent,
+        subjectIconBackground: accent.withValues(alpha: 0.12),
+      ),
+      fullscreenDialog: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Match the icon and accent to the subject by name — the same mapping the
+    // other subject chips use. The palette on SubjectCardData is index-based, so
+    // reading subject.icon directly gives the wrong glyph (e.g. a flask on
+    // Hindi); resolve by title instead.
+    final icon = _subjectIcon(subject.title, subject.icon);
+    final accent = _subjectColor(subject.title, subject.accent);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: _openStory,
+          child: Obx(
+            () => Container(
+              width: _FunFactCard._ringSize,
+              height: _FunFactCard._ringSize,
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: FunFactController.instance.isCompleted(
+                  subject.subjectId,
+                )
+                    ? _watchedRing
+                    : _unwatchedRing,
+              ),
+              // White gap between the ring and the icon disc.
+              child: Container(
+                padding: const EdgeInsets.all(2.5),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.white,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: accent.withValues(alpha: 0.12),
+                  ),
+                  child: Icon(icon, color: accent, size: 24),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: _FunFactCard._labelGap),
+        SizedBox(
+          width: 72,
+          height: _FunFactCard._labelHeight,
+          child: Text(
+            subject.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.neutralText5,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FunFactSkeletonItem extends StatelessWidget {
+  const _FunFactSkeletonItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ShimmerBox(
+          width: _FunFactCard._ringSize,
+          height: _FunFactCard._ringSize,
+          radius: _FunFactCard._ringSize / 2,
+        ),
+        SizedBox(height: _FunFactCard._labelGap),
+        _ShimmerBox(width: 52, height: 10, radius: 5),
+      ],
+    );
+  }
+}
+
+class _DailyQuizMiniCard extends GetView<DashboardTabbarController> {
   const _DailyQuizMiniCard();
 
   @override
@@ -1081,21 +1376,23 @@ class _DailyQuizMiniCard extends StatelessWidget {
                   color: const Color(0xFFFFC833),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.star_rounded,
                       color: Color(0xFF1B2C8A),
                       size: 14,
                     ),
-                    SizedBox(width: 5),
-                    Text(
-                      'BONUS +10 XP',
-                      style: TextStyle(
-                        color: Color(0xFF1B2C8A),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                    const SizedBox(width: 5),
+                    Obx(
+                      () => Text(
+                        controller.userXpSummary.value.dailyQuizXpLabel,
+                        style: const TextStyle(
+                          color: Color(0xFF1B2C8A),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
@@ -2452,8 +2749,9 @@ class _AnalyticsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 12 (title) + 18 (gap) + 124 (tallest bar) = 154.
     return const SizedBox(
-      height: 150,
+      height: 154,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2543,7 +2841,7 @@ class _StudyToolCard extends StatelessWidget {
   }
 }
 
-class _QuizChallengeCard extends StatelessWidget {
+class _QuizChallengeCard extends GetView<DashboardTabbarController> {
   const _QuizChallengeCard();
 
   @override
@@ -2603,21 +2901,23 @@ class _QuizChallengeCard extends StatelessWidget {
                     color: const Color(0xFF141F5E),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.star_rounded,
                         color: Color(0xFFFFC833),
                         size: 14,
                       ),
-                      SizedBox(width: 4),
-                      Text(
-                        '+20 XP',
-                        style: TextStyle(
-                          color: AppColors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                      const SizedBox(width: 4),
+                      Obx(
+                        () => Text(
+                          controller.userXpSummary.value.dailyQuizXpLabel,
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ],
@@ -3068,35 +3368,35 @@ class _AnalyticsCard extends GetView<DashboardTabbarController> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Divider(height: 1, thickness: 1, color: Color(0xFFEDEFF4)),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _AnalyticsStat(
-                        emoji: '🔥',
-                        value: '$currentStreak Day',
-                        label: 'Current Streak',
-                      ),
-                    ),
-                    Container(width: 1, height: 34, color: const Color(0xFFEDEFF4)),
-                    Expanded(
-                      child: _AnalyticsStat(
-                        emoji: '⭐',
-                        value: '$earnedThisWeek XP',
-                        label: 'Earned This Week',
-                      ),
-                    ),
-                    Container(width: 1, height: 34, color: const Color(0xFFEDEFF4)),
-                    Expanded(
-                      child: _AnalyticsStat(
-                        emoji: '📊',
-                        value: '$attemptedCount',
-                        label: 'Quizzes Attempted',
-                      ),
-                    ),
-                  ],
-                ),
+                // const Divider(height: 1, thickness: 1, color: Color(0xFFEDEFF4)),
+                // const SizedBox(height: 14),
+                // Row(
+                //   children: [
+                //     Expanded(
+                //       child: _AnalyticsStat(
+                //         emoji: '🔥',
+                //         value: '$currentStreak Day',
+                //         label: 'Current Streak',
+                //       ),
+                //     ),
+                //     Container(width: 1, height: 34, color: const Color(0xFFEDEFF4)),
+                //     Expanded(
+                //       child: _AnalyticsStat(
+                //         emoji: '⭐',
+                //         value: '$earnedThisWeek XP',
+                //         label: 'Earned This Week',
+                //       ),
+                //     ),
+                //     Container(width: 1, height: 34, color: const Color(0xFFEDEFF4)),
+                //     Expanded(
+                //       child: _AnalyticsStat(
+                //         emoji: '📊',
+                //         value: '$attemptedCount',
+                //         label: 'Quizzes Attempted',
+                //       ),
+                //     ),
+                //   ],
+                // ),
               ],
             );
           }),
@@ -3292,16 +3592,34 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
   List<QuizSubmitResultItem> _dailyResults = const [];
   List<QuizSubmitResultItem> _practiceResults = const [];
   List<QuizSubmitResultItem> _mockResults = const [];
+  Worker? _refreshWorker;
 
   @override
   void initState() {
     super.initState();
+    // Reload whenever the Quiz tab is (re)opened so history stays fresh.
+    final controller = Get.find<DashboardTabbarController>();
+    _refreshWorker = ever<int>(controller.quizHistoryRefreshTick, (_) {
+      if (mounted) {
+        _loadResults(silent: true);
+      }
+    });
     _loadResults();
   }
 
-  Future<void> _loadResults() async {
+  @override
+  void dispose() {
+    _refreshWorker?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadResults({bool silent = false}) async {
+    // On a background refresh (tab reopen) keep the existing list visible
+    // instead of flashing the full-card spinner.
     setState(() {
-      _isLoading = true;
+      if (!silent) {
+        _isLoading = true;
+      }
       _dailyErrorMessage = '';
       _practiceErrorMessage = '';
       _mockErrorMessage = '';

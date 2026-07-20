@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../core/widgets/math_html_text.dart';
+
 import '../../chapter/views/learn_subject_views.dart';
 import '../controller/lesson_qa_controller.dart';
 import 'lesson_qa_search_views.dart';
@@ -321,17 +323,28 @@ class _QaPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            item.answer.isEmpty
-                                ? 'Answer will be available soon.'
-                                : item.answer,
-                            style: const TextStyle(
-                              color: Color(0xFF43485A),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              height: 1.6,
+                          if (item.answer.isEmpty)
+                            const Text(
+                              'Answer will be available soon.',
+                              style: TextStyle(
+                                color: Color(0xFF43485A),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                height: 1.6,
+                              ),
+                            )
+                          else
+                            MathHtmlText(
+                              item.answerHtml.isEmpty
+                                  ? item.answer
+                                  : item.answerHtml,
+                              textStyle: const TextStyle(
+                                color: Color(0xFF43485A),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                height: 1.6,
+                              ),
                             ),
-                          ),
                           const SizedBox(height: 14),
                           GestureDetector(
                             onTap: () => controller.toggleRevealed(item.id),

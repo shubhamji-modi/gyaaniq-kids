@@ -27,6 +27,19 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
+        // iOS still holds placeholder values (no real GoogleService-Info.plist
+        // yet). Throwing here — inside the guarded init in main() — lets the app
+        // launch with Firebase disabled on iOS instead of passing an invalid
+        // GOOGLE_APP_ID to the native SDK, which would raise an uncatchable
+        // NSException and crash on launch. Remove this guard once real iOS
+        // values are filled in below.
+        if (ios.appId == 'IOS_APP_ID') {
+          throw UnsupportedError(
+            'Firebase iOS is not configured yet. Add '
+            'ios/Runner/GoogleService-Info.plist and replace the placeholder '
+            'iOS values in firebase_options.dart (run `flutterfire configure`).',
+          );
+        }
         return ios;
       default:
         throw UnsupportedError(
@@ -52,6 +65,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '792534498801',
     projectId: 'gyaaniqkids',
     storageBucket: 'gyaaniqkids.firebasestorage.app',
-    iosBundleId: 'org.gyaaniqkids.ai',
+    iosBundleId: 'com.gyaaniqkids.app',
   );
 }

@@ -15,6 +15,10 @@ import '../../../daily_quiz/practice_test/Views/practice_quiz_overview.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_subject_views.dart';
 
+/// Toggle for the PDF UI in the Lesson Overview screen (Download PDF button and
+/// the LESSON RESOURCES section). Set to `true` to bring the PDF features back.
+const bool _kShowLessonPdf = false;
+
 class LearnLessonPlayerViews extends StatefulWidget {
   const LearnLessonPlayerViews({
     super.key,
@@ -108,38 +112,42 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
                       fallbackText: lesson.notes,
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  _LessonDownloadActions(lesson: lesson),
-                  const SizedBox(height: 34),
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.attach_file_rounded,
-                        color: Color(0xFF4C4F5E),
-                        size: 22,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'LESSON RESOURCES',
-                        style: TextStyle(
+                  // PDF UI (Download PDF button + LESSON RESOURCES section) is
+                  // hidden. Flip `_kShowLessonPdf` to true to restore it.
+                  if (_kShowLessonPdf) ...[
+                    const SizedBox(height: 24),
+                    _LessonDownloadActions(lesson: lesson),
+                    const SizedBox(height: 34),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.attach_file_rounded,
                           color: Color(0xFF4C4F5E),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
+                          size: 22,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'LESSON RESOURCES',
+                          style: TextStyle(
+                            color: Color(0xFF4C4F5E),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    if (lesson.resources.isEmpty)
+                      const _NoPdfStateCard()
+                    else
+                      ...lesson.resources.map(
+                        (resource) => Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: _LessonResourceCard(resource: resource),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  if (lesson.resources.isEmpty)
-                    const _NoPdfStateCard()
-                  else
-                    ...lesson.resources.map(
-                      (resource) => Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
-                        child: _LessonResourceCard(resource: resource),
-                      ),
-                    ),
+                  ],
                 ],
               ),
             ),

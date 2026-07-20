@@ -357,26 +357,6 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.verified_rounded,
-                          color: Color(0xFF7B7C91),
-                          size: 20,
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          'Premium Member since 2026',
-                          style: TextStyle(
-                            color: Color(0xFF7B7C91),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -412,6 +392,27 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 28),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.verified_rounded,
+                          color: Color(0xFF7B7C91),
+                          size: 20,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Premium Member since 2026',
+                          style: TextStyle(
+                            color: Color(0xFF7B7C91),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
                   ],
                 ),
               ),

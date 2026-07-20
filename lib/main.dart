@@ -12,6 +12,7 @@ import 'core/service/api_service.dart';
 import 'core/service/app_route_observer.dart';
 import 'core/service/session_manager.dart';
 import 'firebase_options.dart';
+import 'modules/fun_fact/controller/fun_fact_controller.dart';
 import 'modules/auth/views/create_account_screen.dart';
 import 'modules/auth/views/forgot_password_views.dart';
 import 'modules/auth/views/login_screen.dart';
@@ -57,6 +58,9 @@ Future<void> main() async {
 
     await Get.putAsync(() => SessionManager().init());
     Get.put(ApiService());
+    // Outlives the dashboard so the story rings keep their seen state when the
+    // Home tab is rebuilt.
+    Get.put(FunFactController(), permanent: true);
     runApp(
       MultiProvider(
         providers: [
@@ -66,7 +70,13 @@ Future<void> main() async {
       ),
     );
   }, (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    // Print first, always. Crashlytics is optional: when Firebase failed to
+    // initialise, touching it here throws 'No Firebase App' and that becomes
+    // the only error anyone sees — the actual bug is lost.
+    debugPrint('UNCAUGHT ERROR: $error\n$stack');
+    if (Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
   });
 }
 

@@ -39,7 +39,7 @@ class LeaderboardController extends GetxController {
       endpoint: ApiService.USER_LEADERBOARD,
       showLoader: false,
       fromJson: (json) => json,
-      queryParameters: const {'topLimit': 10},
+      queryParameters: const {'topLimit': 100},
     );
 
     isLoading.value = false;

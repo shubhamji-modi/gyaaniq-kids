@@ -28,7 +28,7 @@ class AppUpdateService {
   static const String _iosAppStoreId = '0000000000';
 
   static const String _androidPackage = 'com.gyaaniqkids.app';
-  static const String _iosBundleId = 'org.gyaaniqkids.ai';
+  static const String _iosBundleId = 'com.gyaaniqkids.app';
 
   final Dio _dio = Dio();
   bool _isChecking = false;

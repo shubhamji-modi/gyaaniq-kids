@@ -3,6 +3,10 @@ import 'package:get/get.dart';
 
 import 'my_course_data.dart';
 
+/// Toggle for the PDF "Resources" tab in the course details screen. Set to
+/// `true` to bring the PDF resources tab back.
+const bool _kShowCourseResourcesTab = false;
+
 class MyCourseDetailsViews extends StatefulWidget {
   const MyCourseDetailsViews({
     super.key,
@@ -26,7 +30,10 @@ class _MyCourseDetailsViewsState extends State<MyCourseDetailsViews>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: _kShowCourseResourcesTab ? 2 : 1,
+      vsync: this,
+    );
     MyCourseRepository.markLessonViewed(widget.course.id, widget.lesson.id);
   }
 
@@ -130,7 +137,7 @@ class _MyCourseDetailsViewsState extends State<MyCourseDetailsViews>
                           ),
                           tabs: const [
                             Tab(text: 'Notes'),
-                            Tab(text: 'Resources'),
+                            if (_kShowCourseResourcesTab) Tab(text: 'Resources'),
                           ],
                         ),
                         SizedBox(
@@ -139,7 +146,8 @@ class _MyCourseDetailsViewsState extends State<MyCourseDetailsViews>
                             controller: _tabController,
                             children: [
                               _NotesTab(lesson: widget.lesson),
-                              _ResourcesTab(lesson: widget.lesson),
+                              if (_kShowCourseResourcesTab)
+                                _ResourcesTab(lesson: widget.lesson),
                             ],
                           ),
                         ),

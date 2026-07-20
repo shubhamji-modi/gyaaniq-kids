@@ -4,6 +4,10 @@ import 'package:get/get.dart';
 
 import '../../../../core/service/offline_download_service.dart';
 
+/// Toggle for PDF content in the Downloads screen (the downloaded PDF list and
+/// the PDF storage stat). Set to `true` to bring the PDF downloads back.
+const bool _kShowPdfDownloads = false;
+
 class MenubarDownloadViews extends StatefulWidget {
   const MenubarDownloadViews({super.key});
 
@@ -112,9 +116,11 @@ class _MenubarDownloadViewsState extends State<MenubarDownloadViews> {
   }
 
   Future<void> _loadDownloads() async {
-    final items = (await OfflineDownloadService.instance.getItems())
-        .where((item) => item.type == OfflineDownloadType.pdf)
-        .toList();
+    final items = _kShowPdfDownloads
+        ? (await OfflineDownloadService.instance.getItems())
+              .where((item) => item.type == OfflineDownloadType.pdf)
+              .toList()
+        : <OfflineDownloadItem>[];
     if (!mounted) {
       return;
     }
@@ -325,7 +331,7 @@ class _StorageCard extends StatelessWidget {
               height: 8,
               child: Row(
                 children: [
-                  if (pdfFraction > 0)
+                  if (_kShowPdfDownloads && pdfFraction > 0)
                     Expanded(
                       flex: ((pdfFraction * 1000).round()).clamp(1, 1000),
                       child: Container(
@@ -350,10 +356,11 @@ class _StorageCard extends StatelessWidget {
             spacing: 28,
             runSpacing: 12,
             children: [
-              _StorageLegend(
-                color: const Color(0xFF7D1FD0),
-                label: 'PDFs (${_formatStorageSize(summary.pdfBytes)})',
-              ),
+              if (_kShowPdfDownloads)
+                _StorageLegend(
+                  color: const Color(0xFF7D1FD0),
+                  label: 'PDFs (${_formatStorageSize(summary.pdfBytes)})',
+                ),
             ],
           ),
         ],

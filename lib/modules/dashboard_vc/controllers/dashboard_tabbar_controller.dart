@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/data/user_profile_provider.dart';
+import '../../../core/models/xp_config_data.dart';
 import '../../../core/service/api_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/theme/appcolors.dart';
@@ -19,6 +20,8 @@ import '../../learn/attendance/controller/learn_attendance_controller.dart';
 import '../../learn/attendance/views/learn_attendance_views.dart';
 import '../../learn/doubt_solve/views/learn_doubt_solve_views.dart';
 import '../../learn/e_book/views/learn_ebook_views.dart';
+import '../../fun_fact/controller/fun_fact_bg_sound_player.dart';
+import '../../fun_fact/controller/fun_fact_controller.dart';
 import '../../learn/homework/views/learn_homework_views.dart';
 import '../../learn/notes/views/learn_notes_views.dart';
 import '../../menubar/xp_and_streak/xp_and_streak_show_views.dart';
@@ -69,6 +72,12 @@ class DashboardTabbarController extends GetxController {
   final String appBuild = 'App Build: v1.0.2';
   bool _isReloadingHomeTabData = false;
   bool _isReloadingQuizTabData = false;
+
+  /// Bumped whenever the Quiz tab is (re)opened so the Quiz History card
+  /// reloads its results instead of showing stale data from its first build.
+  final RxInt quizHistoryRefreshTick = 0.obs;
+
+  void refreshQuizHistory() => quizHistoryRefreshTick.value++;
 
   final List<DashboardNavItemData> navItems = const [
     DashboardNavItemData(label: 'Home', icon: Icons.home_rounded),
@@ -122,13 +131,13 @@ class DashboardTabbarController extends GetxController {
     //   accent: Color(0xFFC91F1F),
     //   iconBackground: Color(0xFFFFDEDE),
     // ),
-    const StudyToolData(
-      title: 'E-Book',
-      subtitle: 'Access digital textbook',
-      icon: Icons.library_books_outlined,
-      accent: Color(0xFF4A4FD9),
-      iconBackground: Color(0xFFF0F1F5),
-    ),
+    // const StudyToolData(
+    //   title: 'E-Book',
+    //   subtitle: 'Access digital textbook',
+    //   icon: Icons.library_books_outlined,
+    //   accent: Color(0xFF4A4FD9),
+    //   iconBackground: Color(0xFFF0F1F5),
+    // ),
     StudyToolData(
       title: 'Attendance',
       subtitle: attendanceSubtitle,
@@ -174,7 +183,7 @@ class DashboardTabbarController extends GetxController {
   final List<ProfileMenuData> profileMenuItems = const [
     ProfileMenuData(title: 'Leaderboard', icon: Icons.leaderboard_outlined),
     ProfileMenuData(title: 'My Course', icon: Icons.import_contacts_rounded),
-    ProfileMenuData(title: 'Downloads', icon: Icons.download_outlined),
+    // ProfileMenuData(title: 'Downloads', icon: Icons.download_outlined),
     ProfileMenuData(
       title: 'Terms of Service',
       icon: Icons.description_outlined,
@@ -220,6 +229,10 @@ class DashboardTabbarController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Deliberately the dashboard's first request. Fun-fact images take the
+    // longest to become usable, so they get a head start instead of queueing
+    // behind the progress and subjects calls.
+    unawaited(FunFactController.instance.preloadFromCachedSubjects());
     loadDashboardData();
     _liveClassClockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (currentTabIndex.value == 3 && liveClassSchedules.isNotEmpty) {
@@ -266,6 +279,7 @@ class DashboardTabbarController extends GetxController {
 
     _isReloadingQuizTabData = true;
     try {
+      refreshQuizHistory();
       await loadMockTests();
       await loadDailyQuizAnalytics();
     } finally {
@@ -633,6 +647,20 @@ class DashboardTabbarController extends GetxController {
     );
 
     isLoadingLearnSubjects.value = false;
+
+    // Warm today's fun-fact stories so tapping a subject opens instantly.
+    // Fire-and-forget: the Home tab must never wait on an optional strip.
+    // Already-cached subjects cost no request, so a reload is free.
+    unawaited(
+      FunFactController.instance.preloadForSubjects([
+        for (final subject in learnSubjects)
+          (id: subject.subjectId, title: subject.title),
+      ]),
+    );
+
+    // Fetch the ambient background-sound URLs once, in the background, so the
+    // audio bed is ready the instant a Fun Fact story opens.
+    unawaited(FunFactBgSoundPlayer.instance.ensureFetched());
   }
 
   void openLeaderboard() {
@@ -1017,20 +1045,36 @@ class UserXpSummaryData {
     this.xp = 0,
     this.streakCount = 0,
     this.lastIncrementedAt,
+    this.dailyQuizXp = 0,
   });
 
   final int xp;
   final int streakCount;
   final DateTime? lastIncrementedAt;
 
+  /// XP for attempting a daily quiz, read from the server XP config. Drives
+  /// the "+X XP" badge on both Daily Quiz cards.
+  ///
+  /// Deliberately excludes `dailyQuizPassBonusXp`: the badge advertises what
+  /// the child is guaranteed for playing, not the best case for passing.
+  final int dailyQuizXp;
+
   factory UserXpSummaryData.fromApi(Map<String, dynamic> json) {
     final streak = _safeMap(json['streak']);
+    final config = json['config'];
+    final int dailyQuizXp = config is Map<String, dynamic>
+        ? XpConfigData.fromApi(config).dailyQuizAttemptXp
+        : 0;
     return UserXpSummaryData(
       xp: (json['xp'] as num?)?.toInt() ?? 0,
       streakCount: (streak['count'] as num?)?.toInt() ?? 0,
       lastIncrementedAt: _parseApiDate(streak['lastIncrementedAt']),
+      dailyQuizXp: dailyQuizXp,
     );
   }
+
+  /// Badge label for the Daily Quiz cards, e.g. "+10 XP".
+  String get dailyQuizXpLabel => '+$dailyQuizXp XP';
 
   String get xpText => _formatCompactNumber(xp);
 

@@ -16,14 +16,6 @@ class QuestionAnswerShowViews extends StatefulWidget {
 class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   late final QuestionAnswerShowController controller;
   Timer? _timer;
-  Worker? _funFactWorker;
-  Worker? _funFactPrecacheWorker;
-  int _lastQuestionIndex = 0;
-  bool _isFunFactOpen = false;
-
-  /// Master switch for the between-questions fun-fact interstitial.
-  /// Set to `true` to bring the feature back.
-  static const bool _funFactEnabled = false;
 
   @override
   void initState() {
@@ -36,24 +28,11 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
         controller.incrementTimer();
       });
 
-      _lastQuestionIndex = controller.currentQuestionIndex.value;
-      _funFactWorker = ever<int>(
-        controller.currentQuestionIndex,
-        _onQuestionIndexChanged,
-      );
-
-      // Warm the image cache so each fun fact story opens instantly. Facts
-      // may already be loaded, or arrive shortly after (async fetch).
+      // Preload every question / option image up front so the picture is
+      // already on screen the moment the child reaches that question.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _precacheFunFacts();
-        // Preload every question / option image up front so the picture is
-        // already on screen the moment the child reaches that question.
         _precacheQuestionImages();
       });
-      _funFactPrecacheWorker = ever(
-        controller.funFactUrls,
-        (_) => _precacheFunFacts(),
-      );
     }
   }
 
@@ -79,66 +58,9 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
     }
   }
 
-  void _precacheFunFacts() {
-    if (!mounted) {
-      return;
-    }
-    for (final url in controller.funFactUrls) {
-      if (url.isEmpty) {
-        continue;
-      }
-      unawaited(precacheImage(NetworkImage(url), context).catchError((_) {}));
-    }
-  }
-
-  /// Shows a fun-fact interstitial when the child advances forward past a fun
-  /// fact boundary (i.e. after finishing every Nth question).
-  void _onQuestionIndexChanged(int newIndex) {
-    final previousIndex = _lastQuestionIndex;
-    _lastQuestionIndex = newIndex;
-
-    if (!_funFactEnabled || controller.isReviewMode.value || _isFunFactOpen) {
-      return;
-    }
-    // Only when moving forward.
-    if (newIndex <= previousIndex) {
-      return;
-    }
-    // The human question number the child just left.
-    final leftQuestionNumber = previousIndex + 1;
-    if (leftQuestionNumber % controller.funFactInterval != 0) {
-      return;
-    }
-
-    final url = controller.consumeFunFactForBoundary(leftQuestionNumber);
-    debugPrint(
-      '[FunFact] Boundary after Q$leftQuestionNumber → '
-      '${url == null || url.isEmpty ? 'nothing to show '
-          '(loaded=${controller.funFactUrls.length})' : 'showing story'}',
-    );
-    if (url == null || url.isEmpty) {
-      return;
-    }
-    _showFunFact(url);
-  }
-
-  Future<void> _showFunFact(String url) async {
-    _isFunFactOpen = true;
-    await Get.to<void>(
-      () => _FunFactStoryView(imageUrls: [url]),
-      fullscreenDialog: true,
-      opaque: false,
-      transition: Transition.fadeIn,
-      duration: const Duration(milliseconds: 220),
-    );
-    _isFunFactOpen = false;
-  }
-
   @override
   void dispose() {
     _timer?.cancel();
-    _funFactWorker?.dispose();
-    _funFactPrecacheWorker?.dispose();
     super.dispose();
   }
 
@@ -792,13 +714,10 @@ class _ExplanationSection extends GetView<QuestionAnswerShowController> {
           children: [
             if (explanation != null)
               _ExplanationCard(text: explanation.explanation)
-            else if (isLoading)
-              const _ExplanationLoadingCard()
             else if (errorMessage.isNotEmpty)
               _ExplanationErrorCard(message: errorMessage),
             if (explanation == null) ...[
-              if (isLoading || errorMessage.isNotEmpty)
-                const SizedBox(height: 14),
+              if (errorMessage.isNotEmpty) const SizedBox(height: 14),
               SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
@@ -887,42 +806,6 @@ class _ExplanationCard extends StatelessWidget {
               fontSize: 15,
               fontWeight: FontWeight.w500,
               height: 1.55,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExplanationLoadingCard extends StatelessWidget {
-  const _ExplanationLoadingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F7FF),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFD3E6FF), width: 1.4),
-      ),
-      child: const Row(
-        children: [
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Preparing explanation...',
-              style: TextStyle(
-                color: Color(0xFF1565C0),
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
             ),
           ),
         ],
@@ -1570,334 +1453,6 @@ class _SubmitQuizDialog extends StatelessWidget {
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A full-screen, Instagram-story-style interstitial that plays teacher-curated
-/// fun fact images between quiz questions. Each slide auto-advances on a timer
-/// bar; the child can tap right/left to skip forward/back, tap-and-hold to
-/// pause, or swipe down / tap ✕ to return to the quiz. A missing image
-/// (teacher just deleted it) is skipped automatically.
-class _FunFactStoryView extends StatefulWidget {
-  const _FunFactStoryView({required this.imageUrls});
-
-  final List<String> imageUrls;
-
-  @override
-  State<_FunFactStoryView> createState() => _FunFactStoryViewState();
-}
-
-class _FunFactStoryViewState extends State<_FunFactStoryView>
-    with SingleTickerProviderStateMixin {
-  static const Duration _slideDuration = Duration(seconds: 8);
-
-  late final AnimationController _progress;
-  int _currentIndex = 0;
-  bool _timerStarted = false;
-  bool _closed = false;
-  DateTime? _pressDownAt;
-
-  @override
-  void initState() {
-    super.initState();
-    _progress = AnimationController(vsync: this, duration: _slideDuration)
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          _next();
-        }
-      });
-  }
-
-  @override
-  void dispose() {
-    _progress.dispose();
-    super.dispose();
-  }
-
-  /// Starts the timer bar for the current slide, once its image has rendered.
-  void _startTimerOnce() {
-    if (_timerStarted || _closed) {
-      return;
-    }
-    _timerStarted = true;
-    _progress.forward(from: 0);
-  }
-
-  void _goToSlide(int index) {
-    _progress.stop();
-    _progress.reset();
-    setState(() {
-      _currentIndex = index;
-      _timerStarted = false;
-    });
-  }
-
-  void _next() {
-    if (_currentIndex >= widget.imageUrls.length - 1) {
-      _close();
-      return;
-    }
-    _goToSlide(_currentIndex + 1);
-  }
-
-  void _previous() {
-    // On the first slide, just restart it; otherwise step back.
-    _goToSlide(_currentIndex == 0 ? 0 : _currentIndex - 1);
-  }
-
-  void _pause() {
-    if (_timerStarted) {
-      _progress.stop();
-    }
-  }
-
-  void _resume() {
-    if (_timerStarted && !_progress.isAnimating && !_progress.isCompleted) {
-      _progress.forward();
-    }
-  }
-
-  // ---- Touch handling (Instagram-style) ----
-  // We listen to raw pointer events instead of tap gestures: a tap gesture is
-  // cancelled the moment the finger moves even a little (or a drag gesture
-  // takes over the arena), which would wrongly resume playback while the child
-  // is still holding. With a Listener, the slide stays paused for as long as
-  // the finger is physically down — regardless of any movement.
-  Offset? _downPosition;
-
-  void _onPointerDown(PointerDownEvent event) {
-    _pressDownAt = DateTime.now();
-    _downPosition = event.position;
-    _pause();
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    final downAt = _pressDownAt;
-    final downPos = _downPosition;
-    _pressDownAt = null;
-    _downPosition = null;
-
-    // Swipe down to dismiss the story.
-    if (downPos != null && event.position.dy - downPos.dy > 100) {
-      _close();
-      return;
-    }
-
-    final wasHold =
-        downAt != null &&
-        DateTime.now().difference(downAt) > const Duration(milliseconds: 220);
-    if (wasHold) {
-      // Finger was held down → just resume where we paused.
-      _resume();
-      return;
-    }
-    // Quick tap → navigate (left third → back, rest → forward).
-    final width = MediaQuery.of(context).size.width;
-    final tapDx = (downPos ?? event.position).dx;
-    if (tapDx < width / 3) {
-      _previous();
-    } else {
-      _next();
-    }
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    _pressDownAt = null;
-    _downPosition = null;
-    _resume();
-  }
-
-  void _close() {
-    if (_closed) {
-      return;
-    }
-    _closed = true;
-    if (mounted && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final url = widget.imageUrls[_currentIndex];
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Listener(
-        onPointerDown: _onPointerDown,
-        onPointerUp: _onPointerUp,
-        onPointerCancel: _onPointerCancel,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // ---- Poster image (the API delivers the whole design) ----
-            Image.network(
-              url,
-              key: ValueKey<int>(_currentIndex),
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-              // Start the timer only once the first frame is on screen.
-              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                if (wasSynchronouslyLoaded || frame != null) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _startTimerOnce();
-                  });
-                }
-                return child;
-              },
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFFFF7A45),
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                // Teacher likely deleted this image — skip to the next slide.
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _next();
-                });
-                return const SizedBox.shrink();
-              },
-            ),
-            // ---- Top scrim so the progress bar & Skip stay legible ----
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.35),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  // ---- Segmented progress bar ----
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-                    child: Row(
-                      children: List.generate(widget.imageUrls.length, (index) {
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: _StorySegment(
-                              controller: _progress,
-                              isPast: index < _currentIndex,
-                              isActive: index == _currentIndex,
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                  // ---- Skip button ----
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 14, 0),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _StorySkipButton(onTap: _close),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Rounded outline "Skip ›" pill shown top-right of a fun fact story.
-class _StorySkipButton extends StatelessWidget {
-  const _StorySkipButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.12),
-      shape: StadiumBorder(
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.75)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 12, 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Skip',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One segment of the Instagram-style progress bar. Past slides read full,
-/// future slides read empty, and the active slide fills with its timer.
-class _StorySegment extends StatelessWidget {
-  const _StorySegment({
-    required this.controller,
-    required this.isPast,
-    required this.isActive,
-  });
-
-  final AnimationController controller;
-  final bool isPast;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(99),
-      child: SizedBox(
-        height: 3.5,
-        child: Stack(
-          children: [
-            Container(color: Colors.white.withValues(alpha: 0.35)),
-            if (isPast)
-              Container(color: Colors.white)
-            else if (isActive)
-              AnimatedBuilder(
-                animation: controller,
-                builder: (context, _) => FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: controller.value,
-                  child: Container(color: Colors.white),
-                ),
-              ),
           ],
         ),
       ),

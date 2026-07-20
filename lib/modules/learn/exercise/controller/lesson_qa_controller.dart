@@ -305,6 +305,7 @@ class LessonQaItem {
     required this.sequence,
     required this.question,
     required this.answer,
+    required this.answerHtml,
     required this.source,
     required this.subjectName,
     required this.classLevel,
@@ -315,7 +316,14 @@ class LessonQaItem {
   final String id;
   final int sequence;
   final String question;
+
+  /// Plain-text answer (HTML stripped) — used for search matching and the
+  /// collapsed search preview where truncation with maxLines is needed.
   final String answer;
+
+  /// Raw answer HTML as sent by the API — rendered with HtmlWidget so bold,
+  /// bullet lists and line breaks show the way the author formatted them.
+  final String answerHtml;
 
   /// `"pdf"` (auto-extracted) or `"manual"` (teacher-authored).
   final String source;
@@ -346,6 +354,7 @@ class LessonQaItem {
       sequence: (json['sequence'] as num?)?.toInt() ?? 0,
       question: _stripHtml(_safeText(json['question'])),
       answer: _stripHtml(_safeText(json['answer'])),
+      answerHtml: _safeText(json['answer']),
       source: _safeText(json['source']).toLowerCase(),
       subjectName: _safeText(subject['name']),
       classLevel: _safeText(

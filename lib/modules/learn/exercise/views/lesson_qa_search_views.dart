@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../core/widgets/math_html_text.dart';
+
 import '../controller/lesson_qa_controller.dart';
 import '../controller/lesson_qa_search_controller.dart';
 import 'lesson_qa_views.dart';
@@ -401,19 +403,30 @@ class _SearchResultCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    item.answer.isEmpty
-                        ? 'Answer will be available soon.'
-                        : item.answer,
-                    maxLines: expanded ? null : 2,
-                    overflow: expanded ? null : TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF5C6070),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      height: 1.55,
+                  if (expanded && item.answerHtml.isNotEmpty)
+                    MathHtmlText(
+                      item.answerHtml,
+                      textStyle: const TextStyle(
+                        color: Color(0xFF5C6070),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.55,
+                      ),
+                    )
+                  else
+                    Text(
+                      item.answer.isEmpty
+                          ? 'Answer will be available soon.'
+                          : item.answer,
+                      maxLines: expanded ? null : 2,
+                      overflow: expanded ? null : TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF5C6070),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.55,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

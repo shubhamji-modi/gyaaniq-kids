@@ -2,16 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
-
 	<key>CFBundleDisplayName</key>
 	<string>Name of your app</string>
-    <key>NSCameraUsageDescription</key>
-    <string>Camera access is required for video meetings</string>
-
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Microphone access is required for video meetings</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -34,16 +30,18 @@
 	<string>Camera is used to capture your profile photo and join live classes.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone is used to speak during live classes.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photo library is used to choose your profile photo.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Photo library access is used to save and choose your profile photo.</string>
-	<key>UIRequiresFullScreen</key>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library is used to choose your profile photo.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -52,9 +50,5 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
 </dict>
 </plist>

@@ -3,7 +3,7 @@ description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 
-version: 1.0.1+3
+version: 1.0.5+7
 
 environment:
   sdk: ^3.10.7
@@ -42,6 +42,10 @@ dependencies:
   url_launcher: ^6.3.2
   file_picker: ^11.0.2
   flutter_widget_from_html_core: ^0.17.2
+  # Renders LaTeX math ($...$ / $$...$$) inside answers, natively & offline.
+  flutter_math_fork: ^0.7.4
+  # dom.Element types for tuning HTML answer spacing (customStylesBuilder).
+  html: ^0.15.6
   in_app_purchase: ^3.2.0
   # Pinned: analytics 12.4.4 / crashlytics 5.2.5 target an unreleased
   # firebase_core (reference the `FirebasePlugin` base that 4.12.0 lacks).
