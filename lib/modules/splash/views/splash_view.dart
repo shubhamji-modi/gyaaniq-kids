@@ -37,7 +37,13 @@ class _SplashViewState extends State<SplashView> {
     final token = await _storage.read(key: StorageKeys.authToken);
 
     if (token != null && token.isNotEmpty) {
-      Get.offAllNamed(AppRoutes.dashboard);
+      final profileSetupCompleted =
+          preferences.getBool(StorageKeys.profileSetupCompleted) ?? false;
+      Get.offAllNamed(
+        profileSetupCompleted
+            ? AppRoutes.dashboard
+            : AppRoutes.studentProfileSetup,
+      );
     } else {
       Get.offAllNamed(AppRoutes.login);
     }

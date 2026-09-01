@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../core/data/subscription_access.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
+import '../../../subscription/subscription_views.dart';
 import '../../exercise/views/lesson_qa_search_views.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_subject_views.dart';
@@ -20,6 +22,10 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
   bool _isLoading = true;
   String _errorMessage = '';
   List<LearnChapterModel> _chapters = const [];
+  // Whether the student has an active subscription. When false, only the first
+  // [SubscriptionAccess.freeLessonLimit] lessons stay open; the rest are locked
+  // behind a purchase prompt.
+  bool _isSubscribed = false;
   late final Worker _refreshWorker;
 
   @override
@@ -48,9 +54,15 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
       _errorMessage = '';
     });
 
-    final response = await LearnCatalogData.getUserLessons(
+    // Fetch lessons and subscription status concurrently so the paywall gate is
+    // known by the time the list renders (no lock flicker for subscribers).
+    final lessonsFuture = LearnCatalogData.getUserLessons(
       subject: widget.subject,
     );
+    final subscribedFuture = SubscriptionAccess.isSubscribed();
+
+    final response = await lessonsFuture;
+    final subscribed = await subscribedFuture;
 
     if (!mounted) {
       return;
@@ -60,6 +72,7 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
       _isLoading = false;
       _chapters = response.data ?? const [];
       _errorMessage = response.success ? '' : response.message;
+      _isSubscribed = subscribed;
     });
   }
 
@@ -132,7 +145,7 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
                           ),
                           TextSpan(
                             text: description.isEmpty
-                                ? 'Description will be available soon.'
+                                ? ''
                                 : description,
                             style: const TextStyle(
                               color: Color(0xFF373B4B),
@@ -162,16 +175,26 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
                         message: 'This subject does not have any lesson yet.',
                       )
                     else
-                      ..._chapters.map(
-                        (chapter) => Padding(
+                      ..._chapters.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final chapter = entry.value;
+                        // Free students keep the first N lessons; the rest are
+                        // gated behind the purchase prompt.
+                        final paywallLocked =
+                            !_isSubscribed &&
+                            index >= SubscriptionAccess.freeLessonLimit;
+                        return Padding(
                           padding: const EdgeInsets.only(bottom: 18),
                           child: _ChapterCard(
                             subject: widget.subject,
                             chapter: chapter,
                             onReload: _loadLessons,
+                            paywallLocked: paywallLocked,
+                            onUnlockTap: () =>
+                                Get.to(() => const SubscriptionViews()),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                   ],
                 ),
               ),
@@ -188,18 +211,28 @@ class _ChapterCard extends StatelessWidget {
     required this.subject,
     required this.chapter,
     required this.onReload,
+    this.paywallLocked = false,
+    this.onUnlockTap,
   });
 
   final LearnSubjectModel subject;
   final LearnChapterModel chapter;
   final Future<void> Function() onReload;
 
+  /// Client-side subscription gate: the lesson exists but the free user must
+  /// subscribe to open it. Distinct from a server [LearnChapterStatus.locked].
+  final bool paywallLocked;
+  final VoidCallback? onUnlockTap;
+
   @override
   Widget build(BuildContext context) {
     final isCompleted = chapter.status == LearnChapterStatus.completed;
     final isInProgress = chapter.status == LearnChapterStatus.inProgress;
     final isNotStarted = chapter.status == LearnChapterStatus.notStarted;
-    final isLocked = chapter.status == LearnChapterStatus.locked;
+    final isServerLocked = chapter.status == LearnChapterStatus.locked;
+    // Both server-locked and paywall-locked lessons wear the dimmed "locked"
+    // treatment; only their tap behaviour differs (buy vs. nothing).
+    final isLocked = isServerLocked || paywallLocked;
 
     const completedColor = Color(0xFF12B76A);
     const inProgressColor = Color(0xFFF97316);
@@ -208,7 +241,9 @@ class _ChapterCard extends StatelessWidget {
     const notStartedBackground = Color(0xFFF1F3F8);
 
     return InkWell(
-      onTap: isLocked
+      onTap: paywallLocked
+          ? onUnlockTap
+          : isServerLocked
           ? null
           : () async {
               final shouldReload = await Get.to<bool>(
@@ -220,7 +255,7 @@ class _ChapterCard extends StatelessWidget {
             },
       borderRadius: BorderRadius.circular(28),
       child: Opacity(
-        opacity: isLocked ? 0.55 : 1,
+        opacity: paywallLocked ? 0.7 : (isServerLocked ? 0.55 : 1),
         child: Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
@@ -277,7 +312,10 @@ class _ChapterCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _ChapterBadge(chapter: chapter),
+                  if (paywallLocked)
+                    const _PremiumBadge()
+                  else
+                    _ChapterBadge(chapter: chapter),
                 ],
               ),
               const SizedBox(height: 24),
@@ -335,7 +373,11 @@ class _ChapterCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      isLocked ? chapter.summary : chapter.lessonQuizMeta,
+                      paywallLocked
+                          ? 'Subscribe to unlock this lesson'
+                          : isServerLocked
+                          ? chapter.summary
+                          : chapter.lessonQuizMeta,
                       style: TextStyle(
                         color: isLocked
                             ? const Color(0xFF707486)
@@ -345,7 +387,37 @@ class _ChapterCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (isCompleted)
+                  if (paywallLocked)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: inProgressColor,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.lock_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Unlock',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (isCompleted)
                     const Text(
                       'Review ->',
                       style: TextStyle(
@@ -353,8 +425,8 @@ class _ChapterCard extends StatelessWidget {
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
-                    ),
-                  if (isInProgress)
+                    )
+                  else if (isInProgress)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 15,
@@ -372,13 +444,13 @@ class _ChapterCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                  if (isLocked)
+                    )
+                  else if (isServerLocked)
                     const Icon(
                       Icons.lock_outline_rounded,
                       color: Color(0xFFBCBED0),
-                    ),
-                  if (isNotStarted)
+                    )
+                  else if (isNotStarted)
                     const Icon(
                       Icons.radio_button_unchecked_rounded,
                       color: notStartedColor,
@@ -441,6 +513,38 @@ class _ChapterBadge extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w800,
         ),
+      ),
+    );
+  }
+}
+
+/// Badge shown on lessons a free user must subscribe to open.
+class _PremiumBadge extends StatelessWidget {
+  const _PremiumBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFF97316);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3D6),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.lock_rounded, color: accent, size: 13),
+          SizedBox(width: 5),
+          Text(
+            'Premium',
+            style: TextStyle(
+              color: accent,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -12,7 +12,6 @@ import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/theme/appcolors.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
-// import '../../subscription/subscription_views.dart'; // restore with Subscription button
 import '../../daily_quiz/views/start_quiz_views.dart';
 import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../daily_quiz/result/preview_result/views/preview_result_views.dart';
@@ -23,6 +22,26 @@ import '../../fun_fact/views/fun_fact_story_views.dart';
 import '../../subscription/subscription_views.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
 import 'performance_dna_views.dart';
+
+String _profileFirstName(String? name) {
+  final trimmedName = name?.trim() ?? '';
+  if (trimmedName.isEmpty) {
+    return 'Student';
+  }
+
+  return trimmedName.split(RegExp(r'\s+')).first;
+}
+
+String _educationBoardLabel(String? board) {
+  final trimmedBoard = board?.trim() ?? '';
+  if (trimmedBoard.isEmpty || trimmedBoard == '-') {
+    return '-';
+  }
+  if (RegExp(r'\s+board$', caseSensitive: false).hasMatch(trimmedBoard)) {
+    return trimmedBoard;
+  }
+  return '$trimmedBoard Board';
+}
 
 class DashboardTabbarViewsScreen extends StatefulWidget {
   const DashboardTabbarViewsScreen({super.key});
@@ -447,7 +466,7 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hi, ${profile?.name ?? 'Student'}! 👋',
+                  'Hi, ${_profileFirstName(profile?.name)}! 👋',
                   style: const TextStyle(
                     color: AppColors.textPrimaryDeep,
                     fontSize: 18,
@@ -456,7 +475,7 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Class ${profile?.userClass ?? '-'} • ${profile?.educationBoard ?? '-'} Board',
+                  'Class ${profile?.userClass ?? '-'} • ${_educationBoardLabel(profile?.educationBoard)}',
                   style: const TextStyle(
                     color: AppColors.textMuted2,
                     fontSize: 13,
@@ -799,31 +818,27 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
             );
           }),
           const SizedBox(height: 18),
-          // Subscription button hidden for now. To restore, un-comment below.
-          // Platform.isIOS
-          //     ? SizedBox(
-          //   width: double.infinity,
-          //   child: ElevatedButton.icon(
-          //     onPressed: () => Get.to(() => const SubscriptionViews()),
-          //     icon: const Icon(Icons.workspace_premium),
-          //     label: const Text('Subscription'),
-          //     style: ElevatedButton.styleFrom(
-          //       backgroundColor: AppColors.purpleDark2,
-          //       foregroundColor: AppColors.white,
-          //       padding: const EdgeInsets.symmetric(vertical: 16),
-          //       shape: RoundedRectangleBorder(
-          //         borderRadius: BorderRadius.circular(26),
-          //       ),
-          //       textStyle: const TextStyle(
-          //         fontSize: 16,
-          //         fontWeight: FontWeight.w700,
-          //       ),
-          //     ),
-          //   ),
-          // )
-          //     : const SizedBox.shrink(),
-
-          // const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => Get.to(() => const SubscriptionViews()),
+              icon: const Icon(Icons.workspace_premium),
+              label: const Text('Subscription'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.purpleDark2,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
               color: AppColors.white,
@@ -1275,9 +1290,8 @@ class _FunFactSubjectItem extends StatelessWidget {
               padding: const EdgeInsets.all(2.5),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: FunFactController.instance.isCompleted(
-                  subject.subjectId,
-                )
+                gradient:
+                    FunFactController.instance.isCompleted(subject.subjectId)
                     ? _watchedRing
                     : _unwatchedRing,
               ),
@@ -1514,11 +1528,7 @@ class _MockTestHeroCard extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F3D91),
-              Color(0xFF126A85),
-              Color(0xFF12A594),
-            ],
+            colors: [Color(0xFF0F3D91), Color(0xFF126A85), Color(0xFF12A594)],
           ),
           boxShadow: [
             BoxShadow(
@@ -2468,8 +2478,8 @@ class _SubjectCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 45,
-              height: 45,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: accent,
                 borderRadius: BorderRadius.circular(12),
@@ -2481,18 +2491,18 @@ class _SubjectCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(icon, color: Colors.white, size: 25),
+              child: Icon(icon, color: Colors.white, size: 22),
             ),
             const Spacer(),
             Text(
               subject.title,
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 18,
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 5),
             Row(
               children: [
                 Expanded(
@@ -3160,10 +3170,7 @@ class _MockTestCard extends StatelessWidget {
                   color: AppColors.warningSoft,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Image.asset(
-                  'assets/calendar.png',
-                  fit: BoxFit.contain,
-                ),
+                child: Image.asset('assets/calendar.png', fit: BoxFit.contain),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -3345,7 +3352,10 @@ class _AnalyticsCard extends GetView<DashboardTabbarController> {
                       .round();
             final earnedThisWeek = days
                 .where((day) => day.isAttempted)
-                .fold<int>(0, (sum, day) => sum + (day.attempt?.totalScore ?? 0));
+                .fold<int>(
+                  0,
+                  (sum, day) => sum + (day.attempt?.totalScore ?? 0),
+                );
             final currentStreak = controller.userXpSummary.value.streakCount;
 
             return Column(
@@ -3514,7 +3524,10 @@ class _AnalyticsDayItem extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: background,
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: iconColor, size: 22),
           ),
           const SizedBox(height: 6),
@@ -3666,72 +3679,71 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          const Text(
-            'Quiz History',
-            style: TextStyle(
-              color: AppColors.textHeading,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+        const Text(
+          'Quiz History',
+          style: TextStyle(
+            color: AppColors.textHeading,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 28),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else ...[
+          _DashboardResultSection(
+            title: 'Daily Quiz',
+            emptyMessage: 'No daily quiz result yet.',
+            errorMessage: _dailyErrorMessage,
+            results: _dailyResults,
+            assetPath: 'assets/daily_quiz.png',
+            accentColor: const Color(0xFF5A5FEF),
+            backgroundColor: const Color(0xFFEDEBFF),
+            borderColor: const Color(0xFFDCD9FA),
+            onRetry: _loadResults,
+            onViewAll: () => Get.to(
+              () => const PreviewResultViews(
+                initialType: ResultHistoryType.daily,
+              ),
             ),
           ),
           const SizedBox(height: 14),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 28),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else ...[
-            _DashboardResultSection(
-              title: 'Daily Quiz',
-              emptyMessage: 'No daily quiz result yet.',
-              errorMessage: _dailyErrorMessage,
-              results: _dailyResults,
-              assetPath: 'assets/daily_quiz.png',
-              accentColor: const Color(0xFF5A5FEF),
-              backgroundColor: const Color(0xFFEDEBFF),
-              borderColor: const Color(0xFFDCD9FA),
-              onRetry: _loadResults,
-              onViewAll: () => Get.to(
-                () => const PreviewResultViews(
-                  initialType: ResultHistoryType.daily,
-                ),
+          _DashboardResultSection(
+            title: 'Practice Test',
+            emptyMessage: 'No practice test result yet.',
+            errorMessage: _practiceErrorMessage,
+            results: _practiceResults,
+            assetPath: 'assets/practice_test.png',
+            accentColor: const Color(0xFF17935F),
+            backgroundColor: const Color(0xFFE7F6EE),
+            borderColor: const Color(0xFFC7E9D6),
+            onRetry: _loadResults,
+            onViewAll: () => Get.to(
+              () => const PreviewResultViews(
+                initialType: ResultHistoryType.practice,
               ),
             ),
-            const SizedBox(height: 14),
-            _DashboardResultSection(
-              title: 'Practice Test',
-              emptyMessage: 'No practice test result yet.',
-              errorMessage: _practiceErrorMessage,
-              results: _practiceResults,
-              assetPath: 'assets/practice_test.png',
-              accentColor: const Color(0xFF17935F),
-              backgroundColor: const Color(0xFFE7F6EE),
-              borderColor: const Color(0xFFC7E9D6),
-              onRetry: _loadResults,
-              onViewAll: () => Get.to(
-                () => const PreviewResultViews(
-                  initialType: ResultHistoryType.practice,
-                ),
-              ),
+          ),
+          const SizedBox(height: 14),
+          _DashboardResultSection(
+            title: 'Mock Test',
+            emptyMessage: 'No mock test result yet.',
+            errorMessage: _mockErrorMessage,
+            results: _mockResults,
+            assetPath: 'assets/mock_test.png',
+            accentColor: const Color(0xFFF1670C),
+            backgroundColor: const Color(0xFFFFF4E6),
+            borderColor: const Color(0xFFFFE0AE),
+            onRetry: _loadResults,
+            onViewAll: () => Get.to(
+              () =>
+                  const PreviewResultViews(initialType: ResultHistoryType.mock),
             ),
-            const SizedBox(height: 14),
-            _DashboardResultSection(
-              title: 'Mock Test',
-              emptyMessage: 'No mock test result yet.',
-              errorMessage: _mockErrorMessage,
-              results: _mockResults,
-              assetPath: 'assets/mock_test.png',
-              accentColor: const Color(0xFFF1670C),
-              backgroundColor: const Color(0xFFFFF4E6),
-              borderColor: const Color(0xFFFFE0AE),
-              onRetry: _loadResults,
-              onViewAll: () => Get.to(
-                () => const PreviewResultViews(
-                  initialType: ResultHistoryType.mock,
-                ),
-              ),
-            ),
-          ],
+          ),
+        ],
       ],
     );
   }
@@ -4227,7 +4239,7 @@ class _ProfileAvatarSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Text(
-                '${profile?.educationBoard ?? '-'} BOARD',
+                _educationBoardLabel(profile?.educationBoard).toUpperCase(),
                 style: const TextStyle(
                   color: AppColors.boardText,
                   fontSize: 12,
@@ -4645,9 +4657,8 @@ class _LeaderboardStripAvatar extends StatelessWidget {
                 width: 34,
                 height: 34,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _LeaderboardStripInitials(
-                  initials: student.initials,
-                ),
+                errorBuilder: (_, __, ___) =>
+                    _LeaderboardStripInitials(initials: student.initials),
               )
             : _LeaderboardStripInitials(initials: student.initials),
       ),

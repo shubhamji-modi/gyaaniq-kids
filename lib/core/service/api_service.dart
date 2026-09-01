@@ -18,8 +18,13 @@ class ApiService extends GetxService {
   static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
 
   ///End points
+  static const String ACTIVE_CLASSES = 'classes/active';
   static const String REGISTER = 'auth/register';
+  static const String registerVerifyOtp = 'auth/register/verify-otp';
+  static const String registerResendOtp = 'auth/register/resend-otp';
   static const String LOGIN = 'auth/login';
+  static const String loginWithOtpSend = 'auth/login-with-otp/send';
+  static const String loginWithOtpVerify = 'auth/login-with-otp/verify';
   static const String LOGOUT = 'auth/logout';
   static const String DELETE_ACCOUNT = 'user/account';
   static const String GET_PROFILE = 'user/profile';
@@ -71,11 +76,14 @@ class ApiService extends GetxService {
   static const String RESET_PASSWORD = 'auth/reset-password';
   static const String GET_ADMIN_XP = 'xp/config';
   static const String USER_XP = 'user/xp';
-  static const String LESSON_QA_BY_LESSON = 'user/lesson-qa/by-lesson/:lessonId';
+  static const String LESSON_QA_BY_LESSON =
+      'user/lesson-qa/by-lesson/:lessonId';
   static const String LESSON_QA_SEARCH = 'user/lesson-qa/search';
   static const String purchaseInitEndpoint = 'user/subscription/purchase-init';
+  static const String googlePurchaseInitEndpoint =
+      'user/subscription/google/purchase-init';
+  static const String googleVerifyEndpoint = 'user/subscription/google/verify';
   static const String subscriptionEndpoint = 'user/subscription';
-
 
   @override
   void onInit() {

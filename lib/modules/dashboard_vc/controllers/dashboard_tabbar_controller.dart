@@ -66,6 +66,7 @@ class DashboardTabbarController extends GetxController {
       AttendanceSummaryModel.empty().obs;
   Timer? _liveClassClockTimer;
   bool _isLoggingOut = false;
+  bool _isDeletingAccount = false;
 
   final String studentName = 'Sarah!';
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
@@ -773,38 +774,38 @@ class DashboardTabbarController extends GetxController {
         if (_isLoggingOut) {
           return;
         }
-        _isLoggingOut = true;
-
-        final response = await ApiService.instance.post<dynamic>(
-          endpoint: ApiService.LOGOUT,
-          fromJson: (json) => json,
-        );
-
-        if (!response.success) {
-          Get.snackbar(
-            'Error',
-            response.message,
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: const Color(0xFFB42318),
-            colorText: Colors.white,
-            margin: const EdgeInsets.all(16),
-          );
+        if (!context.mounted) {
           return;
         }
+        final profileProvider = Provider.of<UserProfileProvider>(
+          context,
+          listen: false,
+        );
+        _isLoggingOut = true;
 
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setBool(StorageKeys.profileSetupCompleted, false);
-        await _storage.delete(key: StorageKeys.authToken);
-        await SessionManager.instance.logout();
-        if (context.mounted) {
-          Provider.of<UserProfileProvider>(
-            context,
-            listen: false,
-          ).clearProfile();
+        try {
+          final response = await ApiService.instance.post<dynamic>(
+            endpoint: ApiService.LOGOUT,
+            showLoader: false,
+            fromJson: (json) => json,
+          );
+
+          if (!response.success) {
+            Get.snackbar(
+              'Signed Out',
+              'Server logout failed, but this device has been signed out.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: const Color(0xFF0F9D58),
+              colorText: Colors.white,
+              margin: const EdgeInsets.all(16),
+            );
+          }
+
+          await _clearLocalSession(profileProvider);
+          SessionManager.instance.forceNavigateToLogin();
+        } finally {
+          _isLoggingOut = false;
         }
-        // Navigate to login once and clear navigation stack via SessionManager.
-        SessionManager.instance.navigateToLoginIfNeeded();
-        _isLoggingOut = false;
       }
 
       return;
@@ -839,36 +840,52 @@ class DashboardTabbarController extends GetxController {
       );
 
       if (shouldDelete == true) {
-        final response = await ApiService.instance.delete<dynamic>(
-          endpoint: ApiService.DELETE_ACCOUNT,
-          fromJson: (json) => json,
-        );
-
-        if (!response.success) {
-          Get.snackbar(
-            'Error',
-            response.message,
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: const Color(0xFFB42318),
-            colorText: Colors.white,
-            margin: const EdgeInsets.all(16),
-          );
+        if (_isDeletingAccount) {
           return;
         }
-
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setBool(StorageKeys.profileSetupCompleted, false);
-        await _storage.delete(key: StorageKeys.authToken);
-        await SessionManager.instance.logout();
-        if (context.mounted) {
-          Provider.of<UserProfileProvider>(
-            context,
-            listen: false,
-          ).clearProfile();
+        if (!context.mounted) {
+          return;
         }
-        Get.offAllNamed(AppRoutes.login);
+        final profileProvider = Provider.of<UserProfileProvider>(
+          context,
+          listen: false,
+        );
+        _isDeletingAccount = true;
+
+        try {
+          final response = await ApiService.instance.delete<dynamic>(
+            endpoint: ApiService.DELETE_ACCOUNT,
+            showLoader: false,
+            fromJson: (json) => json,
+          );
+
+          if (!response.success) {
+            Get.snackbar(
+              'Error',
+              response.message,
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: const Color(0xFFB42318),
+              colorText: Colors.white,
+              margin: const EdgeInsets.all(16),
+            );
+            return;
+          }
+
+          await _clearLocalSession(profileProvider);
+          SessionManager.instance.forceNavigateToLogin();
+        } finally {
+          _isDeletingAccount = false;
+        }
       }
     }
+  }
+
+  Future<void> _clearLocalSession(UserProfileProvider profileProvider) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(StorageKeys.profileSetupCompleted, false);
+    await _storage.delete(key: StorageKeys.authToken);
+    await SessionManager.instance.logout();
+    profileProvider.clearProfile();
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/data/user_profile_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/data/class_catalogue.dart';
 import '../../core/service/api_service.dart';
 import '../../core/values/constants.dart';
 import '../../routes/app_routes.dart';
@@ -23,26 +24,18 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
       TextEditingController();
   final FocusNode _boardSheetSearchFocusNode = FocusNode();
 
-  final List<String> _languages = const [
-    'English',
-  ];
+  final List<String> _languages = const ['English'];
 
-  final List<String> _classes = const [
-    '5th',
-    '6th',
-    '7th',
-    '8th',
-    '9th',
-    '10th',
-  ];
+  // Populated from GET /api/v1/classes/active when the screen mounts. Cached for
+  // this app session only — a fresh launch re-fetches so a class an admin
+  // activates mid-day appears without a reinstall.
+  List<ClassOption> _classes = const [];
+  bool _classesLoading = true;
+  String _classesError = '';
 
-  final List<String> _primaryBoards = const [
-    'CBSE',
-  ];
+  final List<String> _primaryBoards = const ['CBSE', 'MP Board'];
 
-  final List<String> _allBoards = const [
-    'CBSE',
-  ];
+  final List<String> _allBoards = const ['CBSE', 'MP Board'];
 
   int _currentStep = 0;
   bool _namePrefilled = false;
@@ -60,7 +53,47 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
   @override
   void initState() {
     super.initState();
+    // Pre-select the only options the first time their steps are shown, so the
+    // chip/button already appears selected. Set only here (never on revisit),
+    // so a user's later change is preserved.
+    _selectedLanguage = _languages.first;
+    _selectedBoard = _primaryBoards.first;
     _prefillNameFromSignup();
+    _loadClasses();
+  }
+
+  Future<void> _loadClasses() async {
+    if (mounted) {
+      setState(() {
+        _classesLoading = true;
+        _classesError = '';
+      });
+    }
+
+    final response = await ClassCatalogueRepository.fetchActiveClasses();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _classesLoading = false;
+      if (response.success) {
+        _classes = response.data ?? const [];
+        // Drop a previously chosen grade if the admin has since removed it.
+        if (_selectedFinalGrade != null &&
+            !_classes.any((c) => c.className == _selectedFinalGrade)) {
+          _selectedFinalGrade = null;
+        }
+        // Pre-select a default class (the first in display order) so a card
+        // shows selected by default. Only fills an empty selection, so a user's
+        // own pick is never overwritten.
+        _selectedFinalGrade ??= _classes.isNotEmpty
+            ? _classes.first.className
+            : null;
+      } else {
+        _classesError = response.message;
+      }
+    });
   }
 
   Future<void> _prefillNameFromSignup() async {
@@ -427,7 +460,21 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
                 padding: const EdgeInsets.fromLTRB(20, 34, 20, 24),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
-                  child: _buildStepContent(),
+                  // Default layout centres each step in a Stack, which makes the
+                  // shrink-wrapped content float to the middle. Pin it top-left
+                  // so every step's content sits against the left margin (in
+                  // line with the back button).
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      alignment: Alignment.topLeft,
+                      children: <Widget>[...previousChildren, ?currentChild],
+                    );
+                  },
+                  child: SizedBox(
+                    key: ValueKey<int>(_currentStep),
+                    width: double.infinity,
+                    child: _buildStepContent(),
+                  ),
                 ),
               ),
             ),
@@ -672,33 +719,89 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
           ),
         ),
         const SizedBox(height: 34),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _classes.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.70,
-          ),
-          itemBuilder: (context, index) {
-            final className = _classes[index];
-            final isSelected = _selectedFinalGrade == className;
-
-            return _GradeCard(
-              label: className,
-              icon: icons[className] ?? Icons.school_outlined,
-              isSelected: isSelected,
-              onTap: () {
-                setState(() {
-                  _selectedFinalGrade = className;
-                });
-              },
-            );
-          },
-        ),
+        _buildClassGrid(icons),
       ],
+    );
+  }
+
+  Widget _buildClassGrid(Map<String, IconData> icons) {
+    if (_classesLoading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 40),
+        child: Center(
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.6,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A4FD9)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_classesError.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 30),
+        child: Column(
+          children: [
+            Text(
+              _classesError,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF9A2F2F),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _loadClasses, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    if (_classes.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 30),
+        child: Text(
+          'No classes available — please try again later.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFF565C6D),
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _classes.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.70,
+      ),
+      itemBuilder: (context, index) {
+        final className = _classes[index].className;
+        final isSelected = _selectedFinalGrade == className;
+
+        return _GradeCard(
+          label: className,
+          icon: icons[className] ?? Icons.school_outlined,
+          isSelected: isSelected,
+          onTap: () {
+            setState(() {
+              _selectedFinalGrade = className;
+            });
+          },
+        );
+      },
     );
   }
 }

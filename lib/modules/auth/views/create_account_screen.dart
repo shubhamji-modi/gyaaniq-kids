@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,28 +18,60 @@ class CreateAccountScreen extends StatefulWidget {
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
-class _CreateAccountScreenState extends State<CreateAccountScreen> {
+class _CreateAccountScreenState extends State<CreateAccountScreen>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _otpFormKey = GlobalKey<FormState>();
+  final _otpControllers = List.generate(6, (_) => TextEditingController());
+  final _otpFocusNodes = List.generate(6, (_) => FocusNode());
   final _storage = const FlutterSecureStorage();
 
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+  Timer? _otpTimer;
+  StateSetter? _otpSheetSetState;
   bool _isLoading = false;
+  bool _isOtpLoading = false;
+  bool _otpSent = false;
+  bool _otpConsentAccepted = true;
+  bool _registrationWentToBackground = false;
+  int _otpRemainingSeconds = 600;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void dispose() {
+    _otpTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
     _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    _phoneController.dispose();
+    for (final controller in _otpControllers) {
+      controller.dispose();
+    }
+    for (final node in _otpFocusNodes) {
+      node.dispose();
+    }
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((_isLoading || _isOtpLoading) && state != AppLifecycleState.resumed) {
+      _registrationWentToBackground = true;
+    }
+  }
+
   Future<void> _showReviewSheet() async {
+    if (!_otpConsentAccepted) {
+      return;
+    }
+
     final form = _formKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -51,7 +86,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       builder: (_) => _SignupReviewSheet(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
-        passwordLength: _passwordController.text.length,
+        phone: _phoneController.text.trim(),
       ),
     );
 
@@ -61,21 +96,32 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   Future<void> _register() async {
+    if (!_otpConsentAccepted) {
+      return;
+    }
+
     final form = _formKey.currentState;
     if (form == null || !form.validate()) {
       return;
     }
 
     FocusScope.of(context).unfocus();
+    _registrationWentToBackground = false;
     setState(() => _isLoading = true);
+
+    final requestData = <String, dynamic>{
+      'name': _nameController.text.trim(),
+      'phone': _phoneController.text.trim(),
+    };
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty) {
+      requestData['email'] = email;
+    }
 
     final response = await ApiService.instance.post<dynamic>(
       endpoint: ApiService.REGISTER,
-      data: {
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'password': _passwordController.text,
-      },
+      data: requestData,
+      includeAuth: false,
       fromJson: (json) => json,
     );
 
@@ -91,10 +137,60 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     }
 
     final body = response.data as Map<String, dynamic>;
-    final data = body['data'] as Map<String, dynamic>?;
-    final token = data?['token']?.toString() ?? '';
-    final userId = data?['_id']?.toString() ?? '';
+    for (final controller in _otpControllers) {
+      controller.clear();
+    }
+    setState(() {
+      _otpSent = true;
+      _otpRemainingSeconds = 600;
+    });
+    _startOtpTimer();
+    _showMessage(body['message']?.toString() ?? 'OTP sent successfully');
+    await _showOtpBottomSheet();
+  }
 
+  Future<void> _verifyOtp() async {
+    final form = _otpFormKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _isOtpLoading = true);
+    _rebuildOtpSheet();
+
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: ApiService.registerVerifyOtp,
+      data: {'phone': _phoneController.text.trim(), 'otp': _otpCode},
+      includeAuth: false,
+      fromJson: (json) => json,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isOtpLoading = false);
+    _rebuildOtpSheet();
+    await _completeRegistrationFromResponse(response);
+  }
+
+  Future<void> _completeRegistrationFromResponse(
+    ApiResponse<dynamic> response,
+  ) async {
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      _showMessage(response.message, isError: true);
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final responseData = _asStringKeyMap(body['data']);
+    final token = responseData?['token']?.toString() ?? '';
+    final userId =
+        responseData?['_id']?.toString() ??
+        responseData?['id']?.toString() ??
+        responseData?['userId']?.toString() ??
+        '';
     if (token.isEmpty) {
       _showMessage(
         body['message']?.toString() ?? 'Registration failed',
@@ -103,20 +199,38 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       return;
     }
 
+    final profileSetupCompleted = _profileSetupFlag(responseData) ?? false;
+
+    if (_registrationWentToBackground) {
+      _showMessage('Registration completed. Please login again to continue.');
+      return;
+    }
+
     await _storage.write(key: StorageKeys.authToken, value: token);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('user_id', userId);
-    await preferences.setString('user_name', data?['name']?.toString() ?? '');
+    await preferences.setString(
+      'user_name',
+      responseData?['name']?.toString() ?? '',
+    );
     await preferences.setString(
       'user_email',
-      data?['email']?.toString() ?? _emailController.text.trim(),
+      responseData?['email']?.toString() ?? _emailController.text.trim(),
+    );
+    await preferences.setString(
+      'user_phone',
+      responseData?['phoneNumber']?.toString() ?? _phoneController.text.trim(),
+    );
+    await preferences.setBool(
+      StorageKeys.profileSetupCompleted,
+      profileSetupCompleted,
     );
     await SessionManager.instance.login(
       token: token,
       userId: userId,
-      userData: data?['name']?.toString() ?? '',
-      email: data?['email']?.toString() ?? _emailController.text.trim(),
-      profilePic: data?['profilePic']?.toString(),
+      userData: responseData?['name']?.toString() ?? '',
+      email: responseData?['email']?.toString() ?? _emailController.text.trim(),
+      profilePic: responseData?['profilePic']?.toString(),
     );
 
     if (!mounted) {
@@ -124,7 +238,140 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     }
 
     _showMessage(body['message']?.toString() ?? 'Account created successfully');
-    Get.offAllNamed(AppRoutes.studentProfileSetup);
+    Get.offAllNamed(
+      profileSetupCompleted
+          ? AppRoutes.dashboard
+          : AppRoutes.studentProfileSetup,
+    );
+  }
+
+  void _startOtpTimer() {
+    _otpTimer?.cancel();
+    _otpTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_otpRemainingSeconds <= 0) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _otpRemainingSeconds--);
+      _rebuildOtpSheet();
+    });
+  }
+
+  void _closeOtpSheet(BuildContext sheetContext) {
+    _otpTimer?.cancel();
+    if (mounted) {
+      setState(() => _otpSent = false);
+    }
+    if (Navigator.of(sheetContext).canPop()) {
+      Navigator.of(sheetContext).pop();
+      return;
+    }
+  }
+
+  void _rebuildOtpSheet() {
+    _otpSheetSetState?.call(() {});
+  }
+
+  Future<void> _showOtpBottomSheet() async {
+    if (!mounted) {
+      return;
+    }
+
+    final theme = Theme.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, sheetSetState) {
+            _otpSheetSetState = sheetSetState;
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+              ),
+              child: SingleChildScrollView(
+                child: _buildOtpVerification(theme, context),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      _otpSheetSetState = null;
+      _otpTimer?.cancel();
+      if (mounted && _otpSent) {
+        setState(() => _otpSent = false);
+      }
+    });
+  }
+
+  String get _otpCode => _otpControllers.map((field) => field.text).join();
+
+  String get _otpTime {
+    final minutes = (_otpRemainingSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_otpRemainingSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  String get _maskedPhone {
+    final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    final local = digits.length >= 10
+        ? digits.substring(digits.length - 10)
+        : digits;
+    if (local.length < 4) {
+      return '+91 $local';
+    }
+    return '+91 •••• ${local.substring(local.length - 4)}';
+  }
+
+  Map<String, dynamic>? _asStringKeyMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    if (value is Map) {
+      return value.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return null;
+  }
+
+  bool? _profileSetupFlag(Map<String, dynamic>? data) {
+    if (data == null) {
+      return null;
+    }
+
+    for (final key in const [
+      'isProfileSetupComplete',
+      'isProfileComplete',
+      'profileSetupCompleted',
+      'profileCompleted',
+      'isProfileSetup',
+    ]) {
+      final value = data[key];
+      if (value is bool) {
+        return value;
+      }
+      final text = value?.toString().trim().toLowerCase();
+      if (text == 'true' || text == '1' || text == 'completed') {
+        return true;
+      }
+      if (text == 'false' || text == '0' || text == 'incomplete') {
+        return false;
+      }
+    }
+
+    return null;
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -150,7 +397,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
     if (email.isEmpty) {
-      return 'Please enter your email';
+      return null;
     }
     if (!GetUtils.isEmail(email)) {
       return 'Please enter a valid email';
@@ -158,22 +405,26 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return null;
   }
 
-  String? _validatePassword(String? value) {
-    if ((value ?? '').isEmpty) {
-      return 'Please enter your password';
+  String? _validatePhone(String? value) {
+    final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
+    var local = digits;
+    if (local.length == 12 && local.startsWith('91')) {
+      local = local.substring(2);
+    } else if (local.length == 11 && local.startsWith('0')) {
+      local = local.substring(1);
     }
-    if ((value ?? '').length < 6) {
-      return 'Password must be at least 6 characters';
+    if (local.isEmpty) {
+      return 'Please enter your mobile number';
+    }
+    if (local.length != 10 || !RegExp(r'^[6-9]\d{9}$').hasMatch(local)) {
+      return 'Enter a valid Indian mobile number';
     }
     return null;
   }
 
-  String? _validateConfirmPassword(String? value) {
-    if ((value ?? '').isEmpty) {
-      return 'Please confirm your password';
-    }
-    if (value != _passwordController.text) {
-      return 'Passwords do not match';
+  String? _validateOtp(String? value) {
+    if ((value ?? '').trim().isEmpty) {
+      return '';
     }
     return null;
   }
@@ -191,40 +442,45 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             key: _formKey,
             child: Column(
               children: [
-                const SizedBox(height: 8),
-                Text(
-                  'Join the Journey',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: const Color(0xFF1D2939),
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.6,
-                    fontSize: 25,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Unlock your potential with AI-guided learning tailored for you.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: const Color(0xFF667085),
-                    height: 1.45,
-                    fontSize: 14,
-                  ),
-                ),
+                const SizedBox(height: 4),
+                const _AppMark(size: 160),
+                // const SizedBox(height: 18),
+                // Text(
+                //   'Join the Journey',
+                //   textAlign: TextAlign.center,
+                //   style: theme.textTheme.headlineMedium?.copyWith(
+                //     color: const Color(0xFF1D2939),
+                //     fontWeight: FontWeight.w800,
+                //     letterSpacing: -0.6,
+                //     fontSize: 25,
+                //   ),
+                // ),
+                // const SizedBox(height: 10),
+                // Text(
+                //   'Unlock your potential with AI-guided learning tailored for you.',
+                //   textAlign: TextAlign.center,
+                //   style: theme.textTheme.bodyLarge?.copyWith(
+                //     color: const Color(0xFF667085),
+                //     height: 1.45,
+                //     fontSize: 14,
+                //   ),
+                // ),
                 const SizedBox(height: 26),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(22),
+                  padding: const EdgeInsets.fromLTRB(26, 30, 26, 34),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(26),
-                    border: Border.all(color: const Color(0xFFD9DFF1)),
+                    gradient: const LinearGradient(
+                      begin: Alignment.bottomLeft,
+                      end: Alignment.topRight,
+                      colors: [Color(0xFFE7F8FA), Color(0xFFF3F1FF)],
+                    ),
+                    borderRadius: BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF101828).withValues(alpha: 0.05),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
+                        color: const Color(0xFF4F46E5).withValues(alpha: 0.16),
+                        blurRadius: 28,
+                        offset: const Offset(0, 16),
                       ),
                     ],
                   ),
@@ -247,7 +503,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Email Address',
+                        'Email Address (Optional)',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: const Color(0xFF344054),
                           fontWeight: FontWeight.w700,
@@ -263,7 +519,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Password',
+                        'Phone Number',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: const Color(0xFF344054),
                           fontWeight: FontWeight.w700,
@@ -271,90 +527,48 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                       const SizedBox(height: 10),
                       _AuthTextField(
-                        controller: _passwordController,
-                        hintText: 'Enter your password',
-                        prefixIcon: Icons.lock_outline_rounded,
-                        obscureText: _obscurePassword,
-                        validator: _validatePassword,
-                        suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            );
-                          },
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: const Color(0xFF667085),
-                            size: 20,
+                        controller: _phoneController,
+                        hintText: 'Enter phone number',
+                        prefixIcon: Icons.phone_android_rounded,
+                        validator: _validatePhone,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[0-9+\-\s()]'),
                           ),
-                        ),
+                          LengthLimitingTextInputFormatter(18),
+                        ],
                       ),
                       const SizedBox(height: 18),
-                      Text(
-                        'Confirm Password',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF344054),
-                          fontWeight: FontWeight.w700,
-                        ),
+                      _OtpConsentCheckbox(
+                        value: _otpConsentAccepted,
+                        onChanged: (value) {
+                          setState(() => _otpConsentAccepted = value ?? false);
+                        },
                       ),
-                      const SizedBox(height: 10),
-                      _AuthTextField(
-                        controller: _confirmPasswordController,
-                        hintText: 'Re-enter your password',
-                        prefixIcon: Icons.lock_outline_rounded,
-                        obscureText: _obscureConfirmPassword,
-                        validator: _validateConfirmPassword,
-                        suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(
-                              () => _obscureConfirmPassword =
-                                  !_obscureConfirmPassword,
-                            );
-                          },
-                          icon: Icon(
-                            _obscureConfirmPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: const Color(0xFF667085),
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 26),
                       SizedBox(
                         width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _showReviewSheet,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4F46E5),
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: const Color(0xFF4F46E5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(28),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const Text(
-                                  'Create Account',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                        child: _SignupButton(
+                          label: 'Send OTP',
+                          isLoading: _isLoading,
+                          onPressed: _isLoading || !_otpConsentAccepted
+                              ? null
+                              : _showReviewSheet,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        child: _SignupButton(
+                          label: 'Login',
+                          isLoading: false,
+                          backgroundColor: const Color(0xFFFAF9FF),
+                          foregroundColor: const Color(0xFF1F2430),
+                          shadowColor: const Color(
+                            0xFF4F46E5,
+                          ).withValues(alpha: 0.18),
+                          onPressed: _isLoading ? null : () => Get.back(),
                         ),
                       ),
                       // const SizedBox(height: 22),
@@ -414,34 +628,159 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      'Already have an account? ',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: const Color(0xFF344054),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Get.back(),
-                      child: Text(
-                        'Login',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: const Color(0xFF4F46E5),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildOtpVerification(ThemeData theme, BuildContext sheetContext) {
+    return Form(
+      key: _otpFormKey,
+      child: Column(
+        key: const ValueKey('otp'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 5,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD8DCEB),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Verify Phone',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: const Color(0xFF191B24),
+              fontWeight: FontWeight.w900,
+              fontSize: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'We have sent a 6-digit code to $_maskedPhone.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF555B6D),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Please enter it below to continue.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF555B6D),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 34),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              6,
+              (index) => Padding(
+                padding: EdgeInsets.only(right: index == 5 ? 0 : 9),
+                child: _OtpBox(
+                  controller: _otpControllers[index],
+                  focusNode: _otpFocusNodes[index],
+                  validator: _validateOtp,
+                  onChanged: (value) {
+                    if (value.isNotEmpty && index < 5) {
+                      _otpFocusNodes[index + 1].requestFocus();
+                    }
+                    if (value.isEmpty && index > 0) {
+                      _otpFocusNodes[index - 1].requestFocus();
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Did not receive the code?',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF343846),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Resend Code ',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF6B7280),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                _otpTime,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF7C3AED),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 34),
+          _SignupButton(
+            label: 'Verify & Create Account',
+            isLoading: _isOtpLoading,
+            onPressed: _isOtpLoading ? null : _verifyOtp,
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _isOtpLoading
+                ? null
+                : () => _closeOtpSheet(sheetContext),
+            child: const Text(
+              'Close',
+              style: TextStyle(
+                color: Color(0xFF4F46E5),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppMark extends StatelessWidget {
+  const _AppMark({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(9),
+      // decoration: BoxDecoration(
+      //   color: Colors.white,
+      //   borderRadius: BorderRadius.circular(20),
+      //   border: Border.all(color: const Color(0xFFE3E6F3)),
+      //   boxShadow: [
+      //     BoxShadow(
+      //       color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+      //       blurRadius: 22,
+      //       offset: const Offset(0, 10),
+      //     ),
+      //   ],
+      // ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: Image.asset('assets/icon/app_icon.png', fit: BoxFit.cover),
       ),
     );
   }
@@ -454,8 +793,7 @@ class _AuthTextField extends StatelessWidget {
     required this.prefixIcon,
     this.validator,
     this.keyboardType,
-    this.obscureText = false,
-    this.suffixIcon,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -463,8 +801,7 @@ class _AuthTextField extends StatelessWidget {
   final IconData prefixIcon;
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
-  final bool obscureText;
-  final Widget? suffixIcon;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -473,14 +810,13 @@ class _AuthTextField extends StatelessWidget {
       validator: validator,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       keyboardType: keyboardType,
-      obscureText: obscureText,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         filled: true,
         fillColor: const Color(0xFFF7F8FC),
         hintText: hintText,
         hintStyle: const TextStyle(color: Color(0xFF98A2B3)),
         prefixIcon: Icon(prefixIcon, color: const Color(0xFF667085), size: 20),
-        suffixIcon: suffixIcon,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 13,
@@ -510,23 +846,200 @@ class _AuthTextField extends StatelessWidget {
   }
 }
 
+class _OtpBox extends StatelessWidget {
+  const _OtpBox({
+    required this.controller,
+    required this.focusNode,
+    required this.validator,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String? Function(String?) validator;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 42,
+      height: 52,
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        validator: validator,
+        onChanged: onChanged,
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(1),
+        ],
+        style: const TextStyle(
+          color: Color(0xFF4F46E5),
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+        ),
+        decoration: InputDecoration(
+          counterText: '',
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: EdgeInsets.zero,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFD8DCEB)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFD8DCEB)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.6),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFD92D20)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OtpConsentCheckbox extends StatelessWidget {
+  const _OtpConsentCheckbox({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF4F46E5),
+            checkColor: Colors.white,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            side: const BorderSide(color: Color(0xFF667085), width: 1.4),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(!value),
+            child: const Text(
+              'I accept the Privacy Policy.',
+              style: TextStyle(
+                color: Color(0xFF344054),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SignupButton extends StatelessWidget {
+  const _SignupButton({
+    required this.label,
+    required this.isLoading,
+    required this.onPressed,
+    this.backgroundColor = const Color(0xFF4F46E5),
+    this.foregroundColor = Colors.white,
+    this.shadowColor,
+  });
+
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color? shadowColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 66,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(33),
+          boxShadow: [
+            BoxShadow(
+              color:
+                  shadowColor ??
+                  const Color(0xFF4F46E5).withValues(alpha: 0.30),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: backgroundColor,
+            foregroundColor: foregroundColor,
+            disabledBackgroundColor: backgroundColor.withValues(alpha: 0.65),
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(33),
+            ),
+          ),
+          child: isLoading
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
+                  ),
+                )
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: foregroundColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Preview sheet shown before account creation so the user can confirm or
 /// go back and edit their details. Pops `true` to confirm, `false` to edit.
 class _SignupReviewSheet extends StatelessWidget {
   const _SignupReviewSheet({
     required this.name,
     required this.email,
-    required this.passwordLength,
+    required this.phone,
   });
 
   final String name;
   final String email;
-  final int passwordLength;
+  final String phone;
 
   @override
   Widget build(BuildContext context) {
-    final maskedPassword = '•' * (passwordLength.clamp(6, 12));
-
     return SafeArea(
       top: false,
       child: Container(
@@ -580,7 +1093,7 @@ class _SignupReviewSheet extends StatelessWidget {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Confirm everything looks right before we create your account.',
+                        'Confirm everything looks right before we send your OTP.',
                         style: TextStyle(
                           color: Color(0xFF667085),
                           fontSize: 12.5,
@@ -602,14 +1115,14 @@ class _SignupReviewSheet extends StatelessWidget {
             const SizedBox(height: 12),
             _ReviewRow(
               icon: Icons.mail_outline_rounded,
-              label: 'Email',
-              value: email,
+              label: 'Email (Optional)',
+              value: email.isEmpty ? 'Not provided' : email,
             ),
             const SizedBox(height: 12),
             _ReviewRow(
-              icon: Icons.lock_outline_rounded,
-              label: 'Password',
-              value: maskedPassword,
+              icon: Icons.phone_android_rounded,
+              label: 'Phone Number',
+              value: phone,
             ),
             const SizedBox(height: 22),
             Row(
@@ -654,7 +1167,7 @@ class _SignupReviewSheet extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      child: const Text('Confirm & Create'),
+                      child: const Text('Send OTP'),
                     ),
                   ),
                 ),

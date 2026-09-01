@@ -51,9 +51,7 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
         if (url.isEmpty) {
           continue;
         }
-        unawaited(
-          precacheImage(NetworkImage(url), context).catchError((_) {}),
-        );
+        unawaited(precacheImage(NetworkImage(url), context).catchError((_) {}));
       }
     }
   }
@@ -100,152 +98,160 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
           child: Column(
             children: [
               const _QuestionTopBar(),
-            Expanded(
-              child: Obx(() {
-                final question = controller.currentQuestion;
-                final questionNumber =
-                    controller.currentQuestionIndex.value + 1;
-                final isReview = controller.isReviewMode.value;
+              Expanded(
+                child: Obx(() {
+                  final question = controller.currentQuestion;
+                  final questionNumber =
+                      controller.currentQuestionIndex.value + 1;
+                  final isReview = controller.isReviewMode.value;
 
-                return Column(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onHorizontalDragEnd: (details) {
-                          final velocity = details.primaryVelocity ?? 0;
-                          if (velocity < -150) {
-                            controller.nextQuestion();
-                          } else if (velocity > 150) {
-                            controller.previousQuestion();
-                          }
-                        },
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          transitionBuilder: (child, animation) =>
-                              SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(0.15, 0),
-                                  end: Offset.zero,
-                                ).animate(animation),
-                                child: child,
-                              ),
-                          child: SingleChildScrollView(
-                            key: ValueKey<int>(
-                              controller.currentQuestionIndex.value,
-                            ),
-                            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // ---- Progress header (attempt mode) ----
-                                if (!isReview) ...[
-                                  const Text(
-                                    'QUIZ PROGRESS',
-                                    style: TextStyle(
-                                      color: Color(0xFF9AA0B4),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            99,
-                                          ),
-                                          child: LinearProgressIndicator(
-                                            value: controller.answeredProgress,
-                                            minHeight: 7,
-                                            backgroundColor: const Color(
-                                              0xFFE0E4EB,
-                                            ),
-                                            valueColor:
-                                                const AlwaysStoppedAnimation<
-                                                  Color
-                                                >(Color(0xFF4D4FE1)),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Text(
-                                        'Q.$questionNumber of ${controller.totalQuestions}',
-                                        style: const TextStyle(
-                                          color: Color(0xFF1E2230),
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Row(
-                                    children: [
-                                      _InfoPill(
-                                        label: controller.progressLabel,
-                                        background: const Color(0xFFE4E2FF),
-                                        foreground: const Color(0xFF4D4FE1),
-                                      ),
-                                      const Spacer(),
-                                      _InfoPill(
-                                        label:
-                                            'Time ${controller.formattedElapsedTime}',
-                                        icon: Icons.timer_outlined,
-                                        background: const Color(0xFFF3E8CE),
-                                        foreground: const Color(0xFF98773A),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
-                                ],
-                                // ---- Review-mode banner ----
-                                if (isReview) ...[
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: _InfoPill(
-                                      label: 'Review Mode',
-                                      icon: Icons.visibility_outlined,
-                                      background: const Color(0xFFEDE7FF),
-                                      foreground: const Color(0xFF6B39D6),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                                // ---- Question card ----
-                                _QuestionCard(
-                                  questionNumber: questionNumber,
-                                  question: question,
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragEnd: (details) {
+                            final velocity = details.primaryVelocity ?? 0;
+                            if (velocity < -150) {
+                              controller.nextQuestion();
+                            } else if (velocity > 150) {
+                              controller.previousQuestion();
+                            }
+                          },
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            transitionBuilder: (child, animation) =>
+                                SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0.15, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
                                 ),
-                                const SizedBox(height: 18),
-                                // ---- Options ----
-                                ...List.generate(question.options.length, (
-                                  index,
-                                ) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 14),
-                                    child: _OptionTile(optionIndex: index),
-                                  );
-                                }),
-                                if (isReview)
-                                  _ExplanationSection(question: question),
-                              ],
+                            child: SingleChildScrollView(
+                              key: ValueKey<int>(
+                                controller.currentQuestionIndex.value,
+                              ),
+                              padding: const EdgeInsets.fromLTRB(
+                                18,
+                                18,
+                                18,
+                                20,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // ---- Progress header (attempt mode) ----
+                                  if (!isReview) ...[
+                                    const Text(
+                                      'QUIZ PROGRESS',
+                                      style: TextStyle(
+                                        color: Color(0xFF9AA0B4),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              99,
+                                            ),
+                                            child: LinearProgressIndicator(
+                                              value:
+                                                  controller.answeredProgress,
+                                              minHeight: 7,
+                                              backgroundColor: const Color(
+                                                0xFFE0E4EB,
+                                              ),
+                                              valueColor:
+                                                  const AlwaysStoppedAnimation<
+                                                    Color
+                                                  >(Color(0xFF4D4FE1)),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Text(
+                                          'Q.$questionNumber of ${controller.totalQuestions}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF1E2230),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Row(
+                                      children: [
+                                        _InfoPill(
+                                          label: controller.progressLabel,
+                                          background: const Color(0xFFE4E2FF),
+                                          foreground: const Color(0xFF4D4FE1),
+                                        ),
+                                        const Spacer(),
+                                        _InfoPill(
+                                          label:
+                                              'Time ${controller.formattedElapsedTime}',
+                                          icon: Icons.timer_outlined,
+                                          background: const Color(0xFFF3E8CE),
+                                          foreground: const Color(0xFF98773A),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                  ],
+                                  // ---- Review-mode banner ----
+                                  if (isReview) ...[
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: _InfoPill(
+                                        label: 'Review Mode',
+                                        icon: Icons.visibility_outlined,
+                                        background: const Color(0xFFEDE7FF),
+                                        foreground: const Color(0xFF6B39D6),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                  // ---- Question card ----
+                                  _QuestionCard(
+                                    questionNumber: questionNumber,
+                                    question: question,
+                                  ),
+                                  const SizedBox(height: 18),
+                                  // ---- Options ----
+                                  ...List.generate(question.options.length, (
+                                    index,
+                                  ) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 14,
+                                      ),
+                                      child: _OptionTile(optionIndex: index),
+                                    );
+                                  }),
+                                  if (isReview)
+                                    _ExplanationSection(question: question),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    isReview
-                        ? _ReviewNavBar(controller: controller)
-                        : _BottomActionBar(controller: controller),
-                  ],
-                );
-              }),
-            ),
-          ],
-        ),
+                      isReview
+                          ? _ReviewNavBar(controller: controller)
+                          : _BottomActionBar(controller: controller),
+                    ],
+                  );
+                }),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -311,60 +317,101 @@ class _QuestionTopBar extends StatelessWidget {
             if (controller.isReviewMode.value) {
               return const SizedBox.shrink();
             }
-            final submitting = controller.isSubmittingQuiz.value;
-            final enabled = controller.totalQuestions > 0 && !submitting;
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: enabled ? () => _confirmAndSubmit(controller) : null,
-                borderRadius: BorderRadius.circular(22),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: enabled
-                        ? const Color(0xFF4D4FE1)
-                        : const Color(0xFFC9CCDE),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (submitting)
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.check_circle_outline_rounded,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                      const SizedBox(width: 6),
-                      Text(
-                        submitting ? 'Submitting' : 'Submit',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
+            return _PulsingSubmitButton(controller: controller);
           }),
         ],
       ),
     );
+  }
+}
+
+class _PulsingSubmitButton extends StatefulWidget {
+  const _PulsingSubmitButton({required this.controller});
+
+  final QuestionAnswerShowController controller;
+
+  @override
+  State<_PulsingSubmitButton> createState() => _PulsingSubmitButtonState();
+}
+
+class _PulsingSubmitButtonState extends State<_PulsingSubmitButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _scaleAnimation = Tween<double>(begin: 1, end: 1.07).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final submitting = widget.controller.isSubmittingQuiz.value;
+      final enabled = widget.controller.totalQuestions > 0 && !submitting;
+
+      return ScaleTransition(
+        scale: enabled ? _scaleAnimation : const AlwaysStoppedAnimation(1),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: enabled ? () => _confirmAndSubmit(widget.controller) : null,
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: enabled
+                    ? const Color(0xFF4D4FE1)
+                    : const Color(0xFFC9CCDE),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (submitting)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  const SizedBox(width: 6),
+                  Text(
+                    submitting ? 'Submitting' : 'Submit',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 
@@ -604,10 +651,7 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
           decoration: BoxDecoration(
             color: fillColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: borderColor,
-              width: isSelected ? 2 : 1.3,
-            ),
+            border: Border.all(color: borderColor, width: isSelected ? 2 : 1.3),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -920,14 +964,18 @@ class _BottomActionBar extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _QuizActionButton(
-                      label: controller.hasNextQuestion ? 'Next' : 'Save',
+                      label: controller.hasNextQuestion ? 'Next' : 'Submit',
                       icon: controller.hasNextQuestion
                           ? Icons.arrow_forward_rounded
-                          : Icons.done_rounded,
+                          : Icons.check_rounded,
                       iconAfterLabel: true,
-                      onTap: controller.isReviewMode.value
+                      onTap:
+                          controller.isReviewMode.value ||
+                              controller.isSubmittingQuiz.value
                           ? null
-                          : controller.saveAndNextQuestion,
+                          : controller.hasNextQuestion
+                          ? controller.saveAndNextQuestion
+                          : () => _confirmAndSubmit(controller),
                       foregroundColor: Colors.white,
                       backgroundColor: const Color(0xFF4D4FE1),
                       disabledBackgroundColor: const Color(0xFFC9CCDE),

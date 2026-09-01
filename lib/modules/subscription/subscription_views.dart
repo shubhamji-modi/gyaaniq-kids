@@ -50,7 +50,6 @@ class SubscriptionViews extends StatelessWidget {
   }
 }
 
-
 class _SubscriptionTopBar extends StatelessWidget {
   const _SubscriptionTopBar();
 
@@ -151,6 +150,7 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<SubscriptionController>();
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
@@ -217,41 +217,7 @@ class _PlanCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 20),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '₹399',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 25,
-                          fontWeight: FontWeight.w900,
-                          height: 0.95,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 0),
-                    child: Text(
-                      '₹3,999',
-                      style: TextStyle(
-                        color: const Color(0xFF8A8C96),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        decoration: TextDecoration.lineThrough,
-                        decorationColor: const Color(0xFF8A8C96),
-                        decorationThickness: 1.6,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              _PlanPrice(controller: controller),
               // const SizedBox(height: 24),
               // const Text(
               //   'PER QUARTER',
@@ -276,61 +242,84 @@ class _PlanCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: GetBuilder<SubscriptionController>(
-                  builder: (controller) => Obx(() {
-                    final bool busy = controller.purchasing.value;
-                    final bool active =
-                        controller.subscription.value?.isActive == true;
-                    return ElevatedButton(
-                      onPressed: (busy || active)
-                          ? null
-                          : controller.initializePayment,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            AppColors.primary.withValues(alpha: 0.6),
-                        disabledForegroundColor: Colors.white,
-                        elevation: 12,
-                        shadowColor: AppColors.primary.withValues(alpha: 0.28),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                child: Obx(() {
+                  final bool busy =
+                      controller.purchasing.value ||
+                      controller.loadingProduct.value;
+                  final bool active = controller.isSubscribed;
+                  final bool canBuy =
+                      controller.storeAvailable.value &&
+                      controller.product.value != null &&
+                      !busy &&
+                      !active;
+                  return ElevatedButton(
+                    onPressed: canBuy ? controller.initializePayment : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: AppColors.primary.withValues(
+                        alpha: 0.6,
                       ),
-                      child: busy
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                      disabledForegroundColor: Colors.white,
+                      elevation: 12,
+                      shadowColor: AppColors.primary.withValues(alpha: 0.28),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: busy
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
                               ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  active ? 'Subscribed' : 'Choose Pro',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Icon(
-                                  active
-                                      ? Icons.check_circle_outline
-                                      : Icons.rocket_launch_outlined,
-                                  size: 22,
-                                ),
-                              ],
                             ),
-                    );
-                  }),
-                ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                active ? 'Subscribed' : 'Subscribe',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Icon(
+                                active
+                                    ? Icons.check_circle_outline
+                                    : Icons.rocket_launch_outlined,
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                  );
+                }),
               ),
+              Obx(() {
+                final String? error = controller.loadError.value;
+                if (error == null || error.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFC62828),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                );
+              }),
             ],
           ),
         ),
@@ -362,6 +351,66 @@ class _PlanCard extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _PlanPrice extends StatelessWidget {
+  const _PlanPrice({required this.controller});
+
+  final SubscriptionController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.loadingProduct.value) {
+        return const SizedBox(
+          height: 31,
+          width: 31,
+          child: CircularProgressIndicator(strokeWidth: 2.4),
+        );
+      }
+
+      final String price = controller.currentPrice;
+      final String? offerPrice = controller.offerPrice;
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                offerPrice ?? price,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w900,
+                  height: 0.95,
+                ),
+              ),
+            ),
+          ),
+          if (offerPrice != null) ...[
+            const SizedBox(width: 14),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 0),
+              child: Text(
+                price,
+                style: const TextStyle(
+                  color: Color(0xFF8A8C96),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.lineThrough,
+                  decorationColor: Color(0xFF8A8C96),
+                  decorationThickness: 1.6,
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    });
   }
 }
 
@@ -409,7 +458,8 @@ class _CancelSubscriptionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetBuilder<SubscriptionController>(
       builder: (controller) => Obx(() {
-        final bool active = controller.subscription.value?.isActive == true;
+        final bool active =
+            controller.subscription.value?.hasEntitlement == true;
         // Cancelling only makes sense for an active subscription.
         if (!active) return const SizedBox.shrink();
 
@@ -424,10 +474,7 @@ class _CancelSubscriptionButton extends StatelessWidget {
             icon: const Icon(Icons.cancel_outlined, size: 18),
             label: const Text(
               'Cancel Subscription',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         );

@@ -1,7 +1,6 @@
 import 'package:get/get.dart';
 
 import '../../../core/service/api_service.dart';
-import '../../../core/utils/app_sounds.dart';
 import '../../../core/models/xp_config_data.dart';
 
 import '../controller/quiz_daily_result_controller.dart';
@@ -303,8 +302,6 @@ class QuestionAnswerShowController extends GetxController {
     if (isReviewMode.value || totalQuestions == 0) {
       return;
     }
-    // Encourage the child on every Next tap.
-    AppSounds.instance.playGreatJob();
     _markVisited(currentQuestionIndex.value);
     if (hasNextQuestion) {
       nextQuestion();

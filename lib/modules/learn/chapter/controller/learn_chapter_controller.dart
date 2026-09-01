@@ -301,7 +301,7 @@ class LearnSubjectModel {
       id: _safeText(json['_id']),
       title: _safeText(json['name'], fallback: 'Untitled Subject'),
       subtitle: description.isEmpty
-          ? 'No description available for this subject yet.'
+          ? ''
           : description,
       statusLabel: _statusLabelForIndex(index),
       icon: palette.icon,

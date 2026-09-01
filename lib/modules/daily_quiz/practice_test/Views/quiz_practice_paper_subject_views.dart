@@ -267,7 +267,7 @@ class _PracticeSubjectCard extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     description.isEmpty
-                        ? 'No description available yet.'
+                        ? ''
                         : description,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

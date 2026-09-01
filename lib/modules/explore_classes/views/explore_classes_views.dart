@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+  import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class ExploreClassesViews extends StatelessWidget {
@@ -293,7 +293,7 @@ class _ExploreClassCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 12), 
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,

@@ -20,6 +20,7 @@ class SessionManager extends GetxService {
   static const String _keyThemeMode = 'theme_mode';
   static const String _keyIntroSliderAvatar = 'intro_slider';
   static const String _keyIntroSliderProduct = 'intro_slider_product';
+  static const String _keyHasActiveSubscription = 'has_active_subscription';
 
   // Reactive variables
   final RxBool _isLoggedIn = false.obs;
@@ -28,6 +29,7 @@ class SessionManager extends GetxService {
   final RxString _userId = ''.obs;
   final RxString _language = 'en'.obs;
   final RxString _themeMode = 'system'.obs;
+  final RxBool _hasActiveSubscription = false.obs;
 
   // Getters
   bool get isLoggedIn => _isLoggedIn.value;
@@ -35,6 +37,7 @@ class SessionManager extends GetxService {
   String get userId => _userId.value;
   String get language => _language.value;
   String get themeMode => _themeMode.value;
+  bool get hasActiveSubscription => _hasActiveSubscription.value;
 
   // Reactive getters
   RxBool get isLoggedInRx => _isLoggedIn;
@@ -42,6 +45,7 @@ class SessionManager extends GetxService {
   RxString get userIdRx => _userId;
   RxString get languageRx => _language;
   RxString get themeModeRx => _themeMode;
+  RxBool get hasActiveSubscriptionRx => _hasActiveSubscription;
 
   Future<SessionManager> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -76,6 +80,8 @@ class SessionManager extends GetxService {
       _userId.value = _prefs!.getString(_keyUserId) ?? '';
       _language.value = _prefs!.getString(_keyLanguage) ?? 'en';
       _themeMode.value = _prefs!.getString(_keyThemeMode) ?? 'system';
+      _hasActiveSubscription.value =
+          _prefs!.getBool(_keyHasActiveSubscription) ?? false;
     }
   }
 
@@ -87,6 +93,7 @@ class SessionManager extends GetxService {
     String? email,
     String? profilePic,
   }) async {
+    resetLoginNavigationGuard();
     _isLoggedIn.value = true;
     _userToken.value = token;
     _userId.value = userId;
@@ -117,6 +124,7 @@ class SessionManager extends GetxService {
     await _prefs?.remove(_keyUserData);
     await _prefs?.remove(_keyUserEmail);
     await _prefs?.remove(_keyProfilePic);
+    await setHasActiveSubscription(false);
   }
 
   bool _hasNavigatedToLogin = false;
@@ -125,6 +133,14 @@ class SessionManager extends GetxService {
   /// originating from different parts of the app (API interceptor, controllers).
   void navigateToLoginIfNeeded() {
     if (_hasNavigatedToLogin) return;
+    _hasNavigatedToLogin = true;
+    Get.offAllNamed(AppRoutes.login);
+  }
+
+  /// Always clears the stack and opens login. Use this for explicit user
+  /// actions like sign out/delete account, where navigation must happen even
+  /// if an earlier unauthorized handler already used the guarded path.
+  void forceNavigateToLogin() {
     _hasNavigatedToLogin = true;
     Get.offAllNamed(AppRoutes.login);
   }
@@ -174,6 +190,12 @@ class SessionManager extends GetxService {
     _userId.value = '';
     _language.value = 'en';
     _themeMode.value = 'system';
+    _hasActiveSubscription.value = false;
+  }
+
+  Future<void> setHasActiveSubscription(bool value) async {
+    _hasActiveSubscription.value = value;
+    await _prefs?.setBool(_keyHasActiveSubscription, value);
   }
 
   // Check if token is valid (you can implement your own logic)

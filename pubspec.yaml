@@ -3,7 +3,7 @@ description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 
-version: 1.0.5+7
+version: 1.0.12+14
 
 environment:
   sdk: ^3.10.7
@@ -47,6 +47,7 @@ dependencies:
   # dom.Element types for tuning HTML answer spacing (customStylesBuilder).
   html: ^0.15.6
   in_app_purchase: ^3.2.0
+  in_app_purchase_android: ^0.5.0
   # Pinned: analytics 12.4.4 / crashlytics 5.2.5 target an unreleased
   # firebase_core (reference the `FirebasePlugin` base that 4.12.0 lacks).
   # 12.4.2 / 5.2.3 are the latest that compile against firebase_core 4.12.0.
@@ -72,6 +73,7 @@ flutter:
     - assets/images/apple_logo.png
     - assets/images/live_backImage.png
     - assets/icon/app_icon.png
+    - assets/icon/app_icon1.jpeg
     - assets/head.jpg
     - assets/quizz.jpg
     - assets/book.png
@@ -87,7 +89,9 @@ flutter:
       fonts:
         - asset: assets/fonts/Lexend-VariableFont_wght.ttf
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/app_icon.png"
+  image_path_android: "assets/icon/app_icon.png"
+  image_path_ios: "assets/icon/app_icon1.jpeg"
+  remove_alpha_ios: true

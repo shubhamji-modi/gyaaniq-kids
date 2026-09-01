@@ -1,3 +1,4 @@
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,7 +58,7 @@ class AuthService extends GetxService {
     }
 
     final body = response.data as Map<String, dynamic>;
-    final data = body['data'] as Map<String, dynamic>?;
+      final data = body['data'] as Map<String, dynamic>?;
     final token = data?['token']?.toString() ?? '';
     final userId = data?['_id']?.toString() ?? '';
     final name = data?['name']?.toString() ?? '';
@@ -97,7 +98,7 @@ class AuthService extends GetxService {
   Future<void> logout() async {
     await _storage.delete(key: StorageKeys.authToken);
     await _sessionManager.logout();
-    // Use guarded navigation helper to avoid duplicate navigations.
+
     SessionManager.instance.navigateToLoginIfNeeded();
   }
 }
