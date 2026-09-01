@@ -14,17 +14,27 @@ class ApiService extends GetxService {
   late Dio _dio;
 
   ///BASE URL
-  // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
-  static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
+  static String baseUrl =
+      'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
+  static String temp_baseUrl =
+      'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/temp-auth/';
+  // static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
+  static const bool useTemporaryAuth = true;
 
   ///End points
   static const String ACTIVE_CLASSES = 'classes/active';
-  static const String REGISTER = 'auth/register';
-  static const String registerVerifyOtp = 'auth/register/verify-otp';
+  static String get REGISTER =>
+      useTemporaryAuth ? '${temp_baseUrl}register' : 'auth/register';
+  static String get registerVerifyOtp => useTemporaryAuth
+      ? '${temp_baseUrl}verify-otp'
+      : 'auth/register/verify-otp';
   static const String registerResendOtp = 'auth/register/resend-otp';
   static const String LOGIN = 'auth/login';
-  static const String loginWithOtpSend = 'auth/login-with-otp/send';
-  static const String loginWithOtpVerify = 'auth/login-with-otp/verify';
+  static String get loginWithOtpSend =>
+      useTemporaryAuth ? '${temp_baseUrl}login' : 'auth/login-with-otp/send';
+  static String get loginWithOtpVerify => useTemporaryAuth
+      ? '${temp_baseUrl}verify-otp'
+      : 'auth/login-with-otp/verify';
   static const String LOGOUT = 'auth/logout';
   static const String DELETE_ACCOUNT = 'user/account';
   static const String GET_PROFILE = 'user/profile';
@@ -149,12 +159,15 @@ class ApiService extends GetxService {
             }*/
           } catch (e) {}
 
+          final includeAuth =
+              error.requestOptions.extra['includeAuth'] != false;
+
           // Handle token expiration
-          if (error.response?.statusCode == 401) {
+          if (includeAuth && error.response?.statusCode == 401) {
             _handleUnauthorized();
           }
 
-          if (error.response?.statusCode == 500) {
+          if (includeAuth && error.response?.statusCode == 500) {
             _handleUnauthorized();
           }
           handler.next(error);

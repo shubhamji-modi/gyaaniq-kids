@@ -137,6 +137,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     }
 
     final body = response.data as Map<String, dynamic>;
+    if (ApiService.useTemporaryAuth) {
+      final otpResponse = await ApiService.instance.post<dynamic>(
+        endpoint: ApiService.loginWithOtpSend,
+        data: {'phone': _phoneController.text.trim()},
+        includeAuth: false,
+        fromJson: (json) => json,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!otpResponse.success || otpResponse.data is! Map<String, dynamic>) {
+        _showMessage(otpResponse.message, isError: true);
+        return;
+      }
+    }
+
     for (final controller in _otpControllers) {
       controller.clear();
     }

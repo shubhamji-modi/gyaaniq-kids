@@ -703,7 +703,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   focusNode: _otpFocusNodes[index],
                   validator: _validateOtp,
                   onChanged: (value) {
-                    if (value.isNotEmpty && index < 5) {
+                    if (value.isNotEmpty && index < 5) {  
                       _otpFocusNodes[index + 1].requestFocus();
                     }
                     if (value.isEmpty && index > 0) {
