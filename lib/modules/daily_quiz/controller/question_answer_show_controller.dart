@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../../../core/service/api_service.dart';
 import '../../../core/models/xp_config_data.dart';
+import '../../../core/service/ad_service.dart';
 
 import '../controller/quiz_daily_result_controller.dart';
 import '../views/question_answer_show_views.dart';
@@ -367,9 +368,8 @@ class QuestionAnswerShowController extends GetxController {
       },
     );
 
-    isSubmittingQuiz.value = false;
-
     if (!response.success || response.data is! Map<String, dynamic>) {
+      isSubmittingQuiz.value = false;
       Get.snackbar(
         'Submit Failed',
         response.message,
@@ -418,6 +418,9 @@ class QuestionAnswerShowController extends GetxController {
       ),
       tag: 'daily_quiz_result',
     );
+
+    await AdService.instance.showQuizResultAdIfEnabled();
+    isSubmittingQuiz.value = false;
 
     Get.to(() => const QuizDailyResult());
   }

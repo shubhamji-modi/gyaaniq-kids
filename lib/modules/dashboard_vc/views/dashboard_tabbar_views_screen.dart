@@ -43,6 +43,14 @@ String _educationBoardLabel(String? board) {
   return '$trimmedBoard Board';
 }
 
+DashboardTabbarController _dashboardController() {
+  try {
+    return Get.find<DashboardTabbarController>();
+  } catch (_) {
+    return Get.put(DashboardTabbarController());
+  }
+}
+
 class DashboardTabbarViewsScreen extends StatefulWidget {
   const DashboardTabbarViewsScreen({super.key});
 
@@ -67,7 +75,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
         if (!mounted) {
           return;
         }
-        Get.put(DashboardTabbarController()).loadDashboardData();
+        _dashboardController().loadDashboardData();
         _fetchProfile();
       },
     );
@@ -113,7 +121,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
       return;
     }
 
-    final controller = Get.put(DashboardTabbarController());
+    final controller = _dashboardController();
     if (controller.currentTabIndex.value == 0) {
       controller.reloadHomeTabData();
     } else if (controller.currentTabIndex.value == 2) {
@@ -127,7 +135,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
     }
     _hasHandledLaunchArgs = true;
 
-    final controller = Get.put(DashboardTabbarController());
+    final controller = _dashboardController();
     final args = Get.arguments;
     if (args is! Map) {
       return;
@@ -194,7 +202,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(DashboardTabbarController());
+    final controller = _dashboardController();
 
     return PopScope(
       canPop: false,
@@ -3782,89 +3790,92 @@ class _DashboardResultSection extends StatelessWidget {
               ? emptyMessage
               : '${results.length} recent result${results.length == 1 ? '' : 's'}');
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: backgroundColor,
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onViewAll,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        children: [
-          Row(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: borderColor),
+          ),
+          child: Column(
             children: [
-              SizedBox(
-                width: 52,
-                height: 52,
-                child: Image.asset(assetPath, fit: BoxFit.contain),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: Image.asset(assetPath, fit: BoxFit.contain),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: accentColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.resultMeta,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: accentColor,
+                      size: 22,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
+              if (errorMessage.isNotEmpty && results.isEmpty) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: onRetry,
+                    child: Text(
+                      'Retry',
                       style: TextStyle(
                         color: accentColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.resultMeta,
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        height: 1.35,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              InkWell(
-                onTap: onViewAll,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.arrow_forward_rounded,
-                    color: accentColor,
-                    size: 22,
                   ),
                 ),
-              ),
+              ],
             ],
           ),
-          if (errorMessage.isNotEmpty && results.isEmpty) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: onRetry,
-                child: Text(
-                  'Retry',
-                  style: TextStyle(
-                    color: accentColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

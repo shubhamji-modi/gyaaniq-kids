@@ -16,7 +16,7 @@ class OnboardController extends GetxController {
       titleLineOne: 'Welcome to Your',
       titleHighlight: 'Learning Journey',
       description:
-          'Master Grade 5-10 concepts with interactive quests and AI-powered help.',
+          'Master Grade 6-12 concepts with interactive quests and AI-powered help.',
       badgeText: 'Daily Streak',
       badgeValue: '07 Days',
       badgeIcon: 'trophy',

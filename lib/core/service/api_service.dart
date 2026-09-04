@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../values/constants.dart';
 import '../utils/loading_dialog.dart';
+import '../utils/text_sanitizer.dart';
 
 class ApiService extends GetxService {
   static ApiService get instance => Get.find<ApiService>();
@@ -14,11 +15,9 @@ class ApiService extends GetxService {
   late Dio _dio;
 
   ///BASE URL
-  static String baseUrl =
-      'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
-  static String temp_baseUrl =
-      'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/temp-auth/';
-  // static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
+  // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
+  static String temp_baseUrl = 'https://gyaaniqkids.pixelnx.in/api/temp-auth/';
+  static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
   static const bool useTemporaryAuth = true;
 
   ///End points
@@ -85,6 +84,7 @@ class ApiService extends GetxService {
   static const String VERIFY_RESET_CODE = 'auth/verify-reset-code';
   static const String RESET_PASSWORD = 'auth/reset-password';
   static const String GET_ADMIN_XP = 'xp/config';
+  static const String GET_ADMIN_AD_CONFIG = GET_ADMIN_XP;
   static const String USER_XP = 'user/xp';
   static const String LESSON_QA_BY_LESSON =
       'user/lesson-qa/by-lesson/:lessonId';
@@ -247,12 +247,14 @@ class ApiService extends GetxService {
       print(response.data);
       print(response.statusCode);
 
+      final responseBody = sanitizeApiText(response.data);
+
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
         T? responseData;
-        if (fromJson != null && response.data != null) {
-          responseData = fromJson(response.data);
+        if (fromJson != null && responseBody != null) {
+          responseData = fromJson(responseBody);
         } else {
-          responseData = response.data as T?;
+          responseData = responseBody as T?;
         }
 
         return ApiResponse<T>(
@@ -264,7 +266,9 @@ class ApiService extends GetxService {
       } else {
         return ApiResponse<T>(
           success: false,
-          message: response.data['message'] ?? 'Unknown error occurred',
+          message: responseBody is Map
+              ? responseBody['message'] ?? 'Unknown error occurred'
+              : 'Unknown error occurred',
           statusCode: response.statusCode!,
         );
       }
@@ -297,11 +301,12 @@ class ApiService extends GetxService {
       }
 
       T? responseData;
-      if (fromJson != null && e.response?.data != null) {
-        responseData = fromJson(e.response?.data);
+      final errorBody = sanitizeApiText(e.response?.data);
+      if (fromJson != null && errorBody != null) {
+        responseData = fromJson(errorBody);
       } else {
         try {
-          responseData = e.response?.data as T?;
+          responseData = errorBody as T?;
         } catch (_) {
           responseData = null;
         }
@@ -415,12 +420,14 @@ class ApiService extends GetxService {
         LoadingDialog.hide();
       }
 
+      final responseBody = sanitizeApiText(response.data);
+
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
         T? responseData;
-        if (fromJson != null && response.data != null) {
-          responseData = fromJson(response.data);
+        if (fromJson != null && responseBody != null) {
+          responseData = fromJson(responseBody);
         } else {
-          responseData = response.data as T?;
+          responseData = responseBody as T?;
         }
 
         return ApiResponse<T>(
@@ -433,7 +440,9 @@ class ApiService extends GetxService {
 
       return ApiResponse<T>(
         success: false,
-        message: response.data['message'] ?? 'Unknown error occurred',
+        message: responseBody is Map
+            ? responseBody['message'] ?? 'Unknown error occurred'
+            : 'Unknown error occurred',
         statusCode: response.statusCode!,
       );
     } on DioException catch (e) {

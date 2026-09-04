@@ -685,12 +685,12 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
 
   Widget _buildFinalGradeStep() {
     const icons = <String, IconData>{
-      '5th': Icons.menu_book_outlined,
-      '6th': Icons.science_outlined,
-      '7th': Icons.calculate_outlined,
-      '8th': Icons.edit_note_rounded,
-      '9th': Icons.language_rounded,
-      '10th': Icons.psychology_alt_outlined,
+      '5th': Icons.school_outlined,
+      '6th': Icons.school_outlined,
+      '7th': Icons.school_outlined,
+      '8th': Icons.school_outlined,
+      '9th': Icons.school_outlined,
+      '10th': Icons.school_outlined,
     };
 
     return Column(

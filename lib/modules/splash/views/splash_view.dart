@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/service/session_manager.dart';
 import '../../../core/values/constants.dart';
 import '../../../routes/app_routes.dart';
 
@@ -24,6 +26,9 @@ class _SplashViewState extends State<SplashView> {
 
   Future<void> _checkAuth() async {
     await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) {
+      return;
+    }
 
     final preferences = await SharedPreferences.getInstance();
     final onboardFlag =
@@ -34,7 +39,7 @@ class _SplashViewState extends State<SplashView> {
       return;
     }
 
-    final token = await _storage.read(key: StorageKeys.authToken);
+    final token = await _readStoredToken();
 
     if (token != null && token.isNotEmpty) {
       final profileSetupCompleted =
@@ -46,6 +51,25 @@ class _SplashViewState extends State<SplashView> {
       );
     } else {
       Get.offAllNamed(AppRoutes.login);
+    }
+  }
+
+  Future<String?> _readStoredToken() async {
+    try {
+      return await _storage.read(key: StorageKeys.authToken);
+    } on PlatformException catch (error) {
+      debugPrint('Secure storage auth token could not be read: $error');
+      await _clearSecureStorage();
+      final cachedToken = SessionManager.instance.userToken;
+      return cachedToken.isEmpty ? null : cachedToken;
+    }
+  }
+
+  Future<void> _clearSecureStorage() async {
+    try {
+      await _storage.deleteAll();
+    } catch (error) {
+      debugPrint('Secure storage cleanup failed: $error');
     }
   }
 
