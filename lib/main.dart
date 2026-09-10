@@ -11,6 +11,7 @@ import 'core/service/analytics_service.dart';
 import 'core/service/ad_service.dart';
 import 'core/service/api_service.dart';
 import 'core/service/app_route_observer.dart';
+import 'core/service/notification_service.dart';
 import 'core/service/session_manager.dart';
 import 'firebase_options.dart';
 import 'modules/fun_fact/controller/fun_fact_controller.dart';
@@ -60,6 +61,9 @@ Future<void> main() async {
         // GoogleService-Info.plist is added) — run without Firebase.
         debugPrint('Firebase not initialized: $e');
       }
+
+      await NotificationService.instance.init();
+      unawaited(NotificationService.instance.requestPermission());
 
       await Get.putAsync(() => SessionManager().init());
       Get.put(ApiService());

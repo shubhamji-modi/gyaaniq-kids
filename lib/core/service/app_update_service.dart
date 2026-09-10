@@ -128,6 +128,16 @@ class AppUpdateService {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+  /// Opens the Google Play Store listing for this app.
+  Future<void> openPlayStore() async {
+    final uri = Uri.parse(
+      'https://play.google.com/store/apps/details?id=$_androidPackage',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Future<void> _openStore({String? fallbackUrl}) async {
     final uri = Platform.isIOS
         ? Uri.parse(

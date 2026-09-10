@@ -4341,6 +4341,11 @@ class _ProfileMenuTile extends StatelessWidget {
           return;
         }
 
+        if (item.title == 'Update App') {
+          AppUpdateService.instance.openPlayStore();
+          return;
+        }
+
         controller.handleProfileMenuTap(item, context);
       },
       child: Container(

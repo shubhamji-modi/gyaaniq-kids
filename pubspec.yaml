@@ -48,12 +48,15 @@ dependencies:
   html: ^0.15.6
   in_app_purchase: ^3.2.0
   in_app_purchase_android: ^0.5.0
-  # Pinned: analytics 12.4.4 / crashlytics 5.2.5 target an unreleased
-  # firebase_core (reference the `FirebasePlugin` base that 4.12.0 lacks).
-  # 12.4.2 / 5.2.3 are the latest that compile against firebase_core 4.12.0.
-  firebase_core: 4.12.0
-  firebase_analytics: 12.4.2
-  firebase_crashlytics: 5.2.3
+  flutter_local_notifications: ^18.0.1
+  # Pinned together: firebase_analytics/crashlytics/messaging must each target
+  # firebase_core_platform_interface ^8.x to compile against firebase_core
+  # 4.14.0. Bumping firebase_core alone (or any one of these packages alone)
+  # without checking this chain will break the build.
+  firebase_core: 4.14.0
+  firebase_analytics: 12.5.0
+  firebase_crashlytics: 5.3.0
+  firebase_messaging: ^16.6.0
   google_mobile_ads: 9.0.0
 
 dev_dependencies:
