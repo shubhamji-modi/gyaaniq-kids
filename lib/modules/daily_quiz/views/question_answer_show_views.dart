@@ -20,7 +20,7 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   @override
   void initState() {
     super.initState();
-    controller = Get.find<QuestionAnswerShowController>();
+    controller = QuestionAnswerShowController.instance;
 
     if (!controller.isReviewMode.value) {
       _timer?.cancel();
@@ -277,7 +277,7 @@ class _QuestionTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<QuestionAnswerShowController>();
+    final controller = QuestionAnswerShowController.instance;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 8, 12, 8),

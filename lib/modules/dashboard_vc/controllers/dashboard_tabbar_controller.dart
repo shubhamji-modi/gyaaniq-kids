@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,10 +25,11 @@ import '../../learn/homework/views/learn_homework_views.dart';
 import '../../learn/notes/views/learn_notes_views.dart';
 import '../../menubar/xp_and_streak/xp_and_streak_show_views.dart';
 import '../../../core/values/constants.dart';
+import '../../../core/utils/text_sanitizer.dart';
 import '../../../routes/app_routes.dart';
+import '../../../core/service/secure_storage_service.dart';
 
 class DashboardTabbarController extends GetxController {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final RxInt currentTabIndex = 0.obs;
   final RxBool isLoadingDashboardSummary = true.obs;
   final RxBool isLoadingLearnSubjects = true.obs;
@@ -883,7 +883,7 @@ class DashboardTabbarController extends GetxController {
   Future<void> _clearLocalSession(UserProfileProvider profileProvider) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(StorageKeys.profileSetupCompleted, false);
-    await _storage.delete(key: StorageKeys.authToken);
+    await SecureStorageService.delete(StorageKeys.authToken);
     await SessionManager.instance.logout();
     profileProvider.clearProfile();
   }
@@ -1679,16 +1679,7 @@ String _formatWeakAreaAccuracy(double value) {
   return '$rounded%';
 }
 
-String _initials(String name) {
-  final parts = name
-      .split(RegExp(r'\s+'))
-      .where((part) => part.trim().isNotEmpty)
-      .toList();
-  if (parts.isEmpty) {
-    return 'ST';
-  }
-  return parts.take(2).map((part) => part[0].toUpperCase()).join();
-}
+String _initials(String name) => safeInitials(name);
 
 Color _leaderboardAvatarColor(int rank) {
   switch (rank) {

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/service/secure_storage_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/values/constants.dart';
 import '../../../routes/app_routes.dart';
@@ -16,8 +15,6 @@ class SplashView extends StatefulWidget {
 }
 
 class _SplashViewState extends State<SplashView> {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
-
   @override
   void initState() {
     super.initState();
@@ -55,22 +52,14 @@ class _SplashViewState extends State<SplashView> {
   }
 
   Future<String?> _readStoredToken() async {
-    try {
-      return await _storage.read(key: StorageKeys.authToken);
-    } on PlatformException catch (error) {
-      debugPrint('Secure storage auth token could not be read: $error');
-      await _clearSecureStorage();
-      final cachedToken = SessionManager.instance.userToken;
-      return cachedToken.isEmpty ? null : cachedToken;
+    final token = await SecureStorageService.read(StorageKeys.authToken);
+    if (token != null && token.isNotEmpty) {
+      return token;
     }
-  }
-
-  Future<void> _clearSecureStorage() async {
-    try {
-      await _storage.deleteAll();
-    } catch (error) {
-      debugPrint('Secure storage cleanup failed: $error');
-    }
+    // Secure storage khaali ya corrupt tha — SharedPreferences wala cached
+    // token fallback ke taur par use karo taaki user bewajah logout na ho.
+    final cachedToken = SessionManager.instance.userToken;
+    return cachedToken.isEmpty ? null : cachedToken;
   }
 
   @override

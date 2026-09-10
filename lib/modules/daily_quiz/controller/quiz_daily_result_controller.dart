@@ -131,7 +131,7 @@ class QuizDailyResultController extends GetxController {
       return;
     }
 
-    final questionController = Get.find<QuestionAnswerShowController>();
+    final questionController = QuestionAnswerShowController.instance;
     questionController.resetQuiz();
     Get.back<void>();
     Get.back<void>();
@@ -185,7 +185,7 @@ class QuizDailyResultController extends GetxController {
   }
 
   void reviewAnswers() {
-    final questionController = Get.find<QuestionAnswerShowController>();
+    final questionController = QuestionAnswerShowController.instance;
     Get.back<void>();
     questionController.openReviewMode();
   }

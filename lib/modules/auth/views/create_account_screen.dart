@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +9,7 @@ import '../../../core/service/api_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/values/constants.dart';
 import '../../../routes/app_routes.dart';
+import '../../../core/service/secure_storage_service.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
@@ -27,7 +27,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   final _otpFormKey = GlobalKey<FormState>();
   final _otpControllers = List.generate(6, (_) => TextEditingController());
   final _otpFocusNodes = List.generate(6, (_) => FocusNode());
-  final _storage = const FlutterSecureStorage();
 
   Timer? _otpTimer;
   StateSetter? _otpSheetSetState;
@@ -68,7 +67,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   }
 
   Future<void> _showReviewSheet() async {
-    if (!_otpConsentAccepted) {
+    if (!_otpConsentAccepted || _isLoading || _otpSent) {
       return;
     }
 
@@ -96,7 +95,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   }
 
   Future<void> _register() async {
-    if (!_otpConsentAccepted) {
+    // Guard against a second tap firing register a second time.
+    if (!_otpConsentAccepted || _isLoading) {
       return;
     }
 
@@ -137,23 +137,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     }
 
     final body = response.data as Map<String, dynamic>;
-    if (ApiService.useTemporaryAuth) {
-      final otpResponse = await ApiService.instance.post<dynamic>(
-        endpoint: ApiService.loginWithOtpSend,
-        data: {'phone': _phoneController.text.trim()},
-        includeAuth: false,
-        fromJson: (json) => json,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      if (!otpResponse.success || otpResponse.data is! Map<String, dynamic>) {
-        _showMessage(otpResponse.message, isError: true);
-        return;
-      }
-    }
 
     for (final controller in _otpControllers) {
       controller.clear();
@@ -168,6 +151,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   }
 
   Future<void> _verifyOtp() async {
+    if (_isOtpLoading) {
+      return;
+    }
+
     final form = _otpFormKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -224,7 +211,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
       return;
     }
 
-    await _storage.write(key: StorageKeys.authToken, value: token);
+    await SecureStorageService.write(StorageKeys.authToken, token);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('user_id', userId);
     await preferences.setString(

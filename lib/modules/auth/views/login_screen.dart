@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +9,7 @@ import '../../../core/service/api_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/values/constants.dart';
 import '../../../routes/app_routes.dart';
+import '../../../core/service/secure_storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _otpControllers = List.generate(6, (_) => TextEditingController());
   final _otpFocusNodes = List.generate(6, (_) => FocusNode());
-  final _storage = const FlutterSecureStorage();
 
   Timer? _otpTimer;
   StateSetter? _otpSheetSetState;
@@ -54,6 +53,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    // Guard against a second tap firing login a second time.
+    if (_isLoading) {
+      return;
+    }
+
     final form = _passwordLoginFormKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -83,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _sendOtp() async {
-    if (!_otpConsentAccepted) {
+    if (!_otpConsentAccepted || _isOtpLoading) {
       return;
     }
 
@@ -127,6 +131,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _verifyOtp() async {
+    if (_isOtpLoading) {
+      return;
+    }
+
     final form = _otpFormKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -179,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    await _storage.write(key: StorageKeys.authToken, value: token);
+    await SecureStorageService.write(StorageKeys.authToken, token);
     final profileData = await _loadProfileAfterLogin(user);
     final profileSetupCompleted =
         _profileSetupFlag(data) ??

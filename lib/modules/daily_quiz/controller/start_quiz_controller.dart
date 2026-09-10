@@ -65,9 +65,7 @@ class StartQuizController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    quizController = Get.isRegistered<QuestionAnswerShowController>()
-        ? Get.find<QuestionAnswerShowController>()
-        : Get.put(QuestionAnswerShowController());
+    quizController = QuestionAnswerShowController.instance;
     if (isMockTest) {
       fetchMockTest();
     } else {

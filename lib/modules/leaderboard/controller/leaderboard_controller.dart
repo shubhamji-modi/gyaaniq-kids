@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/utils/text_sanitizer.dart';
 import '../../../core/service/api_service.dart';
 
 class LeaderboardController extends GetxController {
@@ -199,16 +200,7 @@ String _safeText(dynamic value, {String fallback = ''}) {
   return text.isEmpty ? fallback : text;
 }
 
-String _initials(String name) {
-  final parts = name
-      .split(RegExp(r'\s+'))
-      .where((part) => part.trim().isNotEmpty)
-      .toList();
-  if (parts.isEmpty) {
-    return 'ST';
-  }
-  return parts.take(2).map((part) => part[0].toUpperCase()).join();
-}
+String _initials(String name) => safeInitials(name);
 
 List<Color> _avatarGradient(int rank) {
   switch (rank) {
