@@ -29,9 +29,7 @@ class PracticeQuizOverviewController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    questionController = Get.isRegistered<QuestionAnswerShowController>()
-        ? Get.find<QuestionAnswerShowController>()
-        : Get.put(QuestionAnswerShowController());
+    questionController = QuestionAnswerShowController.instance;
     loadQuizzes();
   }
 

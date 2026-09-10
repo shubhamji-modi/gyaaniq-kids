@@ -11,6 +11,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/service/offline_download_service.dart';
 import '../../../../core/utils/google_drive_url_utils.dart';
+import '../../../../core/utils/text_sanitizer.dart';
 import '../../../daily_quiz/practice_test/Views/practice_quiz_overview.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_subject_views.dart';
@@ -747,10 +748,7 @@ String _shortErrorText(String message) {
       .replaceFirst('Exception: ', '')
       .replaceFirst('Invalid argument(s): ', '')
       .trim();
-  if (cleaned.length <= 90) {
-    return cleaned;
-  }
-  return '${cleaned.substring(0, 90)}...';
+  return safeTruncate(cleaned, 90);
 }
 
 class _DownloadActionButton extends StatelessWidget {

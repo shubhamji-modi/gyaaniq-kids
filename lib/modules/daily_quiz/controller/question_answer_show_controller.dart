@@ -128,6 +128,17 @@ class QuizQuestion {
 }
 
 class QuestionAnswerShowController extends GetxController {
+  /// Always returns a live instance.
+  ///
+  /// GetX's smart management can dispose this controller when the route that
+  /// created it is popped, so a plain `Get.find` crashes when the quiz screen
+  /// is rebuilt afterwards. Registering it permanently keeps quiz state alive
+  /// for the whole session.
+  static QuestionAnswerShowController get instance =>
+      Get.isRegistered<QuestionAnswerShowController>()
+          ? Get.find<QuestionAnswerShowController>()
+          : Get.put(QuestionAnswerShowController(), permanent: true);
+
   final RxInt currentQuestionIndex = 0.obs;
   final RxList<int?> selectedAnswers = <int?>[].obs;
   final RxInt elapsedSeconds = 0.obs;

@@ -1,18 +1,17 @@
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../values/constants.dart';
 import 'api_service.dart';
 import 'session_manager.dart';
+import 'secure_storage_service.dart';
 
 class AuthService extends GetxService {
   static AuthService get instance => Get.find<AuthService>();
 
   final ApiService _apiService = ApiService.instance;
   final SessionManager _sessionManager = SessionManager.instance;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   Future<ApiResponse<Map<String, dynamic>>> login({
     required String email,
@@ -72,7 +71,7 @@ class AuthService extends GetxService {
       );
     }
 
-    await _storage.write(key: StorageKeys.authToken, value: token);
+    await SecureStorageService.write(StorageKeys.authToken, token);
     await _sessionManager.login(
       token: token,
       userId: userId,
@@ -96,7 +95,7 @@ class AuthService extends GetxService {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: StorageKeys.authToken);
+    await SecureStorageService.delete(StorageKeys.authToken);
     await _sessionManager.logout();
 
     SessionManager.instance.navigateToLoginIfNeeded();

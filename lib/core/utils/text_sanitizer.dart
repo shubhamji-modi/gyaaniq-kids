@@ -1,3 +1,5 @@
+import 'package:characters/characters.dart';
+
 String sanitizeTextForFlutter(String value) {
   final units = value.codeUnits;
   final buffer = StringBuffer();
@@ -54,4 +56,35 @@ dynamic sanitizeApiText(dynamic value) {
   }
 
   return value;
+}
+
+/// Builds avatar initials without ever slicing a surrogate pair.
+///
+/// `name[0]` on a string that starts with an emoji (or any non-BMP glyph)
+/// returns a lone surrogate, which crashes the text engine with
+/// "string is not well-formed UTF-16" when Flutter tries to lay it out.
+String safeInitials(String name, {String fallback = 'ST'}) {
+  final parts = sanitizeTextForFlutter(name)
+      .split(RegExp(r'\s+'))
+      .where((part) => part.trim().isNotEmpty)
+      .toList();
+  if (parts.isEmpty) {
+    return fallback;
+  }
+  final initials = parts
+      .take(2)
+      .map((part) => part.characters.first.toUpperCase())
+      .join();
+  return initials.isEmpty ? fallback : initials;
+}
+
+/// Truncates [value] on grapheme boundaries so emoji/combined characters are
+/// never cut in half.
+String safeTruncate(String value, int maxLength, {String ellipsis = '...'}) {
+  final cleaned = sanitizeTextForFlutter(value);
+  final characters = cleaned.characters;
+  if (characters.length <= maxLength) {
+    return cleaned;
+  }
+  return '${characters.take(maxLength)}$ellipsis';
 }

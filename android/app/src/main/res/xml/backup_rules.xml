@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android Auto Backup (API 30 and below).
+
+  FlutterSecureStorage ki encrypted prefs backup me NAHI jaani chahiye: data to
+  restore ho jaata hai lekin Android Keystore ki key restore nahi hoti, jiske
+  baad har read "BadPaddingException: BAD_DECRYPT" deti hai aur app splash par
+  crash ho jaati hai.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+</full-backup-content>
