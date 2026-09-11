@@ -13,6 +13,7 @@ import '../../../core/service/session_manager.dart';
 import '../../../core/theme/appcolors.dart';
 import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../../menubar/download/views/menubar_download_views.dart';
+import '../views/class_change_sheet.dart';
 import '../../learn/chapter/views/learn_chapter_views.dart';
 import '../../learn/chapter/views/learn_subject_views.dart';
 import '../../learn/attendance/controller/learn_attendance_controller.dart';
@@ -183,6 +184,7 @@ class DashboardTabbarController extends GetxController {
 
   final List<ProfileMenuData> profileMenuItems = const [
     ProfileMenuData(title: 'Leaderboard', icon: Icons.leaderboard_outlined),
+    ProfileMenuData(title: 'Change Class', icon: Icons.school_outlined),
     ProfileMenuData(title: 'My Course', icon: Icons.import_contacts_rounded),
     // ProfileMenuData(title: 'Downloads', icon: Icons.download_outlined),
     ProfileMenuData(
@@ -723,6 +725,11 @@ class DashboardTabbarController extends GetxController {
   ) async {
     if (item.title == 'Leaderboard') {
       openLeaderboard();
+      return;
+    }
+
+    if (item.title == 'Change Class') {
+      await showClassChangeSheet(context);
       return;
     }
 

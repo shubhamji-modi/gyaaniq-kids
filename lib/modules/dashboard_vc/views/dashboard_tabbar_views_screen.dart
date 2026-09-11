@@ -10,6 +10,7 @@ import '../../../../core/service/app_route_observer.dart';
 import '../../../../core/service/app_update_service.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/theme/appcolors.dart';
+import '../../notifications/views/notification_views.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
 import '../../daily_quiz/views/start_quiz_views.dart';
@@ -21,6 +22,7 @@ import '../../fun_fact/fun_fact_image.dart';
 import '../../fun_fact/views/fun_fact_story_views.dart';
 import '../../subscription/subscription_views.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
+import 'class_change_sheet.dart';
 import 'performance_dna_views.dart';
 
 String _profileFirstName(String? name) {
@@ -482,12 +484,15 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  'Class ${profile?.userClass ?? '-'} • ${_educationBoardLabel(profile?.educationBoard)}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted2,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                GestureDetector(
+                  onTap: () => showClassChangeSheet(context),
+                  child: Text(
+                    'Class ${profile?.userClass ?? '-'} • ${_educationBoardLabel(profile?.educationBoard)}',
+                    style: const TextStyle(
+                      color: AppColors.textMuted2,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -538,7 +543,35 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          _NotificationBell(),
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Get.to(() => const NotificationViews()),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.neutralSurface2,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.notifications_none_rounded,
+          color: AppColors.textPrimaryDeep,
+          size: 22,
+        ),
       ),
     );
   }
@@ -627,7 +660,9 @@ class _HomeTab extends StatelessWidget {
         () => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _LearningJourneyBanner(),
+            const _DailyQuizMiniCard(),
+            const SizedBox(height: 18),
+            const _LeaderboardStripCard(),
             const SizedBox(height: 18),
             if (controller.dashboardSummaryError.value.isNotEmpty)
               _DashboardInlineState(
@@ -640,10 +675,8 @@ class _HomeTab extends StatelessWidget {
             ],
             const _FunFactCard(),
             const SizedBox(height: 18),
-            const _DailyQuizMiniCard(),
-            const SizedBox(height: 18),
             const _HomeMockTestCard(),
-            const _LeaderboardStripCard(),
+            const _LearningJourneyBanner(),
           ],
         ),
       ),
