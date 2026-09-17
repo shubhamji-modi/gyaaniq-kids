@@ -8,7 +8,9 @@ import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
 import '../../../../core/service/app_route_observer.dart';
 import '../../../../core/service/app_update_service.dart';
+import '../../../../core/service/device_token_service.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
+import '../../../../core/service/notification_service.dart';
 import '../../../../core/theme/appcolors.dart';
 import '../../notifications/views/notification_views.dart';
 
@@ -23,6 +25,7 @@ import '../../fun_fact/views/fun_fact_story_views.dart';
 import '../../subscription/subscription_views.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
 import 'class_change_sheet.dart';
+import 'daily_rewards_views.dart';
 import 'performance_dna_views.dart';
 
 String _profileFirstName(String? name) {
@@ -77,7 +80,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
         if (!mounted) {
           return;
         }
-        _dashboardController().loadDashboardData();
+        _dashboardController().loadDashboardData(force: true);
         _fetchProfile();
       },
     );
@@ -85,8 +88,15 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
       _handleLaunchArgs();
       _reloadHomeTabApis();
       _fetchProfile();
+      _sendDeviceToken();
       AppUpdateService.instance.checkForUpdate();
     });
+  }
+
+  void _sendDeviceToken() {
+    DeviceTokenService.instance.sendToken(
+      NotificationService.instance.currentToken,
+    );
   }
 
   @override
@@ -116,6 +126,7 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
   void didPopNext() {
     _reloadHomeTabApis();
     _fetchProfile();
+    _sendDeviceToken();
   }
 
   void _reloadHomeTabApis() {
@@ -422,6 +433,11 @@ class _NavPill extends StatelessWidget {
   }
 }
 
+/// Fires once the dashboard header's name/board/class intro animation
+/// finishes, so other widgets (progress bars, leaderboard avatars) can
+/// start their own entrance animations right after.
+final ValueNotifier<bool> _headerIntroDone = ValueNotifier<bool>(false);
+
 class _DashboardScaffold extends StatelessWidget {
   const _DashboardScaffold({required this.child});
 
@@ -429,6 +445,7 @@ class _DashboardScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    _headerIntroDone.value = false;
     return SafeArea(
       bottom: false,
       child: Column(
@@ -470,32 +487,11 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hi, ${_profileFirstName(profile?.name)}! 👋',
-                  style: const TextStyle(
-                    color: AppColors.textPrimaryDeep,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                GestureDetector(
-                  onTap: () => showClassChangeSheet(context),
-                  child: Text(
-                    'Class ${profile?.userClass ?? '-'} • ${_educationBoardLabel(profile?.educationBoard)}',
-                    style: const TextStyle(
-                      color: AppColors.textMuted2,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
+            child: _AnimatedHeaderInfo(
+              name: _profileFirstName(profile?.name),
+              boardLabel: _educationBoardLabel(profile?.educationBoard),
+              classLabel: 'Class ${profile?.userClass ?? '-'}',
+              onTapClass: () => showClassChangeSheet(context),
             ),
           ),
           const SizedBox(width: 8),
@@ -515,29 +511,14 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
                 ),
                 const SizedBox(width: 7),
                 Obx(
-                  () => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        controller.userXpSummary.value.streakText,
-                        style: const TextStyle(
-                          color: Color(0xFF1F2433),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          height: 1.05,
-                        ),
-                      ),
-                      const Text(
-                        'Streak',
-                        style: TextStyle(
-                          color: Color(0xFF8A8F9C),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
+                  () => Text(
+                    '${controller.userXpSummary.value.streakCount}',
+                    style: const TextStyle(
+                      color: Color(0xFF1F2433),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      height: 1.05,
+                    ),
                   ),
                 ),
               ],
@@ -547,6 +528,139 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
           _NotificationBell(),
         ],
       ),
+    );
+  }
+}
+
+/// Staged header intro animation:
+/// 1. Only the student's name is shown, centered.
+/// 2. After 1s, the name slides up and sticks to the top while the
+///    education board slides up into view below it.
+/// 3. After another 1s, the board label slides out/up and is replaced by
+///    the class label (which stays put afterwards).
+class _AnimatedHeaderInfo extends StatefulWidget {
+  const _AnimatedHeaderInfo({
+    required this.name,
+    required this.boardLabel,
+    required this.classLabel,
+    required this.onTapClass,
+  });
+
+  final String name;
+  final String boardLabel;
+  final String classLabel;
+  final VoidCallback onTapClass;
+
+  @override
+  State<_AnimatedHeaderInfo> createState() => _AnimatedHeaderInfoState();
+}
+
+enum _HeaderStage { name, board, klass }
+
+class _AnimatedHeaderInfoState extends State<_AnimatedHeaderInfo>
+    with SingleTickerProviderStateMixin {
+  _HeaderStage _stage = _HeaderStage.name;
+  late final AnimationController _subLineController;
+
+  static const _subLineHeight = 19.0;
+  static const _transitionDuration = Duration(milliseconds: 450);
+
+  @override
+  void initState() {
+    super.initState();
+    _subLineController = AnimationController(
+      vsync: this,
+      duration: _transitionDuration,
+    );
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _stage = _HeaderStage.board);
+      _subLineController.forward();
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        _subLineController.reverse().whenComplete(() {
+          if (!mounted) return;
+          setState(() => _stage = _HeaderStage.klass);
+          _subLineController.forward().whenComplete(() {
+            if (!mounted) return;
+            _headerIntroDone.value = true;
+          });
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _subLineController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedAlign(
+          duration: _transitionDuration,
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            widget.name,
+            style: const TextStyle(
+              color: AppColors.textPrimaryDeep,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        AnimatedBuilder(
+          animation: _subLineController,
+          builder: (context, _) {
+            final t = Curves.easeOutCubic.transform(_subLineController.value);
+            return ClipRect(
+              child: Align(
+                alignment: Alignment.topLeft,
+                heightFactor: t,
+                child: Opacity(
+                  opacity: t,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - t) * 10),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: SizedBox(
+                        height: _subLineHeight,
+                        child: _stage == _HeaderStage.board
+                            ? Text(
+                                widget.boardLabel,
+                                style: const TextStyle(
+                                  color: AppColors.textMuted2,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              )
+                            : GestureDetector(
+                                onTap: widget.onTapClass,
+                                child: Text(
+                                  widget.classLabel,
+                                  style: const TextStyle(
+                                    color: AppColors.textMuted2,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -667,7 +781,7 @@ class _HomeTab extends StatelessWidget {
             if (controller.dashboardSummaryError.value.isNotEmpty)
               _DashboardInlineState(
                 message: controller.dashboardSummaryError.value,
-                onRetry: controller.loadDashboardData,
+                onRetry: () => controller.loadDashboardData(force: true),
               )
             else ...[
               const _JourneyCard(),
@@ -710,7 +824,7 @@ class _LearnTab extends GetView<DashboardTabbarController> {
             else if (controller.learnSubjectsError.value.isNotEmpty)
               _DashboardInlineState(
                 message: controller.learnSubjectsError.value,
-                onRetry: controller.loadDashboardData,
+                onRetry: () => controller.loadDashboardData(force: true),
               )
             else if (controller.learnSubjects.isEmpty)
               const _DashboardInlineState(
@@ -787,14 +901,14 @@ class _LiveTab extends GetView<DashboardTabbarController> {
         if (controller.liveClassesError.value.isNotEmpty) {
           return _DashboardInlineState(
             message: controller.liveClassesError.value,
-            onRetry: controller.loadLiveClasses,
+            onRetry: () => controller.loadLiveClasses(force: true),
           );
         }
 
         if (controller.liveClassSchedules.isEmpty) {
           return _DashboardInlineState(
             message: 'No live classes available right now.',
-            onRetry: controller.loadLiveClasses,
+            onRetry: () => controller.loadLiveClasses(force: true),
           );
         }
 
@@ -832,53 +946,11 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
       child: Column(
         children: [
           const SizedBox(height: 18),
-          const _ProfileAvatarSection(),
-          const SizedBox(height: 18),
-          Obx(() {
-            final xpSummary = controller.userXpSummary.value;
-            return Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    icon: Icons.auto_awesome,
-                    iconColor: AppColors.purpleDark2,
-                    title: xpSummary.xpText,
-                    subtitle: 'Total XP',
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: _StatCard(
-                    icon: Icons.local_fire_department,
-                    iconColor: AppColors.warningText,
-                    title: xpSummary.profileStreakText,
-                    subtitle: 'Streak',
-                  ),
-                ),
-              ],
-            );
-          }),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => Get.to(() => const SubscriptionViews()),
-              icon: const Icon(Icons.workspace_premium),
-              label: const Text('Subscription'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.purpleDark2,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(26),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
+          const _ProfileInfoCard(),
+          const SizedBox(height: 14),
+          const _ProfileStatsCard(),
+          const SizedBox(height: 14),
+          const _SubscriptionBanner(),
           const SizedBox(height: 18),
           Container(
             decoration: BoxDecoration(
@@ -985,26 +1057,8 @@ class _JourneyCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        summary.progressLabel,
-                        style: const TextStyle(
-                          color: Color(0xFF6C4DF6),
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const Text(
-                        'Completed',
-                        style: TextStyle(
-                          color: Color(0xFF8A8F9C),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  _AnimatedProgressPercentLabel(
+                    progressValue: summary.progressValue,
                   ),
                 ],
               ),
@@ -1020,22 +1074,126 @@ class _JourneyCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 18),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(
-                  value: summary.progressValue,
-                  minHeight: 8,
-                  backgroundColor: const Color(0xFFEDEFF4),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF6C4DF6),
-                  ),
-                ),
-              ),
+              _AnimatedProgressBar(progressValue: summary.progressValue),
             ],
           ),
         ),
       );
     });
+  }
+}
+
+/// Animates the "Completed" percentage label counting up from 0 to
+/// [progressValue] once the header intro animation finishes.
+class _AnimatedProgressPercentLabel extends StatefulWidget {
+  const _AnimatedProgressPercentLabel({required this.progressValue});
+
+  final double progressValue;
+
+  @override
+  State<_AnimatedProgressPercentLabel> createState() =>
+      _AnimatedProgressPercentLabelState();
+}
+
+class _AnimatedProgressPercentLabelState
+    extends State<_AnimatedProgressPercentLabel> {
+  @override
+  void initState() {
+    super.initState();
+    _headerIntroDone.addListener(_onHeaderIntroChanged);
+  }
+
+  @override
+  void dispose() {
+    _headerIntroDone.removeListener(_onHeaderIntroChanged);
+    super.dispose();
+  }
+
+  void _onHeaderIntroChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final target = _headerIntroDone.value ? widget.progressValue : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: target),
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, _) {
+            return Text(
+              '${(value * 100).round()}%',
+              style: const TextStyle(
+                color: Color(0xFF6C4DF6),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            );
+          },
+        ),
+        const Text(
+          'Completed',
+          style: TextStyle(
+            color: Color(0xFF8A8F9C),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Animates the linear progress bar filling from 0 to [progressValue]
+/// once the header intro animation finishes.
+class _AnimatedProgressBar extends StatefulWidget {
+  const _AnimatedProgressBar({required this.progressValue});
+
+  final double progressValue;
+
+  @override
+  State<_AnimatedProgressBar> createState() => _AnimatedProgressBarState();
+}
+
+class _AnimatedProgressBarState extends State<_AnimatedProgressBar> {
+  @override
+  void initState() {
+    super.initState();
+    _headerIntroDone.addListener(_onHeaderIntroChanged);
+  }
+
+  @override
+  void dispose() {
+    _headerIntroDone.removeListener(_onHeaderIntroChanged);
+    super.dispose();
+  }
+
+  void _onHeaderIntroChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final target = _headerIntroDone.value ? widget.progressValue : 0.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: target),
+        duration: const Duration(milliseconds: 900),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, _) {
+          return LinearProgressIndicator(
+            value: value,
+            minHeight: 8,
+            backgroundColor: const Color(0xFFEDEFF4),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6C4DF6)),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -1422,35 +1580,37 @@ class _DailyQuizMiniCard extends GetView<DashboardTabbarController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFC833),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFF1B2C8A),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 5),
-                    Obx(
-                      () => Text(
-                        controller.userXpSummary.value.dailyQuizXpLabel,
-                        style: const TextStyle(
-                          color: Color(0xFF1B2C8A),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+              _BounceLoop(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFC833),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        color: Color(0xFF1B2C8A),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 5),
+                      Obx(
+                        () => Text(
+                          controller.userXpSummary.value.dailyQuizXpLabel,
+                          style: const TextStyle(
+                            color: Color(0xFF1B2C8A),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const Text(
@@ -1470,39 +1630,94 @@ class _DailyQuizMiniCard extends GetView<DashboardTabbarController> {
                   height: 1.4,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Start Quiz',
-                      style: TextStyle(
-                        color: Color(0xFF4D4FE1),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+              _BounceLoop(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Start Quiz',
+                        style: TextStyle(
+                          color: Color(0xFF4D4FE1),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Color(0xFF4D4FE1),
-                      size: 18,
-                    ),
-                  ],
+                      SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Color(0xFF4D4FE1),
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Wraps [child] in a small, continuous, subtle up-and-down bounce.
+class _BounceLoop extends StatefulWidget {
+  const _BounceLoop({
+    required this.child,
+    this.pixelRange = 4,
+    this.duration = const Duration(milliseconds: 900),
+  });
+
+  final Widget child;
+  final double pixelRange;
+  final Duration duration;
+
+  @override
+  State<_BounceLoop> createState() => _BounceLoopState();
+}
+
+class _BounceLoopState extends State<_BounceLoop>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..repeat(reverse: true);
+    _offset = Tween<double>(
+      begin: 0,
+      end: -widget.pixelRange,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _offset,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _offset.value),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }
@@ -2074,7 +2289,7 @@ class _WeakAreasSection extends GetView<DashboardTabbarController> {
             else if (controller.weakAreasError.value.isNotEmpty)
               _DashboardInlineState(
                 message: controller.weakAreasError.value,
-                onRetry: controller.loadWeakAreas,
+                onRetry: () => controller.loadWeakAreas(force: true),
               )
             else if (summary.subjects.isEmpty)
               _WeakAreasEmptyState(hasAttempts: summary.hasAttempts)
@@ -3373,7 +3588,7 @@ class _AnalyticsCard extends GetView<DashboardTabbarController> {
             if (controller.dailyQuizAnalyticsError.value.isNotEmpty) {
               return _DashboardInlineState(
                 message: controller.dailyQuizAnalyticsError.value,
-                onRetry: controller.loadDailyQuizAnalytics,
+                onRetry: () => controller.loadDailyQuizAnalytics(force: true),
               );
             }
 
@@ -4177,167 +4392,449 @@ class _LiveScheduleCard extends StatelessWidget {
   }
 }
 
-class _ProfileAvatarSection extends StatelessWidget {
-  const _ProfileAvatarSection();
+class _ProfileInfoCard extends StatelessWidget {
+  const _ProfileInfoCard();
 
   @override
   Widget build(BuildContext context) {
     final profile = Provider.of<UserProfileProvider>(context).profile;
-    return Column(
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.primaryBright, width: 3),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryBright.withValues(alpha: 0.15),
-                    blurRadius: 18,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-                gradient: const LinearGradient(
-                  colors: [AppColors.profileRing, AppColors.profileRing2],
+    final hasVerifiedNumber = (profile?.mobile.trim() ?? '').isNotEmpty;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 360;
+    final avatarSize = isCompact ? 48.0 : 54.0;
+    final innerAvatarSize = isCompact ? 42.0 : 48.0;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isCompact ? 14 : 18),
+      decoration: _cardDecoration(borderRadius: 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: avatarSize,
+                height: avatarSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.textPrimaryDeep,
                 ),
-              ),
-              child: Center(
-                child: _ProfileAvatar(
-                  imageUrl: profile?.profilePic ?? '',
-                  size: 82,
-                  iconSize: 50,
-                  borderWidth: 0,
-                  backgroundColor: AppColors.transparent,
-                ),
-              ),
-            ),
-            Positioned(
-              right: -2,
-              bottom: 10,
-              child: GestureDetector(
-                onTap: () => Get.to(() => const EditProfileViews()),
-                child: Container(
-                  width: 25,
-                  height: 25,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.warning3,
-                  ),
-                  child: const Icon(
-                    Icons.edit_rounded,
-                    color: AppColors.warningTextDark,
-                    size: 17,
+                child: Center(
+                  child: _ProfileAvatar(
+                    imageUrl: profile?.profilePic ?? '',
+                    size: innerAvatarSize,
+                    iconSize: innerAvatarSize * 0.58,
+                    borderWidth: 0,
+                    backgroundColor: AppColors.transparent,
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 15),
-        Text(
-          profile?.name ?? 'Student',
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
+              Positioned(
+                right: -3,
+                bottom: -3,
+                child: GestureDetector(
+                  onTap: () => Get.to(() => const EditProfileViews()),
+                  child: Container(
+                    width: 19,
+                    height: 19,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.warning3,
+                      border: Border.all(color: AppColors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      color: AppColors.warningTextDark,
+                      size: 11,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Text(
-                'CLASS ${profile?.userClass ?? '-'}',
-                style: const TextStyle(
-                  color: AppColors.primaryBright,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        profile?.name ?? 'Student',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: isCompact ? 15 : 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text('👋', style: TextStyle(fontSize: 16)),
+                  ],
                 ),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                '•',
-                style: TextStyle(
-                  color: AppColors.neutralDot,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _ProfileChip(
+                      label: 'Class ${profile?.userClass ?? '-'}',
+                      background: AppColors.primaryLight,
+                      textColor: AppColors.primaryBright,
+                    ),
+                    _ProfileChip(
+                      label: _educationBoardLabel(
+                        profile?.educationBoard,
+                      ).toUpperCase(),
+                      background: AppColors.boardBackground,
+                      textColor: AppColors.boardText,
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.boardBackground,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Text(
-                _educationBoardLabel(profile?.educationBoard).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.boardText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 10),
+                _ProfilePhoneRow(
+                  hasVerifiedNumber: hasVerifiedNumber,
+                  mobile: profile?.mobile ?? '',
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
+class _ProfileStatsCard extends GetView<DashboardTabbarController> {
+  const _ProfileStatsCard();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: _cardDecoration(),
-      child: Column(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(borderRadius: 24),
+      child: Obx(() {
+        final xpSummary = controller.userXpSummary.value;
+        final weakAreas = controller.weakAreasSummary.value;
+        return Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Get.to(() => const DailyRewardsViews()),
+                child: _ProfileStatTile(
+                  icon: Icons.bolt_rounded,
+                  iconColor: AppColors.purpleDark2,
+                  value: xpSummary.xpText,
+                  label: 'Total XP',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ProfileStatTile(
+                icon: Icons.local_fire_department_rounded,
+                iconColor: AppColors.warningText,
+                value: xpSummary.profileStreakText,
+                label: 'Streak',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ProfileStatTile(
+                icon: Icons.track_changes_rounded,
+                iconColor: const Color(0xFFE0433D),
+                value: weakAreas.hasAttempts
+                    ? weakAreas.overallAccuracyLabel
+                    : '-',
+                label: 'Accuracy',
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+/// Phone number row that mirrors the compact profile card design: a
+/// verified pill when the number is confirmed, or a distinct amber
+/// "unverified" pill with a tappable "Verify" action otherwise, so an
+/// unverified account visually stands apart rather than blending in.
+class _ProfilePhoneRow extends StatelessWidget {
+  const _ProfilePhoneRow({
+    required this.hasVerifiedNumber,
+    required this.mobile,
+  });
+
+  final bool hasVerifiedNumber;
+  final String mobile;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Get.to(() => const EditProfileViews()),
+      child: Row(
         children: [
-          Icon(icon, color: iconColor, size: 34),
-          const SizedBox(height: 10),
+          const Icon(
+            Icons.phone_rounded,
+            color: AppColors.textMuted2,
+            size: 15,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              hasVerifiedNumber ? '+91 $mobile' : 'Add mobile number',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textMuted2,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (hasVerifiedNumber)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7F9EF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: Color(0xFF12B76A),
+                    size: 13,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'Verified',
+                    style: TextStyle(
+                      color: Color(0xFF12B76A),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF0DA),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Verify',
+                style: TextStyle(
+                  color: AppColors.warningTextDark,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileChip extends StatelessWidget {
+  const _ProfileChip({
+    required this.label,
+    required this.background,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color background;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileStatTile extends StatelessWidget {
+  const _ProfileStatTile({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.neutralSurface2,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(height: 6),
           Text(
-            title,
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.textPrimary,
-              fontSize: 18,
+              fontSize: 15,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           Text(
-            subtitle,
+            label,
             style: const TextStyle(
               color: AppColors.neutralText8,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SubscriptionBanner extends StatelessWidget {
+  const _SubscriptionBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Get.to(() => const SubscriptionViews()),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [AppColors.purpleDark2, AppColors.primaryBright],
+          ),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.white.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: AppColors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text(
+                        'Pro Subscription',
+                        style: TextStyle(
+                          color: AppColors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'FREE PLAN',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Unlock all mocks & 24/7 AI tutor',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.white.withValues(alpha: 0.85),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                'Upgrade',
+                style: TextStyle(
+                  color: AppColors.purpleDark2,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -4643,19 +5140,42 @@ const _privacyShieldSections = [
   ),
 ];
 
-class _AvatarStack extends StatelessWidget {
+class _AvatarStack extends StatefulWidget {
   const _AvatarStack({required this.summary});
 
   final LeaderboardStripData summary;
 
   @override
+  State<_AvatarStack> createState() => _AvatarStackState();
+}
+
+class _AvatarStackState extends State<_AvatarStack> {
+  @override
+  void initState() {
+    super.initState();
+    _headerIntroDone.addListener(_onHeaderIntroChanged);
+  }
+
+  @override
+  void dispose() {
+    _headerIntroDone.removeListener(_onHeaderIntroChanged);
+    super.dispose();
+  }
+
+  void _onHeaderIntroChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final summary = widget.summary;
     final students = summary.topStudents;
     final showRemaining = summary.remainingStudents > 0;
     final width = students.isEmpty
         ? 0.0
         : ((students.length - 1) * 20 + 34 + (showRemaining ? 20 : 0))
               .toDouble();
+    final animate = _headerIntroDone.value;
 
     return SizedBox(
       width: width,
@@ -4665,25 +5185,91 @@ class _AvatarStack extends StatelessWidget {
           for (var index = 0; index < students.length; index++)
             Positioned(
               left: index * 20,
-              child: _LeaderboardStripAvatar(student: students[index]),
+              child: _StaggeredSlideIn(
+                animate: animate,
+                delay: Duration(seconds: index),
+                child: _LeaderboardStripAvatar(student: students[index]),
+              ),
             ),
           if (showRemaining)
             Positioned(
               left: students.length * 20,
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: AppColors.avatarLight,
-                child: Text(
-                  summary.remainingText,
-                  style: const TextStyle(
-                    color: AppColors.neutralText9,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+              child: _StaggeredSlideIn(
+                animate: animate,
+                delay: Duration(seconds: students.length),
+                child: CircleAvatar(
+                  radius: 17,
+                  backgroundColor: AppColors.avatarLight,
+                  child: Text(
+                    summary.remainingText,
+                    style: const TextStyle(
+                      color: AppColors.neutralText9,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Slides [child] up from below with a fade-in, starting after [delay]
+/// once [animate] turns true. Used to stagger the leaderboard avatars
+/// in one by one.
+class _StaggeredSlideIn extends StatefulWidget {
+  const _StaggeredSlideIn({
+    required this.animate,
+    required this.delay,
+    required this.child,
+  });
+
+  final bool animate;
+  final Duration delay;
+  final Widget child;
+
+  @override
+  State<_StaggeredSlideIn> createState() => _StaggeredSlideInState();
+}
+
+class _StaggeredSlideInState extends State<_StaggeredSlideIn> {
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeStart();
+  }
+
+  @override
+  void didUpdateWidget(_StaggeredSlideIn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _maybeStart();
+  }
+
+  void _maybeStart() {
+    if (_started || !widget.animate) return;
+    _started = true;
+    Future.delayed(widget.delay, () {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = widget.animate && _started;
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+      offset: visible ? Offset.zero : const Offset(1.4, 0),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOut,
+        opacity: visible ? 1 : 0,
+        child: widget.child,
       ),
     );
   }

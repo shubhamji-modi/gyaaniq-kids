@@ -62,11 +62,12 @@ Future<void> main() async {
         debugPrint('Firebase not initialized: $e');
       }
 
+      await Get.putAsync(() => SessionManager().init());
+      Get.put(ApiService());
+
       await NotificationService.instance.init();
       unawaited(NotificationService.instance.requestPermission());
 
-      await Get.putAsync(() => SessionManager().init());
-      Get.put(ApiService());
       Get.put(AdService(), permanent: true);
       unawaited(AdService.instance.initialize());
       // Outlives the dashboard so the story rings keep their seen state when the

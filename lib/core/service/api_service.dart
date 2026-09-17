@@ -67,6 +67,10 @@ class ApiService extends GetxService {
   static const String DELETE_ACCOUNT = 'user/account';
   static const String GET_PROFILE = 'user/profile';
   static const String EDIT_PROFILE = 'user/profile/setup';
+  static const String PHONE_VERIFICATION_SEND_OTP =
+      'user/phone-verification/send-otp';
+  static const String PHONE_VERIFICATION_VERIFY =
+      'user/phone-verification/verify';
   static const String STUDENT_PROFILE_SETUP = 'user/profile/setup';
   static const String FETCH_AVATARS = 'user/avatars';
   static const String SELECT_AVATAR = 'user/avatars/select';
@@ -115,6 +119,7 @@ class ApiService extends GetxService {
   static const String GET_ADMIN_XP = 'xp/config';
   static const String GET_ADMIN_AD_CONFIG = GET_ADMIN_XP;
   static const String USER_XP = 'user/xp';
+  static const String DAILY_CLAIM_XP = 'user/xp/daily-claim';
   static const String LESSON_QA_BY_LESSON =
       'user/lesson-qa/by-lesson/:lessonId';
   static const String LESSON_QA_SEARCH = 'user/lesson-qa/search';
@@ -123,6 +128,9 @@ class ApiService extends GetxService {
       'user/subscription/google/purchase-init';
   static const String googleVerifyEndpoint = 'user/subscription/google/verify';
   static const String subscriptionEndpoint = 'user/subscription';
+  static const String DEVICE_TOKEN = 'user/device-token';
+  static const String USER_NOTIFICATIONS = 'user/notifications';
+  static const String USER_NOTIFICATION_DETAIL = 'user/notifications/:id';
 
   @override
   void onInit() {

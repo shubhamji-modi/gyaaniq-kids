@@ -26,7 +26,11 @@ class UserProfile {
       id: json['_id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Student',
       email: json['email']?.toString() ?? '',
-      mobile: json['mobile']?.toString() ?? json['phone']?.toString() ?? '',
+      mobile:
+          json['phoneNumber']?.toString() ??
+          json['mobile']?.toString() ??
+          json['phone']?.toString() ??
+          '',
       instructionMedium: json['instructionMedium']?.toString() ?? 'English',
       educationBoard: json['educationalBoard']?.toString() ?? 'CBSE',
       userClass: json['classLevel']?.toString() ?? '-',

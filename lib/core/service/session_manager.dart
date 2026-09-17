@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../routes/app_routes.dart';
+import 'device_token_service.dart';
+import 'notification_service.dart';
 
 class SessionManager extends GetxService {
   static SessionManager get instance => Get.find<SessionManager>();
@@ -110,6 +114,13 @@ class SessionManager extends GetxService {
     if (profilePic != null) {
       await _prefs?.setString(_keyProfilePic, profilePic);
     }
+
+    // Fire-and-forget: links this device's FCM token to the new session.
+    unawaited(
+      DeviceTokenService.instance.sendToken(
+        NotificationService.instance.currentToken,
+      ),
+    );
   }
 
   // Logout

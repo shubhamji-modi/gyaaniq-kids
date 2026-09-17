@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+import '../../modules/notifications/controller/notification_controller.dart';
+import 'device_token_service.dart';
 
 /// Push notifications — Android only for now.
 ///
@@ -24,6 +28,10 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
+
+  /// Last FCM token fetched on this device, kept for callers (e.g. after
+  /// login) that need to (re)send it without waiting for a fresh fetch.
+  String? currentToken;
 
   /// Entry point — call once during app startup (Android only).
   Future<void> init() async {
@@ -66,11 +74,17 @@ class NotificationService {
 
       final token = await messaging.getToken();
       debugPrint('NotificationService: FCM token -> $token');
+      currentToken = token;
+      unawaited(DeviceTokenService.instance.sendToken(token));
 
       messaging.onTokenRefresh.listen((newToken) {
         debugPrint('NotificationService: FCM token refreshed -> $newToken');
+        currentToken = newToken;
+        unawaited(DeviceTokenService.instance.sendToken(newToken));
       });
 
+      // Foreground: FCM does not show anything by itself, so display it
+      // ourselves via flutter_local_notifications.
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         final notification = message.notification;
         if (notification == null) return;
@@ -80,9 +94,24 @@ class NotificationService {
           body: notification.body ?? '',
         );
       });
+
+      // Background / killed: the OS already showed the notification, so we
+      // only need to react to the user tapping it.
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _handleNotificationTap(initialMessage);
+      }
     } catch (e) {
       debugPrint('NotificationService: FCM init failed -> $e');
     }
+  }
+
+  void _handleNotificationTap(RemoteMessage message) {
+    final notificationId = message.data['notificationId']?.toString();
+    if (notificationId == null || notificationId.isEmpty) return;
+    NotificationController.openDetail(notificationId);
   }
 
   /// Requests the runtime POST_NOTIFICATIONS permission (Android 13+).
@@ -94,7 +123,14 @@ class NotificationService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
-      return granted ?? true;
+      final isGranted = granted ?? true;
+      unawaited(
+        DeviceTokenService.instance.sendToken(
+          currentToken,
+          notificationsEnabled: isGranted,
+        ),
+      );
+      return isGranted;
     } catch (e) {
       debugPrint('NotificationService: permission request failed -> $e');
       return false;

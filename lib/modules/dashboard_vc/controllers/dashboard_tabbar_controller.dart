@@ -59,6 +59,12 @@ class DashboardTabbarController extends GetxController {
   final Rx<WeakAreasSummaryData> weakAreasSummary =
       const WeakAreasSummaryData().obs;
   final Rx<UserXpSummaryData> userXpSummary = const UserXpSummaryData().obs;
+  final Rx<DailyClaimXpData> dailyClaimXp = const DailyClaimXpData().obs;
+  final RxBool isLoadingDailyClaimXp = true.obs;
+  final RxBool isClaimingDailyXp = false.obs;
+  final RxString dailyClaimXpError = ''.obs;
+  Timer? _dailyClaimCountdownTimer;
+  final Rx<Duration> dailyClaimCountdown = Duration.zero.obs;
   final RxList<LiveClassScheduleData> liveClassSchedules =
       <LiveClassScheduleData>[].obs;
   final Rx<DashboardLessonSummary> lessonSummary =
@@ -68,6 +74,32 @@ class DashboardTabbarController extends GetxController {
   Timer? _liveClassClockTimer;
   bool _isLoggingOut = false;
   bool _isDeletingAccount = false;
+
+  /// Last-fetched-at timestamps per loader, used to skip redundant network
+  /// calls when data is still fresh (e.g. on `didPopNext` after returning
+  /// from a pushed screen). Cleared per key via [_shouldSkipRefetch].
+  final Map<String, DateTime> _lastFetchedAt = {};
+
+  static const Duration _defaultCacheTtl = Duration(minutes: 3);
+
+  /// Returns true if [key] was fetched within [ttl] and the caller should
+  /// skip refetching. Always returns false (and records now) when [force].
+  bool _shouldSkipRefetch(
+    String key, {
+    bool force = false,
+    Duration ttl = _defaultCacheTtl,
+  }) {
+    if (force) {
+      _lastFetchedAt[key] = DateTime.now();
+      return false;
+    }
+    final last = _lastFetchedAt[key];
+    if (last != null && DateTime.now().difference(last) < ttl) {
+      return true;
+    }
+    _lastFetchedAt[key] = DateTime.now();
+    return false;
+  }
 
   final String studentName = 'Sarah!';
   final String studentClassBoard = 'CLASS 10 • CBSE BOARD';
@@ -217,15 +249,15 @@ class DashboardTabbarController extends GetxController {
     currentTabIndex.value = index;
     if (index == 0) {
       reloadHomeTabData();
+      loadWeakAreas();
+      loadLeaderboardSummary();
       return;
     }
     if (index == 2) {
       reloadQuizTabData();
       return;
     }
-    if (index == 3 &&
-        liveClassSchedules.isEmpty &&
-        !isLoadingLiveClasses.value) {
+    if (index == 3) {
       loadLiveClasses();
     }
   }
@@ -238,6 +270,8 @@ class DashboardTabbarController extends GetxController {
     // behind the progress and subjects calls.
     unawaited(FunFactController.instance.preloadFromCachedSubjects());
     loadDashboardData();
+    loadWeakAreas();
+    loadLeaderboardSummary();
     _liveClassClockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (currentTabIndex.value == 3 && liveClassSchedules.isNotEmpty) {
         liveClassSchedules.refresh();
@@ -248,35 +282,42 @@ class DashboardTabbarController extends GetxController {
   @override
   void onClose() {
     _liveClassClockTimer?.cancel();
+    _dailyClaimCountdownTimer?.cancel();
     super.onClose();
   }
 
-  Future<void> loadDashboardData() async {
-    await reloadHomeTabData();
+  Future<void> loadDashboardData({bool force = false}) async {
+    await reloadHomeTabData(force: force);
   }
 
-  Future<void> reloadHomeTabData() async {
+  /// Refetches only the data visible immediately on the Home tab. Heavier,
+  /// below-the-fold/other-tab data (mock tests, daily quiz analytics,
+  /// leaderboard, weak areas) is loaded lazily via [reloadQuizTabData],
+  /// [loadLeaderboardSummary] (Leaderboard screen) and [loadWeakAreas]
+  /// (their respective entry points) instead of eagerly here.
+  ///
+  /// Each underlying loader is TTL-cached, so calling this repeatedly (e.g.
+  /// on every `didPopNext`) is cheap unless [force] is set or the cache has
+  /// expired.
+  Future<void> reloadHomeTabData({bool force = false}) async {
     if (_isReloadingHomeTabData) {
       return;
     }
 
     _isReloadingHomeTabData = true;
     try {
-      await _loadProgressSummary();
-      await _loadLearnSubjects();
-      await loadMockTests();
-      await loadDailyQuizAnalytics();
-      await loadLeaderboardSummary();
-      await loadWeakAreas();
-      await loadUserXp();
-      await loadLiveClasses();
-      await loadAttendanceSummary();
+      await _loadProgressSummary(force: force);
+      await _loadLearnSubjects(force: force);
+      await loadUserXp(force: force);
+      await loadDailyClaimXp(force: force);
+      await loadLiveClasses(force: force);
+      await loadAttendanceSummary(force: force);
     } finally {
       _isReloadingHomeTabData = false;
     }
   }
 
-  Future<void> reloadQuizTabData() async {
+  Future<void> reloadQuizTabData({bool force = false}) async {
     if (_isReloadingQuizTabData) {
       return;
     }
@@ -284,8 +325,8 @@ class DashboardTabbarController extends GetxController {
     _isReloadingQuizTabData = true;
     try {
       refreshQuizHistory();
-      await loadMockTests();
-      await loadDailyQuizAnalytics();
+      await loadMockTests(force: force);
+      await loadDailyQuizAnalytics(force: force);
     } finally {
       _isReloadingQuizTabData = false;
     }
@@ -300,7 +341,10 @@ class DashboardTabbarController extends GetxController {
     return null;
   }
 
-  Future<void> loadAttendanceSummary() async {
+  Future<void> loadAttendanceSummary({bool force = false}) async {
+    if (_shouldSkipRefetch('attendanceSummary', force: force)) {
+      return;
+    }
     isLoadingAttendanceSummary.value = true;
     attendanceSummaryError.value = '';
 
@@ -339,7 +383,10 @@ class DashboardTabbarController extends GetxController {
         : monthResponse.message;
   }
 
-  Future<void> loadUserXp() async {
+  Future<void> loadUserXp({bool force = false}) async {
+    if (_shouldSkipRefetch('userXp', force: force)) {
+      return;
+    }
     isLoadingUserXp.value = true;
     userXpError.value = '';
 
@@ -362,7 +409,126 @@ class DashboardTabbarController extends GetxController {
     userXpSummary.value = UserXpSummaryData.fromApi(data);
   }
 
-  Future<void> loadLeaderboardSummary() async {
+  Future<void> loadDailyClaimXp({bool force = false}) async {
+    if (_shouldSkipRefetch('dailyClaimXp', force: force)) {
+      return;
+    }
+    isLoadingDailyClaimXp.value = true;
+    dailyClaimXpError.value = '';
+
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.DAILY_CLAIM_XP,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    isLoadingDailyClaimXp.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      dailyClaimXpError.value = response.message;
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    dailyClaimXp.value = DailyClaimXpData.fromApi(data);
+    _restartDailyClaimCountdown();
+  }
+
+  void _restartDailyClaimCountdown() {
+    _dailyClaimCountdownTimer?.cancel();
+
+    final target = dailyClaimXp.value.nextClaimAt;
+    if (target == null) {
+      dailyClaimCountdown.value = Duration.zero;
+      return;
+    }
+
+    void tick() {
+      final remaining = target.difference(DateTime.now());
+      dailyClaimCountdown.value = remaining.isNegative
+          ? Duration.zero
+          : remaining;
+    }
+
+    tick();
+    _dailyClaimCountdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => tick(),
+    );
+  }
+
+  Future<void> claimDailyXp() async {
+    if (isClaimingDailyXp.value || !dailyClaimXp.value.claimable) {
+      return;
+    }
+
+    isClaimingDailyXp.value = true;
+
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: ApiService.DAILY_CLAIM_XP,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    isClaimingDailyXp.value = false;
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      final body = response.data;
+      final errorCode = body is Map<String, dynamic>
+          ? _safeText((body['error'] as Map?)?['code'])
+          : '';
+
+      if (errorCode == 'ALREADY_CLAIMED' || errorCode == 'DAILY_CLAIM_DISABLED') {
+        await loadDailyClaimXp(force: true);
+        return;
+      }
+
+      Get.snackbar(
+        'Daily Reward',
+        response.message.isNotEmpty
+            ? response.message
+            : 'Unable to claim right now. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFC81E1E),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? const {};
+    final claimedAmount = (data['amount'] as num?)?.toInt() ?? 0;
+    final newXp = (data['xp'] as num?)?.toInt();
+
+    dailyClaimXp.value = dailyClaimXp.value.copyWith(
+      claimedToday: true,
+      claimable: false,
+      claimedAt: _parseApiDate(data['claimedAt']),
+      claimedAmount: claimedAmount,
+      nextClaimAt: _parseApiDate(data['nextClaimAt']),
+    );
+    _restartDailyClaimCountdown();
+
+    if (newXp != null) {
+      userXpSummary.value = userXpSummary.value.copyWithXp(newXp);
+    }
+
+    Get.snackbar(
+      'Daily Reward',
+      'You earned +$claimedAmount XP!',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: const Color(0xFF12B76A),
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(16),
+    );
+  }
+
+  Future<void> loadLeaderboardSummary({bool force = false}) async {
+    if (_shouldSkipRefetch('leaderboardSummary', force: force)) {
+      return;
+    }
     isLoadingLeaderboardSummary.value = true;
     leaderboardSummaryError.value = '';
 
@@ -386,7 +552,10 @@ class DashboardTabbarController extends GetxController {
     leaderboardSummary.value = LeaderboardStripData.fromApi(data);
   }
 
-  Future<void> loadDailyQuizAnalytics() async {
+  Future<void> loadDailyQuizAnalytics({bool force = false}) async {
+    if (_shouldSkipRefetch('dailyQuizAnalytics', force: force)) {
+      return;
+    }
     isLoadingDailyQuizAnalytics.value = true;
     dailyQuizAnalyticsError.value = '';
 
@@ -419,7 +588,14 @@ class DashboardTabbarController extends GetxController {
     );
   }
 
-  Future<void> loadLiveClasses({String? phase}) async {
+  Future<void> loadLiveClasses({String? phase, bool force = false}) async {
+    if (_shouldSkipRefetch(
+      'liveClasses:${phase ?? ''}',
+      force: force,
+      ttl: const Duration(seconds: 45),
+    )) {
+      return;
+    }
     isLoadingLiveClasses.value = true;
     liveClassesError.value = '';
 
@@ -463,7 +639,10 @@ class DashboardTabbarController extends GetxController {
     liveClassSchedules.assignAll(items);
   }
 
-  Future<void> loadWeakAreas() async {
+  Future<void> loadWeakAreas({bool force = false}) async {
+    if (_shouldSkipRefetch('weakAreas', force: force)) {
+      return;
+    }
     isLoadingWeakAreas.value = true;
     weakAreasError.value = '';
 
@@ -547,7 +726,10 @@ class DashboardTabbarController extends GetxController {
     }
   }
 
-  Future<void> loadMockTests() async {
+  Future<void> loadMockTests({bool force = false}) async {
+    if (_shouldSkipRefetch('mockTests', force: force)) {
+      return;
+    }
     isLoadingMockTests.value = true;
     mockTestsError.value = '';
 
@@ -587,7 +769,10 @@ class DashboardTabbarController extends GetxController {
     mockTests.assignAll(items);
   }
 
-  Future<void> _loadProgressSummary() async {
+  Future<void> _loadProgressSummary({bool force = false}) async {
+    if (_shouldSkipRefetch('progressSummary', force: force)) {
+      return;
+    }
     isLoadingDashboardSummary.value = true;
     dashboardSummaryError.value = '';
 
@@ -624,7 +809,10 @@ class DashboardTabbarController extends GetxController {
 
   final Map<String, SubjectProgressSummary> _perSubjectSummaryById = {};
 
-  Future<void> _loadLearnSubjects() async {
+  Future<void> _loadLearnSubjects({bool force = false}) async {
+    if (_shouldSkipRefetch('learnSubjects', force: force)) {
+      return;
+    }
     isLoadingLearnSubjects.value = true;
     learnSubjectsError.value = '';
 
@@ -668,6 +856,7 @@ class DashboardTabbarController extends GetxController {
   }
 
   void openLeaderboard() {
+    loadLeaderboardSummary(force: true);
     Get.toNamed(AppRoutes.leaderboard);
   }
 
@@ -680,7 +869,7 @@ class DashboardTabbarController extends GetxController {
       shouldReload,
     ) {
       if (shouldReload == true) {
-        loadDashboardData();
+        loadDashboardData(force: true);
       }
     });
   }
@@ -713,7 +902,7 @@ class DashboardTabbarController extends GetxController {
 
     if (tool.title == 'Attendance') {
       Get.to(() => const LearnAttendanceViews())?.then((_) {
-        loadAttendanceSummary();
+        loadAttendanceSummary(force: true);
       });
       return;
     }
@@ -1101,6 +1290,15 @@ class UserXpSummaryData {
   /// Badge label for the Daily Quiz cards, e.g. "+10 XP".
   String get dailyQuizXpLabel => '+$dailyQuizXp XP';
 
+  UserXpSummaryData copyWithXp(int newXp) {
+    return UserXpSummaryData(
+      xp: newXp,
+      streakCount: streakCount,
+      lastIncrementedAt: lastIncrementedAt,
+      dailyQuizXp: dailyQuizXp,
+    );
+  }
+
   String get xpText => _formatCompactNumber(xp);
 
   String get streakText {
@@ -1110,6 +1308,67 @@ class UserXpSummaryData {
 
   String get profileStreakText {
     return '$streakCount Day${streakCount == 1 ? '' : 's'}';
+  }
+}
+
+class DailyClaimXpData {
+  const DailyClaimXpData({
+    this.enabled = false,
+    this.amount = 0,
+    this.claimedToday = false,
+    this.claimable = false,
+    this.claimedAt,
+    this.claimedAmount,
+    this.nextClaimAt,
+  });
+
+  final bool enabled;
+  final int amount;
+  final bool claimedToday;
+  final bool claimable;
+  final DateTime? claimedAt;
+  final int? claimedAmount;
+  final DateTime? nextClaimAt;
+
+  factory DailyClaimXpData.fromApi(Map<String, dynamic> json) {
+    return DailyClaimXpData(
+      enabled: json['enabled'] == true,
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      claimedToday: json['claimedToday'] == true,
+      claimable: json['claimable'] == true,
+      claimedAt: _parseApiDate(json['claimedAt']),
+      claimedAmount: (json['claimedAmount'] as num?)?.toInt(),
+      nextClaimAt: _parseApiDate(json['nextClaimAt']),
+    );
+  }
+
+  DailyClaimXpData copyWith({
+    bool? claimedToday,
+    bool? claimable,
+    DateTime? claimedAt,
+    int? claimedAmount,
+    DateTime? nextClaimAt,
+  }) {
+    return DailyClaimXpData(
+      enabled: enabled,
+      amount: amount,
+      claimedToday: claimedToday ?? this.claimedToday,
+      claimable: claimable ?? this.claimable,
+      claimedAt: claimedAt ?? this.claimedAt,
+      claimedAmount: claimedAmount ?? this.claimedAmount,
+      nextClaimAt: nextClaimAt ?? this.nextClaimAt,
+    );
+  }
+
+  /// XP a claim right now would award — the already-claimed amount once
+  /// today's claim is used, otherwise the live config amount.
+  int get displayAmount => claimedToday ? (claimedAmount ?? amount) : amount;
+
+  String get buttonLabel {
+    if (claimedToday) {
+      return 'Claimed Today';
+    }
+    return "Claim Today's $displayAmount XP";
   }
 }
 
@@ -1558,6 +1817,10 @@ class WeakAreasSummaryData {
   }
 
   bool get hasAttempts => answered > 0 || correct > 0 || skipped > 0;
+
+  double get overallAccuracy => answered == 0 ? 0 : (correct / answered) * 100;
+
+  String get overallAccuracyLabel => _formatWeakAreaAccuracy(overallAccuracy);
 }
 
 class WeakAreaSubjectData {

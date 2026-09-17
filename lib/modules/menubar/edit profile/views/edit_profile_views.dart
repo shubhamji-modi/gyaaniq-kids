@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -26,6 +27,16 @@ class _EditProfileViewsState extends State<EditProfileViews> {
   String _profilePic = '';
   File? _selectedImageFile;
   bool _isSaving = false;
+
+  final _otpFormKey = GlobalKey<FormState>();
+  final _otpControllers = List.generate(6, (_) => TextEditingController());
+  final _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  Timer? _otpTimer;
+  StateSetter? _otpSheetSetState;
+  bool _isSendingOtp = false;
+  bool _isVerifyingOtp = false;
+  int _otpRemainingSeconds = 0;
+  String _verifyingPhone = '';
 
   final List<String> _grades = const [
     '5th',
@@ -146,7 +157,363 @@ class _EditProfileViewsState extends State<EditProfileViews> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _otpTimer?.cancel();
+    for (final controller in _otpControllers) {
+      controller.dispose();
+    }
+    for (final node in _otpFocusNodes) {
+      node.dispose();
+    }
     super.dispose();
+  }
+
+  String? _validatePhoneNumber(String? value) {
+    final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
+    var local = digits;
+    if (local.length == 12 && local.startsWith('91')) {
+      local = local.substring(2);
+    } else if (local.length == 11 && local.startsWith('0')) {
+      local = local.substring(1);
+    }
+    if (local.isEmpty) {
+      return 'Please enter your mobile number';
+    }
+    if (local.length != 10 || !RegExp(r'^[6-9]\d{9}$').hasMatch(local)) {
+      return 'Enter a valid Indian mobile number';
+    }
+    return null;
+  }
+
+  String? _validateOtpDigit(String? value) {
+    if ((value ?? '').trim().isEmpty) {
+      return '';
+    }
+    return null;
+  }
+
+  String get _otpCode => _otpControllers.map((field) => field.text).join();
+
+  String get _otpTime {
+    final minutes = (_otpRemainingSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_otpRemainingSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  String get _maskedVerifyingPhone {
+    final digits = _verifyingPhone.replaceAll(RegExp(r'\D'), '');
+    final local = digits.length >= 10
+        ? digits.substring(digits.length - 10)
+        : digits;
+    if (local.length < 4) {
+      return '+91 $local';
+    }
+    return '+91 •••• ${local.substring(local.length - 4)}';
+  }
+
+  void _startOtpTimer() {
+    _otpTimer?.cancel();
+    _otpTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_otpRemainingSeconds <= 0) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _otpRemainingSeconds--);
+      _rebuildOtpSheet();
+    });
+  }
+
+  void _rebuildOtpSheet() {
+    _otpSheetSetState?.call(() {});
+  }
+
+  Future<void> _startPhoneVerification() async {
+    if (_isSendingOtp) {
+      return;
+    }
+    final phoneError = _validatePhoneNumber(_phoneController.text);
+    if (phoneError != null) {
+      _showMessage(phoneError, isError: true);
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _isSendingOtp = true);
+
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: ApiService.PHONE_VERIFICATION_SEND_OTP,
+      data: {'phone': _phoneController.text.trim()},
+      fromJson: (json) => json,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isSendingOtp = false);
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      _showMessage(response.message, isError: true);
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = _asStringKeyMap(body['data']);
+    final resendAfterSeconds =
+        int.tryParse(data?['resendAfterSeconds']?.toString() ?? '') ?? 60;
+
+    for (final controller in _otpControllers) {
+      controller.clear();
+    }
+    _verifyingPhone = _phoneController.text.trim();
+    _otpRemainingSeconds = resendAfterSeconds;
+    _startOtpTimer();
+    _showMessage(body['message']?.toString() ?? 'OTP sent successfully');
+    await _showOtpBottomSheet();
+  }
+
+  Future<void> _verifyPhoneOtp() async {
+    if (_isVerifyingOtp) {
+      return;
+    }
+
+    final form = _otpFormKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    setState(() => _isVerifyingOtp = true);
+    _rebuildOtpSheet();
+
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: ApiService.PHONE_VERIFICATION_VERIFY,
+      data: {'phone': _verifyingPhone, 'otp': _otpCode},
+      fromJson: (json) => json,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isVerifyingOtp = false);
+    _rebuildOtpSheet();
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      _showMessage(response.message, isError: true);
+      return;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = _asStringKeyMap(body['data']);
+    final verifiedPhone = data?['phoneNumber']?.toString() ?? _verifyingPhone;
+
+    final provider = context.read<UserProfileProvider>();
+    final current = provider.profile;
+    if (current != null) {
+      provider.setProfile(current.copyWith(mobile: verifiedPhone));
+    }
+    setState(() {
+      _phoneController.text = verifiedPhone;
+    });
+
+    _otpTimer?.cancel();
+    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    _showMessage(
+      body['message']?.toString() ?? 'Phone number verified successfully',
+    );
+  }
+
+  void _closeOtpSheet(BuildContext sheetContext) {
+    _otpTimer?.cancel();
+    if (Navigator.of(sheetContext).canPop()) {
+      Navigator.of(sheetContext).pop();
+    }
+  }
+
+  Future<void> _showOtpBottomSheet() async {
+    if (!mounted) {
+      return;
+    }
+
+    final theme = Theme.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, sheetSetState) {
+            _otpSheetSetState = sheetSetState;
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+              ),
+              child: SingleChildScrollView(
+                child: _buildPhoneOtpVerification(theme, context),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      _otpSheetSetState = null;
+      _otpTimer?.cancel();
+    });
+  }
+
+  Widget _buildPhoneOtpVerification(ThemeData theme, BuildContext sheetContext) {
+    return Form(
+      key: _otpFormKey,
+      child: Column(
+        key: const ValueKey('phone-otp'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 5,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD8DCEB),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Verify Phone',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: const Color(0xFF191B24),
+              fontWeight: FontWeight.w900,
+              fontSize: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'We have sent a 6-digit code to $_maskedVerifyingPhone.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF555B6D),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Please enter it below to continue.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF555B6D),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 34),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              6,
+              (index) => Padding(
+                padding: EdgeInsets.only(right: index == 5 ? 0 : 9),
+                child: _ProfileOtpBox(
+                  controller: _otpControllers[index],
+                  focusNode: _otpFocusNodes[index],
+                  validator: _validateOtpDigit,
+                  onChanged: (value) {
+                    if (value.isNotEmpty && index < 5) {
+                      _otpFocusNodes[index + 1].requestFocus();
+                    }
+                    if (value.isEmpty && index > 0) {
+                      _otpFocusNodes[index - 1].requestFocus();
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Did not receive the code?',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF343846),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (_otpRemainingSeconds > 0) ...[
+                Text(
+                  'Resend Code ',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF6B7280),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  _otpTime,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF7C3AED),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ] else
+                GestureDetector(
+                  onTap: _isSendingOtp
+                      ? null
+                      : () async {
+                          Navigator.of(sheetContext).pop();
+                          await _startPhoneVerification();
+                        },
+                  child: Text(
+                    'Resend Code',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF7C3AED),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 34),
+          _ProfileActionButton(
+            label: 'Verify Phone',
+            isLoading: _isVerifyingOtp,
+            onPressed: _isVerifyingOtp ? null : _verifyPhoneOtp,
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _isVerifyingOtp
+                ? null
+                : () => _closeOtpSheet(sheetContext),
+            child: const Text(
+              'Close',
+              style: TextStyle(
+                color: Color(0xFF4F46E5),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic>? _asStringKeyMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    if (value is Map) {
+      return value.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return null;
   }
 
   Future<void> _saveProfile() async {
@@ -328,13 +695,15 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                               size: 22,
                             ),
                           ),
-                          // const SizedBox(height: 22),
-                          // const _FieldLabel(title: 'Phone Number'),
-                          // _InputField(
-                          //   controller: _phoneController,
-                          //   keyboardType: TextInputType.phone,
-                          //   hintText: 'Enter phone number',
-                          // ),
+                          const SizedBox(height: 22),
+                          const _FieldLabel(title: 'Phone Number'),
+                          _PhoneNumberField(
+                            controller: _phoneController,
+                            hasVerifiedNumber:
+                                (profile?.mobile.trim() ?? '').isNotEmpty,
+                            isSending: _isSendingOtp,
+                            onVerifyTap: _startPhoneVerification,
+                          ),
                         ],
                       ),
                     ),
@@ -1105,6 +1474,248 @@ class _InputField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(22),
           borderSide: const BorderSide(color: Color(0xFF4B49E3), width: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneNumberField extends StatelessWidget {
+  const _PhoneNumberField({
+    required this.controller,
+    required this.hasVerifiedNumber,
+    required this.isSending,
+    required this.onVerifyTap,
+  });
+
+  final TextEditingController controller;
+  final bool hasVerifiedNumber;
+  final bool isSending;
+  final VoidCallback onVerifyTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            enabled: !hasVerifiedNumber,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
+              LengthLimitingTextInputFormatter(18),
+            ],
+            style: TextStyle(
+              color: hasVerifiedNumber
+                  ? const Color(0xFF7B7C91)
+                  : const Color(0xFF1D2231),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: const Color(0xFFF3F4F8),
+              hintText: 'Enter phone number',
+              hintStyle: const TextStyle(
+                color: Color(0xFFADB3C1),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              suffixIcon: hasVerifiedNumber
+                  ? const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF12B76A),
+                      size: 20,
+                    )
+                  : null,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 22,
+                vertical: 16,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: BorderSide.none,
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: const BorderSide(
+                  color: Color(0xFF4B49E3),
+                  width: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (!hasVerifiedNumber) ...[
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 48,
+            child: ElevatedButton(
+              onPressed: isSending ? null : onVerifyTap,
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: const Color(0xFF4B49E3),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                ),
+              ),
+              child: isSending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.white,
+                        ),
+                      ),
+                    )
+                  : const Text(
+                      'Verify',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ProfileOtpBox extends StatelessWidget {
+  const _ProfileOtpBox({
+    required this.controller,
+    required this.focusNode,
+    required this.validator,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String? Function(String?) validator;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 42,
+      height: 52,
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        validator: validator,
+        onChanged: onChanged,
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(1),
+        ],
+        style: const TextStyle(
+          color: Color(0xFF4F46E5),
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+        ),
+        decoration: InputDecoration(
+          counterText: '',
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: EdgeInsets.zero,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFD8DCEB)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFD8DCEB)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.6),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFD92D20)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileActionButton extends StatelessWidget {
+  const _ProfileActionButton({
+    required this.label,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(33),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4F46E5).withValues(alpha: 0.30),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4F46E5),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(
+              0xFF4F46E5,
+            ).withValues(alpha: 0.65),
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(33),
+            ),
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
         ),
       ),
     );

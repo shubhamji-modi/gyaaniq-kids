@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:async';
+
+import '../../../core/service/device_token_service.dart';
+import '../../../core/service/notification_service.dart';
 import '../../../core/service/secure_storage_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/values/constants.dart';
@@ -41,6 +45,11 @@ class _SplashViewState extends State<SplashView> {
     if (token != null && token.isNotEmpty) {
       final profileSetupCompleted =
           preferences.getBool(StorageKeys.profileSetupCompleted) ?? false;
+      unawaited(
+        DeviceTokenService.instance.sendToken(
+          NotificationService.instance.currentToken,
+        ),
+      );
       Get.offAllNamed(
         profileSetupCompleted
             ? AppRoutes.dashboard

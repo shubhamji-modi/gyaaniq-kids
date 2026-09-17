@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/appcolors.dart';
+import '../controller/notification_controller.dart';
 import '../notification_data.dart';
 
 class NotificationViews extends StatefulWidget {
@@ -12,33 +13,38 @@ class NotificationViews extends StatefulWidget {
 }
 
 class _NotificationViewsState extends State<NotificationViews> {
+  final NotificationController _controller = Get.put(NotificationController());
+  final ScrollController _scrollController = ScrollController();
   NotificationTag? _selectedTag;
-  late List<NotificationModel> _notifications;
 
   @override
   void initState() {
     super.initState();
-    _notifications = List.of(NotificationRepository.dummyNotifications);
-  }
-
-  List<NotificationModel> get _filtered {
-    if (_selectedTag == null) return _notifications;
-    return _notifications.where((n) => n.tag == _selectedTag).toList();
-  }
-
-  void _markAsRead(NotificationModel item) {
-    if (item.isRead) return;
-    setState(() {
-      final index = _notifications.indexWhere((n) => n.id == item.id);
-      if (index != -1) {
-        _notifications[index] = item.copyWith(isRead: true);
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        _controller.loadMore();
       }
     });
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  List<NotificationModel> _filtered(List<NotificationModel> notifications) {
+    if (_selectedTag == null) return notifications;
+    return notifications.where((n) => n.tag == _selectedTag).toList();
+  }
+
+  void _openNotification(NotificationModel item) {
+    NotificationController.openDetail(item.id);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = _filtered;
     return Scaffold(
       backgroundColor: AppColors.neutralSurface,
       appBar: AppBar(
@@ -73,20 +79,44 @@ class _NotificationViewsState extends State<NotificationViews> {
             onChanged: (tag) => setState(() => _selectedTag = tag),
           ),
           Expanded(
-            child: items.isEmpty
-                ? const _EmptyNotifications()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return _NotificationCard(
-                        item: item,
-                        onTap: () => _markAsRead(item),
+            child: Obx(() {
+              if (_controller.isLoading.value &&
+                  _controller.notifications.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final items = _filtered(_controller.notifications);
+              if (items.isEmpty) {
+                return const _EmptyNotifications();
+              }
+              return RefreshIndicator(
+                onRefresh: _controller.fetchNotifications,
+                child: ListView.separated(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  itemCount: items.length + (_controller.isLoadingMore.value ? 1 : 0),
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    if (index >= items.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
                       );
-                    },
-                  ),
+                    }
+                    final item = items[index];
+                    return _NotificationCard(
+                      item: item,
+                      onTap: () => _openNotification(item),
+                    );
+                  },
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -202,10 +232,10 @@ class _NotificationCard extends StatelessWidget {
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: item.tag.color.withValues(alpha: 0.12),
+                color: item.tagColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(item.tag.icon, color: item.tag.color, size: 20),
+              child: Icon(item.tag.icon, color: item.tagColor, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -257,13 +287,13 @@ class _NotificationCard extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: item.tag.color.withValues(alpha: 0.1),
+                          color: item.tagColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          item.tag.label,
+                          item.tagLabel,
                           style: TextStyle(
-                            color: item.tag.color,
+                            color: item.tagColor,
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                           ),
