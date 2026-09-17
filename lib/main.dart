@@ -126,10 +126,17 @@ class EduPathApp extends StatelessWidget {
         GetPage(
           name: AppRoutes.dashboard,
           binding: BindingsBuilder(() {
-            Get.lazyPut<DashboardTabbarController>(
-              () => DashboardTabbarController(),
-              fenix: true,
-            );
+            // Permanent so the bottom nav and the IndexedStack can never bind
+            // to different instances. A recreatable (fenix) controller was
+            // disposed by `offAll` *after* the rebuilt dashboard had already
+            // read it, leaving the nav's Obx listening to a closed Rx: taps
+            // updated the new instance while the UI never redrew.
+            if (!Get.isRegistered<DashboardTabbarController>()) {
+              Get.put<DashboardTabbarController>(
+                DashboardTabbarController(),
+                permanent: true,
+              );
+            }
           }),
           page: () => const DashboardTabbarViewsScreen(),
         ),

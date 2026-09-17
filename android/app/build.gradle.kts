@@ -44,18 +44,24 @@ android {
         versionName = flutter.versionName
     }
 
-   /* signingConfigs {
+    signingConfigs {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String
             keyPassword = keystoreProperties["keyPassword"] as String
             storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
             storePassword = keystoreProperties["storePassword"] as String
         }
-    }*/
+    }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            // Falls back to debug signing when key.properties is absent (e.g. a
+            // fresh clone or CI without secrets) so the release build still runs.
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

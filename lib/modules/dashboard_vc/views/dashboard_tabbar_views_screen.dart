@@ -49,11 +49,12 @@ String _educationBoardLabel(String? board) {
 }
 
 DashboardTabbarController _dashboardController() {
-  try {
+  if (Get.isRegistered<DashboardTabbarController>()) {
     return Get.find<DashboardTabbarController>();
-  } catch (_) {
-    return Get.put(DashboardTabbarController());
   }
+  // Matches the dashboard route binding: one permanent instance for the whole
+  // session, so every tab widget resolves to the same controller.
+  return Get.put(DashboardTabbarController(), permanent: true);
 }
 
 class DashboardTabbarViewsScreen extends StatefulWidget {

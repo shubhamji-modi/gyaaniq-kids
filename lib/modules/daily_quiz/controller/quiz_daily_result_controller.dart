@@ -1,10 +1,10 @@
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
 import '../../../core/models/xp_config_data.dart';
 import '../../../core/service/api_service.dart';
+import '../../../routes/app_routes.dart';
 import '../practice_test/Views/quiz_practice_paper_subject_views.dart';
-import '../../dashboard_vc/controllers/dashboard_tabbar_controller.dart';
-import '../../dashboard_vc/views/dashboard_tabbar_views_screen.dart';
 import 'question_answer_show_controller.dart';
 
 class QuizDailyResultController extends GetxController {
@@ -152,28 +152,20 @@ class QuizDailyResultController extends GetxController {
       return;
     }
 
-    if (Get.isRegistered<DashboardTabbarController>()) {
-      Get.find<DashboardTabbarController>().changeTab(0);
-    }
-    Get.offAll(() => const DashboardTabbarViewsScreen());
-    Future<void>.delayed(const Duration(milliseconds: 10), () {
-      if (Get.isRegistered<DashboardTabbarController>()) {
-        Get.find<DashboardTabbarController>().changeTab(0);
-      }
+    _openDashboardHome();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       Get.to(() => const QuizPracticePaperSubjectViews());
     });
   }
 
+  /// Returns to the dashboard on the Home tab.
+  ///
+  /// Goes through the named route so the dashboard binding runs; pushing the
+  /// screen anonymously skipped it and left the rebuilt dashboard wired to a
+  /// controller that `offAll` was about to dispose, which is what broke the
+  /// bottom nav after finishing a quiz.
   void _openDashboardHome() {
-    if (Get.isRegistered<DashboardTabbarController>()) {
-      Get.find<DashboardTabbarController>().changeTab(0);
-    }
-    Get.offAll(() => const DashboardTabbarViewsScreen());
-    Future<void>.delayed(const Duration(milliseconds: 10), () {
-      if (Get.isRegistered<DashboardTabbarController>()) {
-        Get.find<DashboardTabbarController>().changeTab(0);
-      }
-    });
+    Get.offAllNamed(AppRoutes.dashboard, arguments: {'initialTab': 0});
   }
 
   void _backToLessonPlayer() {

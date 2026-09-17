@@ -1,52 +1,25 @@
 import 'package:dio/dio.dart';
 import 'package:edupath_learning/core/service/session_manager.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart' hide Response, FormData, MultipartFile;
 import 'package:flutter/foundation.dart';
 
 import '../values/constants.dart';
 import '../utils/loading_dialog.dart';
 import '../utils/text_sanitizer.dart';
-import 'secure_storage_service.dart';
 
 class ApiService extends GetxService {
   static ApiService get instance => Get.find<ApiService>();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   late Dio _dio;
 
-  /// Requests currently in flight, keyed by method + endpoint + payload.
-  /// A second identical call while the first is pending reuses the same
-  /// Future instead of hitting the server again (double taps, rebuilds).
-  final Map<String, Future<dynamic>> _inFlight = {};
-
-  /// Auth / OTP endpoints must never be auto-retried: a 429 here is a
-  /// deliberate cooldown (60s resend, 5 sends / 15 min) and retrying only
-  /// burns the user's quota.
-  static bool _isSingleShotEndpoint(String endpoint) {
-    return endpoint == REGISTER ||
-        endpoint == LOGIN ||
-        endpoint == LOGOUT ||
-        endpoint == loginWithOtpSend ||
-        endpoint == loginWithOtpVerify ||
-        endpoint == registerVerifyOtp ||
-        endpoint == registerResendOtp;
-  }
-
-  static String _requestKey(
-    String method,
-    String endpoint,
-    Map<String, dynamic>? data,
-    Map<String, dynamic>? queryParameters,
-  ) {
-    return '${method.toUpperCase()}|$endpoint|$data|$queryParameters';
-  }
-
   ///BASE URL
   // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
-  static String temp_baseUrl =
-      'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/temp-auth/';
-  //static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
-  static String baseUrl =
-      'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
+  static String temp_baseUrl = 'https://e-learn-api.pixelnx.in/api/temp-auth/';
+  static String baseUrl = 'https://e-learn-api.pixelnx.in/api/v1/';
+  // static String temp_baseUrl = 'https://gyaaniqkids.pixelnx.in/api/temp-auth/';
+  // static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
   static const bool useTemporaryAuth = true;
 
   ///End points
@@ -214,7 +187,7 @@ class ApiService extends GetxService {
   }
 
   void _handleUnauthorized() async {
-    await SecureStorageService.delete(StorageKeys.authToken);
+    await _storage.delete(key: StorageKeys.authToken);
     await SessionManager.instance.logout();
     // Use SessionManager's guarded navigation to avoid multiple navigations.
     SessionManager.instance.navigateToLoginIfNeeded();
@@ -230,7 +203,7 @@ class ApiService extends GetxService {
     bool showLoader = true,
     T Function(dynamic)? fromJson,
     int retryCount = 0,
-    int maxRetries = 0,
+    int maxRetries = 2,
   }) async {
     print(endpoint);
     try {
@@ -316,11 +289,8 @@ class ApiService extends GetxService {
       print('=========== DioException ===========');
       print(stack);
 
-      // Retry logic for 429 (Too Many Requests) errors.
-      // Never retried for auth/OTP endpoints — see _isSingleShotEndpoint.
-      if (e.response?.statusCode == 429 &&
-          retryCount < maxRetries &&
-          !_isSingleShotEndpoint(endpoint)) {
+      // Retry logic for 429 (Too Many Requests) errors
+      if (e.response?.statusCode == 429 && retryCount < maxRetries) {
         final waitSeconds = (2 * (retryCount + 1))
             .toInt(); // Exponential backoff: 2s, 4s
         print(
@@ -392,29 +362,6 @@ class ApiService extends GetxService {
     }
   }
 
-  /// Runs [call], but if an identical request is already in flight the
-  /// pending Future is reused so the server is hit exactly once.
-  Future<ApiResponse<T>> _dedupe<T>(
-    String key,
-    Future<ApiResponse<T>> Function() call,
-  ) async {
-    final pending = _inFlight[key];
-    if (pending != null) {
-      final result = await pending;
-      if (result is ApiResponse<T>) {
-        return result;
-      }
-    }
-
-    final future = call();
-    _inFlight[key] = future;
-    try {
-      return await future;
-    } finally {
-      _inFlight.remove(key);
-    }
-  }
-
   ///GET Request
   Future<ApiResponse<T>> get<T>({
     required String endpoint,
@@ -423,16 +370,13 @@ class ApiService extends GetxService {
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
-    return _dedupe<T>(
-      _requestKey('GET', endpoint, null, queryParameters),
-      () => _apiCall<T>(
-        method: 'GET',
-        endpoint: endpoint,
-        queryParameters: queryParameters,
-        includeAuth: includeAuth,
-        showLoader: showLoader,
-        fromJson: fromJson,
-      ),
+    return _apiCall<T>(
+      method: 'GET',
+      endpoint: endpoint,
+      queryParameters: queryParameters,
+      includeAuth: includeAuth,
+      showLoader: showLoader,
+      fromJson: fromJson,
     );
   }
 
@@ -445,17 +389,14 @@ class ApiService extends GetxService {
     bool showLoader = true,
     T Function(dynamic)? fromJson,
   }) async {
-    return _dedupe<T>(
-      _requestKey('POST', endpoint, data, queryParameters),
-      () => _apiCall<T>(
-        method: 'POST',
-        endpoint: endpoint,
-        data: data,
-        queryParameters: queryParameters,
-        includeAuth: includeAuth,
-        showLoader: showLoader,
-        fromJson: fromJson,
-      ),
+    return _apiCall<T>(
+      method: 'POST',
+      endpoint: endpoint,
+      data: data,
+      queryParameters: queryParameters,
+      includeAuth: includeAuth,
+      showLoader: showLoader,
+      fromJson: fromJson,
     );
   }
 
