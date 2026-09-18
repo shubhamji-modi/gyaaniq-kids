@@ -61,7 +61,7 @@ class AdService extends GetxService {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return 'ca-app-pub-4271519308644982/1285110127'; //Live - ca-app-pub-4271519308644982/1285110127
+        return 'ca-app-pub-3940256099942544/1033173712'; //Live - ca-app-pub-4271519308644982/1285110127
       case TargetPlatform.iOS:
         return 'ca-app-pub-4271519308644982/1582291892';
       case TargetPlatform.fuchsia:
