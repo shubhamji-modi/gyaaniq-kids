@@ -5,6 +5,7 @@ class AppRoutes {
   static const String createAccount = '/create-account';
   static const String onboarding = '/onboarding';
   static const String studentProfileSetup = '/student-profile-setup';
+  static const String phoneVerification = '/phone-verification';
   static const String dashboard = '/dashboard';
   static const String leaderboard = '/leaderboard';
 

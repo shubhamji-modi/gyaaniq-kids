@@ -3,55 +3,72 @@ import 'package:flutter/material.dart';
 import '../../core/service/api_service.dart';
 import '../../core/theme/appcolors.dart';
 
-enum NotificationTag { personal, classUpdate, ranking, dailyQuiz }
+/// A spread of palette colors assigned to unrecognized notification types,
+/// keyed by type so a given type always gets the same color across rebuilds.
+const List<Color> _fallbackTagColors = [
+  AppColors.primary,
+  AppColors.purpleDark,
+  AppColors.streakIcon,
+  AppColors.success,
+  Color(0xFFE4572E),
+  Color(0xFF1671D9),
+];
 
-extension NotificationTagLabel on NotificationTag {
-  String get label {
-    switch (this) {
-      case NotificationTag.personal:
-        return 'Personal';
-      case NotificationTag.classUpdate:
-        return 'Class';
-      case NotificationTag.ranking:
-        return 'Ranking';
-      case NotificationTag.dailyQuiz:
-        return 'Daily Quiz';
-    }
+Color _fallbackColorFor(String key) {
+  if (key.isEmpty) return _fallbackTagColors.first;
+  var hash = 0;
+  for (final unit in key.codeUnits) {
+    hash = (hash + unit) & 0x7fffffff;
   }
+  return _fallbackTagColors[hash % _fallbackTagColors.length];
+}
 
-  IconData get icon {
-    switch (this) {
-      case NotificationTag.personal:
-        return Icons.person_rounded;
-      case NotificationTag.classUpdate:
-        return Icons.groups_rounded;
-      case NotificationTag.ranking:
-        return Icons.emoji_events_rounded;
-      case NotificationTag.dailyQuiz:
-        return Icons.quiz_rounded;
-    }
+String _defaultLabelFor(String type) {
+  switch (type) {
+    case 'private':
+      return 'Private';
+    case 'class':
+      return 'Class';
+    case 'public':
+      return 'Public';
+    case 'ranking':
+      return 'Ranking';
+    case 'daily-quiz':
+      return 'Daily Quiz';
+    default:
+      if (type.isEmpty) return 'General';
+      return type
+          .split(RegExp(r'[-_\s]+'))
+          .where((w) => w.isNotEmpty)
+          .map((w) => w[0].toUpperCase() + w.substring(1))
+          .join(' ');
   }
+}
 
-  Color get color {
-    switch (this) {
-      case NotificationTag.personal:
-        return AppColors.primary;
-      case NotificationTag.classUpdate:
-        return AppColors.purpleDark;
-      case NotificationTag.ranking:
-        return AppColors.streakIcon;
-      case NotificationTag.dailyQuiz:
-        return AppColors.success;
-    }
+IconData _defaultIconFor(String type) {
+  switch (type) {
+    case 'private':
+      return Icons.person_rounded;
+    case 'class':
+      return Icons.groups_rounded;
+    case 'public':
+      return Icons.public_rounded;
+    case 'ranking':
+      return Icons.emoji_events_rounded;
+    case 'daily-quiz':
+      return Icons.quiz_rounded;
+    default:
+      return Icons.notifications_rounded;
   }
 }
 
 class NotificationModel {
   const NotificationModel({
     required this.id,
-    required this.tag,
+    required this.tagKey,
     required this.tagLabel,
     required this.tagColor,
+    required this.tagIcon,
     required this.title,
     required this.message,
     required this.time,
@@ -59,28 +76,33 @@ class NotificationModel {
   });
 
   final String id;
-  final NotificationTag tag;
+
+  /// Raw grouping key from the API (the tag's `key`, or the notification's
+  /// `type` when no tag object is present). Filter chips are built from
+  /// whatever distinct keys show up, so a new backend type needs no app
+  /// update to appear as a filter.
+  final String tagKey;
   final String tagLabel;
   final Color tagColor;
+  final IconData tagIcon;
   final String title;
   final String message;
   final String time;
   final bool isRead;
 
   factory NotificationModel.fromApi(Map<String, dynamic> json) {
-    final tagJson = json['tag'] as Map<String, dynamic>?;
-    final tagKey = tagJson?['key']?.toString();
-    final type = json['type']?.toString();
-    final tag = _tagFromApi(tagKey: tagKey, type: type);
+    final type = json['type']?.toString() ?? '';
+    final tagKey = type.isNotEmpty ? type : 'general';
     final sentAt = DateTime.tryParse(
       json['sentAt']?.toString() ?? '',
     )?.toLocal();
 
     return NotificationModel(
       id: json['_id']?.toString() ?? '',
-      tag: tag,
-      tagLabel: tagJson?['name']?.toString() ?? tag.label,
-      tagColor: _colorFromHex(tagJson?['color']?.toString()) ?? tag.color,
+      tagKey: tagKey,
+      tagLabel: _defaultLabelFor(tagKey),
+      tagColor: _fallbackColorFor(tagKey),
+      tagIcon: _defaultIconFor(tagKey),
       title: json['title']?.toString() ?? '',
       message: json['body']?.toString() ?? '',
       time: sentAt == null ? '' : _timeAgo(sentAt),
@@ -91,9 +113,10 @@ class NotificationModel {
   NotificationModel copyWith({bool? isRead}) {
     return NotificationModel(
       id: id,
-      tag: tag,
+      tagKey: tagKey,
       tagLabel: tagLabel,
       tagColor: tagColor,
+      tagIcon: tagIcon,
       title: title,
       message: message,
       time: time,
@@ -174,32 +197,6 @@ class NotificationRepository {
   }
 }
 
-NotificationTag _tagFromApi({String? tagKey, String? type}) {
-  switch (tagKey) {
-    case 'daily-quiz':
-      return NotificationTag.dailyQuiz;
-    case 'ranking':
-      return NotificationTag.ranking;
-  }
-  switch (type) {
-    case 'private':
-      return NotificationTag.personal;
-    case 'class':
-      return NotificationTag.classUpdate;
-    default:
-      return NotificationTag.personal;
-  }
-}
-
-Color? _colorFromHex(String? hex) {
-  if (hex == null || hex.isEmpty) return null;
-  final value = hex.replaceFirst('#', '');
-  final parsed = int.tryParse(
-    value.length == 6 ? 'FF$value' : value,
-    radix: 16,
-  );
-  return parsed == null ? null : Color(parsed);
-}
 
 String _timeAgo(DateTime date) {
   final diff = DateTime.now().difference(date);

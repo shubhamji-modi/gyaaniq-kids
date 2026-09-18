@@ -232,6 +232,7 @@ class DashboardTabbarController extends GetxController {
       icon: Icons.local_fire_department_outlined,
       color: Color(0xFF4A4FD9),
     ),
+    ProfileMenuData(title: 'Query', icon: Icons.help_outline_rounded),
     ProfileMenuData(title: 'Update App', icon: Icons.system_update_outlined),
     ProfileMenuData(
       title: 'Sign Out',

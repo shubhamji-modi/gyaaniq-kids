@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dart:async';
 
+import '../../../core/service/api_service.dart';
 import '../../../core/service/device_token_service.dart';
 import '../../../core/service/notification_service.dart';
 import '../../../core/service/secure_storage_service.dart';
@@ -50,6 +51,16 @@ class _SplashViewState extends State<SplashView> {
           NotificationService.instance.currentToken,
         ),
       );
+
+      final hasVerifiedMobile = await _hasVerifiedMobile();
+      if (!mounted) {
+        return;
+      }
+      if (!hasVerifiedMobile) {
+        Get.offAllNamed(AppRoutes.phoneVerification);
+        return;
+      }
+
       Get.offAllNamed(
         profileSetupCompleted
             ? AppRoutes.dashboard
@@ -58,6 +69,32 @@ class _SplashViewState extends State<SplashView> {
     } else {
       Get.offAllNamed(AppRoutes.login);
     }
+  }
+
+  Future<bool> _hasVerifiedMobile() async {
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.GET_PROFILE,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      // Profile couldn't be fetched right now — don't block a returning
+      // user on a network hiccup; the dashboard re-checks on its own load.
+      return true;
+    }
+
+    final body = response.data as Map<String, dynamic>;
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      return true;
+    }
+
+    final mobile =
+        data['phoneNumber']?.toString().trim() ??
+        data['phone']?.toString().trim() ??
+        '';
+    return mobile.isNotEmpty;
   }
 
   Future<String?> _readStoredToken() async {

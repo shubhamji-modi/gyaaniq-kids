@@ -15,7 +15,7 @@ class NotificationViews extends StatefulWidget {
 class _NotificationViewsState extends State<NotificationViews> {
   final NotificationController _controller = Get.put(NotificationController());
   final ScrollController _scrollController = ScrollController();
-  NotificationTag? _selectedTag;
+  String? _selectedTagKey;
 
   @override
   void initState() {
@@ -35,8 +35,23 @@ class _NotificationViewsState extends State<NotificationViews> {
   }
 
   List<NotificationModel> _filtered(List<NotificationModel> notifications) {
-    if (_selectedTag == null) return notifications;
-    return notifications.where((n) => n.tag == _selectedTag).toList();
+    if (_selectedTagKey == null) return notifications;
+    return notifications.where((n) => n.tagKey == _selectedTagKey).toList();
+  }
+
+  /// Distinct tags present in the current notifications, in first-seen order,
+  /// so a new backend type just shows up as a filter chip automatically.
+  List<_TagFilterOption> _availableTags(List<NotificationModel> notifications) {
+    final seen = <String>{};
+    final options = <_TagFilterOption>[];
+    for (final n in notifications) {
+      if (seen.add(n.tagKey)) {
+        options.add(
+          _TagFilterOption(key: n.tagKey, label: n.tagLabel, color: n.tagColor),
+        );
+      }
+    }
+    return options;
   }
 
   void _openNotification(NotificationModel item) {
@@ -74,9 +89,12 @@ class _NotificationViewsState extends State<NotificationViews> {
       ),
       body: Column(
         children: [
-          _NotificationFilterBar(
-            selectedTag: _selectedTag,
-            onChanged: (tag) => setState(() => _selectedTag = tag),
+          Obx(
+            () => _NotificationFilterBar(
+              options: _availableTags(_controller.notifications),
+              selectedTagKey: _selectedTagKey,
+              onChanged: (key) => setState(() => _selectedTagKey = key),
+            ),
           ),
           Expanded(
             child: Obx(() {
@@ -124,14 +142,28 @@ class _NotificationViewsState extends State<NotificationViews> {
   }
 }
 
+class _TagFilterOption {
+  const _TagFilterOption({
+    required this.key,
+    required this.label,
+    required this.color,
+  });
+
+  final String key;
+  final String label;
+  final Color color;
+}
+
 class _NotificationFilterBar extends StatelessWidget {
   const _NotificationFilterBar({
-    required this.selectedTag,
+    required this.options,
+    required this.selectedTagKey,
     required this.onChanged,
   });
 
-  final NotificationTag? selectedTag;
-  final ValueChanged<NotificationTag?> onChanged;
+  final List<_TagFilterOption> options;
+  final String? selectedTagKey;
+  final ValueChanged<String?> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -144,17 +176,17 @@ class _NotificationFilterBar extends StatelessWidget {
           children: [
             _FilterChip(
               label: 'All',
-              isSelected: selectedTag == null,
+              isSelected: selectedTagKey == null,
               onTap: () => onChanged(null),
             ),
             const SizedBox(width: 8),
-            ...NotificationTag.values.map(
-              (tag) => Padding(
+            ...options.map(
+              (option) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: _FilterChip(
-                  label: tag.label,
-                  isSelected: selectedTag == tag,
-                  onTap: () => onChanged(tag),
+                  label: option.label,
+                  isSelected: selectedTagKey == option.key,
+                  onTap: () => onChanged(option.key),
                 ),
               ),
             ),
@@ -235,7 +267,7 @@ class _NotificationCard extends StatelessWidget {
                 color: item.tagColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(item.tag.icon, color: item.tagColor, size: 20),
+              child: Icon(item.tagIcon, color: item.tagColor, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(

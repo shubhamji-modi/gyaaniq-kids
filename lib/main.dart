@@ -18,6 +18,7 @@ import 'modules/fun_fact/controller/fun_fact_controller.dart';
 import 'modules/auth/views/create_account_screen.dart';
 import 'modules/auth/views/forgot_password_views.dart';
 import 'modules/auth/views/login_screen.dart';
+import 'modules/auth/views/phone_verification_gate_screen.dart';
 import 'modules/dashboard_vc/controllers/dashboard_tabbar_controller.dart';
 import 'modules/dashboard_vc/views/dashboard_tabbar_views_screen.dart';
 import 'modules/leaderboard/views/leaderboard_views.dart';
@@ -122,6 +123,10 @@ class EduPathApp extends StatelessWidget {
         GetPage(
           name: AppRoutes.studentProfileSetup,
           page: () => const StudentProfileSetupViews(),
+        ),
+        GetPage(
+          name: AppRoutes.phoneVerification,
+          page: () => const PhoneVerificationGateScreen(),
         ),
         GetPage(
           name: AppRoutes.dashboard,

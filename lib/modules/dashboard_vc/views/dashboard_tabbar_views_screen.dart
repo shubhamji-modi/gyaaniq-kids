@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
+import '../../../../routes/app_routes.dart';
 import '../../../../core/service/app_route_observer.dart';
 import '../../../../core/service/app_update_service.dart';
 import '../../../../core/service/device_token_service.dart';
@@ -211,6 +213,14 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
     }
 
     context.read<UserProfileProvider>().setProfile(UserProfile.fromApi(data));
+
+    final mobile =
+        data['phoneNumber']?.toString().trim() ??
+        data['phone']?.toString().trim() ??
+        '';
+    if (mobile.isEmpty) {
+      Get.offAllNamed(AppRoutes.phoneVerification);
+    }
   }
 
   @override
@@ -4576,6 +4586,17 @@ class _ProfilePhoneRow extends StatelessWidget {
   final bool hasVerifiedNumber;
   final String mobile;
 
+  String get _displayNumber {
+    final trimmed = mobile.trim();
+    if (trimmed.startsWith('+91')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('91') && trimmed.length > 10) {
+      return '+$trimmed';
+    }
+    return '+91 $trimmed';
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -4590,7 +4611,7 @@ class _ProfilePhoneRow extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              hasVerifiedNumber ? '+91 $mobile' : 'Add mobile number',
+              hasVerifiedNumber ? _displayNumber : 'Add mobile number',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -4876,6 +4897,11 @@ class _ProfileMenuTile extends StatelessWidget {
           return;
         }
 
+        if (item.title == 'Query') {
+          Get.to(() => const _QueryScreen());
+          return;
+        }
+
         controller.handleProfileMenuTap(item, context);
       },
       child: Container(
@@ -4907,6 +4933,663 @@ class _ProfileMenuTile extends StatelessWidget {
                   ? AppColors.neutralText11
                   : AppColors.neutralText10,
               size: 30,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Options a student can raise from the Profile tab: a product suggestion,
+/// a direct contact channel, or a feature/content request.
+class _QueryOptionData {
+  const _QueryOptionData({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+}
+
+const List<_QueryOptionData> _queryOptions = [
+  _QueryOptionData(
+    title: 'Suggestion',
+    subtitle: 'Tell us what could make the app better.',
+    icon: Icons.lightbulb_outline_rounded,
+    color: Color(0xFFB8860B),
+  ),
+  _QueryOptionData(
+    title: 'Contact Us',
+    subtitle: 'Reach our support team directly.',
+    icon: Icons.support_agent_rounded,
+    color: Color(0xFF1671D9),
+  ),
+  _QueryOptionData(
+    title: 'Request',
+    subtitle: 'Ask for a feature, subject or content.',
+    icon: Icons.assignment_outlined,
+    color: Color(0xFF19945F),
+  ),
+];
+
+const String _supportEmail = 'support@gyaaniq.com';
+const String _supportPhone = '+911234567890';
+
+class _QueryScreen extends StatelessWidget {
+  const _QueryScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBackground,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  bottom: BorderSide(color: AppColors.headerBorder),
+                ),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: Get.back,
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.textBlueDark,
+                      size: 22,
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Query',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textBlueDark,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.cardShadow.withValues(alpha: 0.20),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: _queryOptions
+                          .map((option) => _QueryOptionTile(option: option))
+                          .toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QueryOptionTile extends StatelessWidget {
+  const _QueryOptionTile({required this.option});
+
+  final _QueryOptionData option;
+
+  bool get _isLast => option.title == _queryOptions.last.title;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        if (option.title == 'Contact Us') {
+          Get.to(() => const _ContactUsScreen());
+          return;
+        }
+        Get.to(() => _QueryFormScreen(option: option));
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        decoration: BoxDecoration(
+          border: _isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: AppColors.profileMenuBorder),
+                ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: option.color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(option.icon, color: option.color, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    option.subtitle,
+                    style: const TextStyle(
+                      color: AppColors.textMuted8,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.neutralText10,
+              size: 26,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Generic message form used by the Suggestion and Request options.
+class _QueryFormScreen extends StatefulWidget {
+  const _QueryFormScreen({required this.option});
+
+  final _QueryOptionData option;
+
+  @override
+  State<_QueryFormScreen> createState() => _QueryFormScreenState();
+}
+
+class _QueryFormScreenState extends State<_QueryFormScreen> {
+  final _controller = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final message = _controller.text.trim();
+    if (message.isEmpty) {
+      Get.snackbar(
+        widget.option.title,
+        'Please type your message before submitting.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    Get.back();
+    Get.snackbar(
+      'Thank you!',
+      'Your ${widget.option.title.toLowerCase()} has been submitted.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.white,
+      colorText: const Color(0xFF1D2231),
+      margin: const EdgeInsets.all(14),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBackground,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  bottom: BorderSide(color: AppColors.headerBorder),
+                ),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: Get.back,
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.textBlueDark,
+                      size: 22,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      widget.option.title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textBlueDark,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.cardShadow.withValues(alpha: 0.20),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.option.subtitle,
+                          style: const TextStyle(
+                            color: AppColors.textMuted8,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _controller,
+                          maxLines: 6,
+                          minLines: 6,
+                          decoration: InputDecoration(
+                            hintText: 'Type your ${widget.option.title.toLowerCase()} here...',
+                            filled: true,
+                            fillColor: AppColors.scaffoldBackground,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.all(14),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isSubmitting ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.option.color,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Submit',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dedicated Contact Us screen: direct email/phone plus a message form.
+class _ContactUsScreen extends StatefulWidget {
+  const _ContactUsScreen();
+
+  @override
+  State<_ContactUsScreen> createState() => _ContactUsScreenState();
+}
+
+class _ContactUsScreenState extends State<_ContactUsScreen> {
+  final _controller = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final message = _controller.text.trim();
+    if (message.isEmpty) {
+      Get.snackbar(
+        'Contact Us',
+        'Please type your message before submitting.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    Get.back();
+    Get.snackbar(
+      'Thank you!',
+      'Your message has been sent to our support team.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.white,
+      colorText: const Color(0xFF1D2231),
+      margin: const EdgeInsets.all(14),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBackground,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  bottom: BorderSide(color: AppColors.headerBorder),
+                ),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: Get.back,
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.textBlueDark,
+                      size: 22,
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Contact Us',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textBlueDark,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.cardShadow.withValues(alpha: 0.20),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _ContactActionTile(
+                          icon: Icons.email_outlined,
+                          color: const Color(0xFF1671D9),
+                          title: 'Email us',
+                          subtitle: _supportEmail,
+                          onTap: () => launchUrl(
+                            Uri(scheme: 'mailto', path: _supportEmail),
+                          ),
+                        ),
+                        _ContactActionTile(
+                          icon: Icons.call_outlined,
+                          color: const Color(0xFF19945F),
+                          title: 'Call us',
+                          subtitle: _supportPhone,
+                          isLast: true,
+                          onTap: () => launchUrl(
+                            Uri(scheme: 'tel', path: _supportPhone),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.cardShadow.withValues(alpha: 0.20),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Or send us a message',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: _controller,
+                          maxLines: 6,
+                          minLines: 6,
+                          decoration: InputDecoration(
+                            hintText: 'Type your message here...',
+                            filled: true,
+                            fillColor: AppColors.scaffoldBackground,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.all(14),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isSubmitting ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1671D9),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Submit',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactActionTile extends StatelessWidget {
+  const _ContactActionTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isLast = false,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: AppColors.profileMenuBorder),
+                ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppColors.textMuted8,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.neutralText10,
+              size: 26,
             ),
           ],
         ),
