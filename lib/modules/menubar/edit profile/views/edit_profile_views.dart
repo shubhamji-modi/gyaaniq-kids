@@ -23,7 +23,11 @@ class _EditProfileViewsState extends State<EditProfileViews> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   final ImagePicker _imagePicker = ImagePicker();
-  String _selectedGrade = '8th';
+
+  /// The student's class, shown in the locked "Current Grade" field. It is
+  /// display-only — this screen never changes the class, so it is always
+  /// mirrored straight from the profile and sent back untouched.
+  String _currentGrade = '';
   String _profilePic = '';
   File? _selectedImageFile;
   bool _isSaving = false;
@@ -38,29 +42,19 @@ class _EditProfileViewsState extends State<EditProfileViews> {
   int _otpRemainingSeconds = 0;
   String _verifyingPhone = '';
 
-  final List<String> _grades = const [
-    '5th',
-    '6th',
-    '7th',
-    '8th',
-    '9th',
-    '10th',
-  ];
-
   @override
   void initState() {
     super.initState();
     final profile = context.read<UserProfileProvider>().profile;
     final profileName = profile?.name ?? 'Alex Johnson';
-    final classNumber = profile?.userClass ?? '8th';
 
     _nameController = TextEditingController(text: profileName);
     _phoneController = TextEditingController(text: profile?.mobile ?? '');
-    _selectedGrade = classNumber;
+    // Never coerced onto a hard-coded grade list: a class the list did not
+    // know about used to be rewritten here and then saved back, silently
+    // switching the student's class when they only edited their photo.
+    _currentGrade = profile?.userClass.trim() ?? '';
     _profilePic = profile?.profilePic ?? '';
-    if (!_grades.contains(_selectedGrade)) {
-      _selectedGrade = '8th';
-    }
   }
 
   Future<void> _showImagePickerOptions() async {
@@ -541,7 +535,9 @@ class _EditProfileViewsState extends State<EditProfileViews> {
       data: {
         'name': updatedName,
         'instructionMedium': currentProfile.instructionMedium,
-        'classLevel': _selectedGrade,
+        // Echoed back from the stored profile, never from local UI state, so
+        // this screen can never change the class as a side effect.
+        'classLevel': currentProfile.userClass,
         'educationalBoard': currentProfile.educationBoard,
         'profilePic': profilePicPayload,
       },
@@ -715,7 +711,7 @@ class _EditProfileViewsState extends State<EditProfileViews> {
                         children: [
                           const _FieldLabel(title: 'Current Grade'),
                           _ReadOnlyField(
-                            value: _selectedGrade,
+                            value: _currentGrade.isEmpty ? '-' : _currentGrade,
                             trailing: const Icon(
                               Icons.lock_rounded,
                               color: Color(0xFF7B7C91),

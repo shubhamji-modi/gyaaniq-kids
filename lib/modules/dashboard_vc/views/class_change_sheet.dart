@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../core/data/class_catalogue.dart';
 import '../../../core/data/user_profile_provider.dart';
 import '../../../core/service/api_service.dart';
+import '../../../core/service/class_change_service.dart';
 
 /// Bottom sheet that lets a student change their class from the dashboard.
 ///
@@ -101,7 +104,14 @@ class _ClassChangeSheetState extends State<_ClassChangeSheet> {
       return;
     }
 
+    final classActuallyChanged = currentProfile.userClass.trim() != selected;
     provider.setProfile(currentProfile.copyWith(userClass: selected));
+
+    // Everything on the dashboard is scoped to the class that was just left,
+    // so drop it and refetch before the sheet closes over the old numbers.
+    if (classActuallyChanged) {
+      unawaited(ClassChangeService.applyClassChange());
+    }
 
     if (!mounted) return;
     Navigator.pop(context);

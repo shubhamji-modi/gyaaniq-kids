@@ -17,6 +17,7 @@ import '../../../../core/theme/appcolors.dart';
 import '../../notifications/views/notification_views.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
+import '../../menubar/query/controller/user_query_controller.dart';
 import '../../daily_quiz/views/start_quiz_views.dart';
 import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../daily_quiz/result/preview_result/views/preview_result_views.dart';
@@ -26,7 +27,6 @@ import '../../fun_fact/fun_fact_image.dart';
 import '../../fun_fact/views/fun_fact_story_views.dart';
 import '../../subscription/subscription_views.dart';
 import '../controllers/dashboard_tabbar_controller.dart';
-import 'class_change_sheet.dart';
 import 'daily_rewards_views.dart';
 import 'performance_dna_views.dart';
 
@@ -501,7 +501,6 @@ class _DashboardHeader extends GetView<DashboardTabbarController> {
               name: _profileFirstName(profile?.name),
               boardLabel: _educationBoardLabel(profile?.educationBoard),
               classLabel: 'Class ${profile?.userClass ?? '-'}',
-              onTapClass: () => showClassChangeSheet(context),
             ),
           ),
           const SizedBox(width: 8),
@@ -553,13 +552,15 @@ class _AnimatedHeaderInfo extends StatefulWidget {
     required this.name,
     required this.boardLabel,
     required this.classLabel,
-    required this.onTapClass,
   });
 
   final String name;
   final String boardLabel;
+
+  /// Shown, never tappable. Changing class is deliberate and one-way, so it
+  /// lives behind the Profile tab's "Change Class" entry rather than a label
+  /// sitting next to the student's name.
   final String classLabel;
-  final VoidCallback onTapClass;
 
   @override
   State<_AnimatedHeaderInfo> createState() => _AnimatedHeaderInfoState();
@@ -642,26 +643,16 @@ class _AnimatedHeaderInfoState extends State<_AnimatedHeaderInfo>
                       padding: const EdgeInsets.only(top: 3),
                       child: SizedBox(
                         height: _subLineHeight,
-                        child: _stage == _HeaderStage.board
-                            ? Text(
-                                widget.boardLabel,
-                                style: const TextStyle(
-                                  color: AppColors.textMuted2,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              )
-                            : GestureDetector(
-                                onTap: widget.onTapClass,
-                                child: Text(
-                                  widget.classLabel,
-                                  style: const TextStyle(
-                                    color: AppColors.textMuted2,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
+                        child: Text(
+                          _stage == _HeaderStage.board
+                              ? widget.boardLabel
+                              : widget.classLabel,
+                          style: const TextStyle(
+                            color: AppColors.textMuted2,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -4945,33 +4936,35 @@ class _ProfileMenuTile extends StatelessWidget {
 /// a direct contact channel, or a feature/content request.
 class _QueryOptionData {
   const _QueryOptionData({
-    required this.title,
+    required this.type,
     required this.subtitle,
     required this.icon,
     required this.color,
   });
 
-  final String title;
+  final UserQueryType type;
   final String subtitle;
   final IconData icon;
   final Color color;
+
+  String get title => type.label;
 }
 
 const List<_QueryOptionData> _queryOptions = [
   _QueryOptionData(
-    title: 'Suggestion',
+    type: UserQueryType.suggestion,
     subtitle: 'Tell us what could make the app better.',
     icon: Icons.lightbulb_outline_rounded,
     color: Color(0xFFB8860B),
   ),
   _QueryOptionData(
-    title: 'Contact Us',
+    type: UserQueryType.contact,
     subtitle: 'Reach our support team directly.',
     icon: Icons.support_agent_rounded,
     color: Color(0xFF1671D9),
   ),
   _QueryOptionData(
-    title: 'Request',
+    type: UserQueryType.request,
     subtitle: 'Ask for a feature, subject or content.',
     icon: Icons.assignment_outlined,
     color: Color(0xFF19945F),
@@ -4980,6 +4973,73 @@ const List<_QueryOptionData> _queryOptions = [
 
 const String _supportEmail = 'support@gyaaniq.com';
 const String _supportPhone = '+911234567890';
+
+/// Shared header for every Query screen, so the back button, title and the
+/// slot opposite it stay identical across them.
+class _QueryTopBar extends StatelessWidget {
+  const _QueryTopBar({required this.title, this.trailing});
+
+  final String title;
+
+  /// Sits opposite the back button. The slot is reserved whether or not it is
+  /// filled, so the title stays optically centred either way.
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        border: Border(bottom: BorderSide(color: AppColors.headerBorder)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: Get.back,
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppColors.textBlueDark,
+              size: 22,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textBlueDark,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          SizedBox(width: 48, child: trailing),
+        ],
+      ),
+    );
+  }
+}
+
+/// Opens the student's own message history.
+class _MyQueriesButton extends StatelessWidget {
+  const _MyQueriesButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'My Queries',
+      padding: EdgeInsets.zero,
+      onPressed: () => Get.to(() => const _MyQueriesScreen()),
+      icon: const Icon(
+        Icons.history_rounded,
+        color: AppColors.textBlueDark,
+        size: 24,
+      ),
+    );
+  }
+}
 
 class _QueryScreen extends StatelessWidget {
   const _QueryScreen();
@@ -4991,40 +5051,7 @@ class _QueryScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              height: 58,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                border: Border(
-                  bottom: BorderSide(color: AppColors.headerBorder),
-                ),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: Get.back,
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppColors.textBlueDark,
-                      size: 22,
-                    ),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      'Query',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textBlueDark,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
+            const _QueryTopBar(title: 'Query', trailing: _MyQueriesButton()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
@@ -5062,13 +5089,13 @@ class _QueryOptionTile extends StatelessWidget {
 
   final _QueryOptionData option;
 
-  bool get _isLast => option.title == _queryOptions.last.title;
+  bool get _isLast => option.type == _queryOptions.last.type;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        if (option.title == 'Contact Us') {
+        if (option.type == UserQueryType.contact) {
           Get.to(() => const _ContactUsScreen());
           return;
         }
@@ -5132,6 +5159,80 @@ class _QueryOptionTile extends StatelessWidget {
   }
 }
 
+/// Sends a Query message and tells the student how it went.
+///
+/// Returns true once the message is with the server, which both query forms
+/// take as their cue to close. A repeat of the same message inside ten
+/// minutes also answers success, so a double tap looks no different to the
+/// student and nothing is sent twice.
+///
+/// Failures are reported in the server's own words — it is what explains the
+/// 30-second gap between messages, the ten-a-day cap and the length limits,
+/// and those explanations are written for the student.
+Future<bool> _submitUserQuery({
+  required UserQueryType type,
+  required String message,
+}) async {
+  final validationError = UserQueryRepository.validationError(message, type);
+  if (validationError != null) {
+    Get.snackbar(
+      type.label,
+      validationError,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: AppColors.white,
+      colorText: AppColors.textPrimaryDeep,
+      margin: const EdgeInsets.all(14),
+    );
+    return false;
+  }
+
+  final response = await UserQueryRepository.submit(
+    type: type,
+    message: message,
+  );
+
+  if (!response.success) {
+    Get.snackbar(
+      type.label,
+      response.message.isNotEmpty
+          ? response.message
+          : 'Your message could not be sent. Please try again.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: AppColors.destructive,
+      colorText: AppColors.white,
+      margin: const EdgeInsets.all(14),
+      duration: const Duration(seconds: 4),
+    );
+    return false;
+  }
+
+  Get.snackbar(
+    'Thank you!',
+    response.message.isNotEmpty
+        ? response.message
+        : 'Your message has been sent.',
+    snackPosition: SnackPosition.BOTTOM,
+    backgroundColor: AppColors.white,
+    colorText: AppColors.textPrimaryDeep,
+    margin: const EdgeInsets.all(14),
+    duration: const Duration(seconds: 4),
+  );
+  return true;
+}
+
+/// Lands the student on their message history once a query is sent.
+///
+/// The form and the Query menu are dropped on the way, so the message they
+/// just sent is what they see, and one back press from here returns to the
+/// Profile tab rather than walking them back through the form they have
+/// already submitted.
+void _openMyQueriesAfterSubmit() {
+  Get.offUntil(
+    GetPageRoute<void>(page: () => const _MyQueriesScreen()),
+    (route) => route.isFirst,
+  );
+}
+
 /// Generic message form used by the Suggestion and Request options.
 class _QueryFormScreen extends StatefulWidget {
   const _QueryFormScreen({required this.option});
@@ -5153,30 +5254,17 @@ class _QueryFormScreenState extends State<_QueryFormScreen> {
   }
 
   Future<void> _submit() async {
-    final message = _controller.text.trim();
-    if (message.isEmpty) {
-      Get.snackbar(
-        widget.option.title,
-        'Please type your message before submitting.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final sent = await _submitUserQuery(
+      type: widget.option.type,
+      message: _controller.text,
+    );
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    Get.back();
-    Get.snackbar(
-      'Thank you!',
-      'Your ${widget.option.title.toLowerCase()} has been submitted.',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.white,
-      colorText: const Color(0xFF1D2231),
-      margin: const EdgeInsets.all(14),
-    );
+    if (sent) {
+      _openMyQueriesAfterSubmit();
+    }
   }
 
   @override
@@ -5186,39 +5274,9 @@ class _QueryFormScreenState extends State<_QueryFormScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              height: 58,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                border: Border(
-                  bottom: BorderSide(color: AppColors.headerBorder),
-                ),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: Get.back,
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppColors.textBlueDark,
-                      size: 22,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      widget.option.title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textBlueDark,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
+            _QueryTopBar(
+              title: widget.option.title,
+              trailing: const _MyQueriesButton(),
             ),
             Expanded(
               child: ListView(
@@ -5253,6 +5311,9 @@ class _QueryFormScreenState extends State<_QueryFormScreen> {
                           controller: _controller,
                           maxLines: 6,
                           minLines: 6,
+                          // Stops the student writing past what the API
+                          // accepts, and shows them how much room is left.
+                          maxLength: UserQueryRepository.maxMessageLength,
                           decoration: InputDecoration(
                             hintText: 'Type your ${widget.option.title.toLowerCase()} here...',
                             filled: true,
@@ -5327,30 +5388,17 @@ class _ContactUsScreenState extends State<_ContactUsScreen> {
   }
 
   Future<void> _submit() async {
-    final message = _controller.text.trim();
-    if (message.isEmpty) {
-      Get.snackbar(
-        'Contact Us',
-        'Please type your message before submitting.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final sent = await _submitUserQuery(
+      type: UserQueryType.contact,
+      message: _controller.text,
+    );
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    Get.back();
-    Get.snackbar(
-      'Thank you!',
-      'Your message has been sent to our support team.',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.white,
-      colorText: const Color(0xFF1D2231),
-      margin: const EdgeInsets.all(14),
-    );
+    if (sent) {
+      _openMyQueriesAfterSubmit();
+    }
   }
 
   @override
@@ -5360,39 +5408,9 @@ class _ContactUsScreenState extends State<_ContactUsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              height: 58,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                border: Border(
-                  bottom: BorderSide(color: AppColors.headerBorder),
-                ),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: Get.back,
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppColors.textBlueDark,
-                      size: 22,
-                    ),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      'Contact Us',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textBlueDark,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
+            const _QueryTopBar(
+              title: 'Contact Us',
+              trailing: _MyQueriesButton(),
             ),
             Expanded(
               child: ListView(
@@ -5464,6 +5482,7 @@ class _ContactUsScreenState extends State<_ContactUsScreen> {
                           controller: _controller,
                           maxLines: 6,
                           minLines: 6,
+                          maxLength: UserQueryRepository.maxMessageLength,
                           decoration: InputDecoration(
                             hintText: 'Type your message here...',
                             filled: true,
@@ -5596,6 +5615,504 @@ class _ContactActionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Everything the student has sent from the Query screen, newest first, with
+/// whether an admin has dealt with it yet.
+class _MyQueriesScreen extends StatefulWidget {
+  const _MyQueriesScreen();
+
+  @override
+  State<_MyQueriesScreen> createState() => _MyQueriesScreenState();
+}
+
+class _MyQueriesScreenState extends State<_MyQueriesScreen> {
+  static const int _pageSize = 20;
+
+  final ScrollController _scrollController = ScrollController();
+  final List<UserQueryItem> _queries = [];
+
+  /// null means every type — the "All" filter.
+  UserQueryType? _filter;
+
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
+  int _page = 1;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _isLoading || _isLoadingMore) {
+      return;
+    }
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _error = '';
+    });
+
+    final response = await UserQueryRepository.fetchMyQueries(
+      type: _filter,
+      page: 1,
+      limit: _pageSize,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+      _page = 1;
+      if (response.success && response.data != null) {
+        final page = response.data!;
+        _queries
+          ..clear()
+          ..addAll(page.queries);
+        _hasMore = page.hasMore;
+      } else {
+        _queries.clear();
+        _hasMore = false;
+        _error = response.message;
+      }
+    });
+  }
+
+  Future<void> _loadMore() async {
+    setState(() => _isLoadingMore = true);
+
+    final response = await UserQueryRepository.fetchMyQueries(
+      type: _filter,
+      page: _page + 1,
+      limit: _pageSize,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingMore = false;
+      if (response.success && response.data != null) {
+        final page = response.data!;
+        _queries.addAll(page.queries);
+        _page = page.page;
+        _hasMore = page.hasMore;
+      } else {
+        // Leave what is already listed and stop paging rather than replacing
+        // the list with an error the student cannot act on.
+        _hasMore = false;
+      }
+    });
+  }
+
+  void _changeFilter(UserQueryType? type) {
+    if (_filter == type) {
+      return;
+    }
+    setState(() => _filter = type);
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // Tinted rather than the usual white: the cards are white, so on a
+      // white page they ran together into one block and the student could not
+      // tell where one message ended and the next began.
+      backgroundColor: AppColors.neutralSurface,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const _QueryTopBar(title: 'My Queries'),
+            _MyQueriesFilterBar(selected: _filter, onChanged: _changeFilter),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: _buildBody(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // Always a scrollable, so pull-to-refresh still works on the empty and
+    // error states.
+    return ListView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+      children: [
+        if (_error.isNotEmpty)
+          _MyQueriesStateCard(
+            icon: Icons.wifi_off_rounded,
+            title: 'Unable to load your queries',
+            message: _error,
+            onRetry: _load,
+          )
+        else if (_queries.isEmpty)
+          _MyQueriesStateCard(
+            icon: Icons.forum_outlined,
+            title: _filter == null
+                ? 'No messages yet'
+                : 'No ${_filter!.label.toLowerCase()} yet',
+            message:
+                'Anything you send from the Query screen will show up here, '
+                'along with whether our team has answered it.',
+          )
+        else ...[
+          for (final query in _queries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              // Under a type filter every card is that type, so repeating it
+              // on each one says nothing — the date leads instead.
+              child: _MyQueryCard(query: query, showTypeLabel: _filter == null),
+            ),
+          if (_isLoadingMore)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MyQueriesFilterBar extends StatelessWidget {
+  const _MyQueriesFilterBar({required this.selected, required this.onChanged});
+
+  final UserQueryType? selected;
+  final ValueChanged<UserQueryType?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        border: Border(bottom: BorderSide(color: AppColors.headerBorder)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _MyQueriesFilterChip(
+              label: 'All',
+              isSelected: selected == null,
+              color: AppColors.textBlueDark,
+              onTap: () => onChanged(null),
+            ),
+            for (final option in _queryOptions)
+              _MyQueriesFilterChip(
+                label: option.title,
+                isSelected: selected == option.type,
+                color: option.color,
+                onTap: () => onChanged(option.type),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MyQueriesFilterChip extends StatelessWidget {
+  const _MyQueriesFilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          decoration: BoxDecoration(
+            color: isSelected ? color : AppColors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? color : AppColors.headerBorder,
+              width: 1.4,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? AppColors.white : AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MyQueryCard extends StatelessWidget {
+  const _MyQueryCard({required this.query, this.showTypeLabel = true});
+
+  final UserQueryItem query;
+
+  /// Whether to name the query's type on the card. False under a type filter,
+  /// where the chip above already says it and every card would repeat it.
+  final bool showTypeLabel;
+
+  /// The look of the option this message was sent under. Falls back to the
+  /// Suggestion palette for a type this build does not recognise, so an
+  /// unknown type still renders as a normal card.
+  _QueryOptionData get _option {
+    final type = query.option;
+    for (final option in _queryOptions) {
+      if (option.type == type) {
+        return option;
+      }
+    }
+    return _queryOptions.first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final option = _option;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        // Outlined as well as shadowed: the shadow alone disappears against a
+        // pale background, and the edge is what separates one message card
+        // from the next.
+        border: Border.all(color: AppColors.headerBorder),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cardShadow.withValues(alpha: 0.22),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: option.color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(option.icon, color: option.color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: showTypeLabel
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            query.displayLabel,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _formatQueryDate(query.createdAt),
+                            style: const TextStyle(
+                              color: AppColors.textMuted8,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        _formatQueryDate(query.createdAt),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+              _MyQueryStatusPill(isResolved: query.isResolved),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            query.message,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
+          ),
+          if (query.isResolved && query.resolvedAt != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Resolved on ${_formatQueryDate(query.resolvedAt)}',
+              style: const TextStyle(
+                color: AppColors.success,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MyQueryStatusPill extends StatelessWidget {
+  const _MyQueryStatusPill({required this.isResolved});
+
+  final bool isResolved;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isResolved ? AppColors.success : const Color(0xFFF1670C);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        isResolved ? 'Resolved' : 'Open',
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _MyQueriesStateCard extends StatelessWidget {
+  const _MyQueriesStateCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 60),
+      child: Column(
+        children: [
+          Icon(icon, size: 46, color: AppColors.neutralText10),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textMuted8,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.6,
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 14),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// `21 Sep 2026 · 2:42 PM`, or an empty string when the server sent no date.
+String _formatQueryDate(DateTime? value) {
+  if (value == null) {
+    return '';
+  }
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final local = value.toLocal();
+  final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final meridiem = local.hour < 12 ? 'AM' : 'PM';
+  return '${local.day} ${months[local.month - 1]} ${local.year} · '
+      '$hour12:$minute $meridiem';
 }
 
 class _ProfilePolicyScreen extends StatelessWidget {

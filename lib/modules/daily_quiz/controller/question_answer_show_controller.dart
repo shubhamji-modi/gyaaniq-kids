@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 
 import '../../../core/service/api_service.dart';
 import '../../../core/models/xp_config_data.dart';
 import '../../../core/service/ad_service.dart';
 
+import '../../dashboard_vc/controllers/dashboard_tabbar_controller.dart';
 import '../controller/quiz_daily_result_controller.dart';
 import '../views/question_answer_show_views.dart';
 import '../views/quiz_daily_result.dart';
@@ -163,6 +166,15 @@ class QuestionAnswerShowController extends GetxController {
 
   List<QuizQuestion> questions = const [];
 
+  /// The student's total XP as it stood when this quiz was loaded.
+  ///
+  /// The submit response does not reliably carry the XP the attempt earned,
+  /// and re-computing it from the XP config on the client is wrong whenever
+  /// the server applies its own rules (a repeat attempt that earns nothing,
+  /// for instance). Diffing the real total against this baseline reports what
+  /// was actually awarded. Null when the baseline could not be read.
+  int? _xpBaselineTotal;
+
   @override
   void onInit() {
     super.onInit();
@@ -249,6 +261,33 @@ class QuestionAnswerShowController extends GetxController {
     explanationLoadingByQuestionId.clear();
     explanationErrorByQuestionId.clear();
     resetQuiz();
+
+    // Fire-and-forget: taken now so submitting costs no extra round trip.
+    _xpBaselineTotal = null;
+    unawaited(_captureXpBaseline());
+  }
+
+  Future<void> _captureXpBaseline() async {
+    _xpBaselineTotal = await _fetchTotalXp();
+  }
+
+  /// The student's lifetime XP as the server currently reports it.
+  Future<int?> _fetchTotalXp() async {
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: ApiService.USER_XP,
+      showLoader: false,
+      fromJson: (json) => json,
+    );
+
+    if (!response.success || response.data is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final data = (response.data as Map<String, dynamic>)['data'];
+    if (data is! Map<String, dynamic>) {
+      return null;
+    }
+    return (data['xp'] as num?)?.toInt();
   }
 
   void selectAnswer(int optionIndex) {
@@ -408,6 +447,8 @@ class QuestionAnswerShowController extends GetxController {
       return question.copyWith(correctOptionIndex: feedback.correctIndex);
     }).toList();
 
+    final xpEarned = await _resolveXpEarned(attemptJson, body);
+
     Get.put(
       QuizDailyResultController(
         attemptId: _safeText(attemptJson['attemptId']),
@@ -422,7 +463,7 @@ class QuestionAnswerShowController extends GetxController {
             : isMockTest.value
             ? QuizRewardSource.mockTest
             : QuizRewardSource.practiceTest,
-        xpEarned: _readXpEarned(attemptJson) ?? _readXpEarned(body),
+        xpEarned: xpEarned,
         hasAnswerKey: true,
         feedback: feedbackByQuestionId,
         returnToLessonOnBack: returnToLessonOnResultBack.value,
@@ -430,10 +471,47 @@ class QuestionAnswerShowController extends GetxController {
       tag: 'daily_quiz_result',
     );
 
+    // The attempt has moved the student's XP and streak, so the dashboard's
+    // TTL-cached copy is now wrong — refresh it rather than wait it out.
+    if (Get.isRegistered<DashboardTabbarController>()) {
+      unawaited(Get.find<DashboardTabbarController>().loadUserXp(force: true));
+    }
+
     await AdService.instance.showQuizResultAdIfEnabled();
     isSubmittingQuiz.value = false;
 
     Get.to(() => const QuizDailyResult());
+  }
+
+  /// XP this attempt actually earned.
+  ///
+  /// Preference order: an explicit amount from the submit response, then the
+  /// real change in the student's total, and only then null — which lets the
+  /// result screen fall back to the XP config. The config is the weakest
+  /// signal because it describes what an attempt is *worth*, not what the
+  /// server awarded: a repeat practice attempt that earns nothing would still
+  /// be advertised as a full reward.
+  Future<int?> _resolveXpEarned(
+    Map<String, dynamic> attemptJson,
+    Map<String, dynamic> body,
+  ) async {
+    final reported = _readXpEarned(attemptJson) ?? _readXpEarned(body);
+    if (reported != null) {
+      return reported;
+    }
+
+    final baseline = _xpBaselineTotal;
+    if (baseline == null) {
+      return null;
+    }
+
+    final total = await _fetchTotalXp();
+    if (total == null) {
+      return null;
+    }
+
+    final earned = total - baseline;
+    return earned < 0 ? 0 : earned;
   }
 
   void openReviewMode() {
@@ -491,6 +569,27 @@ class QuestionAnswerShowController extends GetxController {
     }
 
     explanationByQuestionId[question.id] = explanation;
+  }
+
+  /// Drops the loaded quiz entirely, not just the answers.
+  ///
+  /// This controller is permanent, so a class change would otherwise leave the
+  /// previous class's questions, title and quiz id sitting in memory ready to
+  /// be shown again.
+  void clearSession() {
+    questions = const [];
+    currentQuizId.value = '';
+    quizTitle.value = 'Practice Quiz';
+    subjectTitle.value = '';
+    lessonTitle.value = '';
+    timeLimitMinutes.value = 0;
+    isDailyQuiz.value = false;
+    isMockTest.value = false;
+    returnToLessonOnResultBack.value = false;
+    explanationByQuestionId.clear();
+    explanationLoadingByQuestionId.clear();
+    explanationErrorByQuestionId.clear();
+    resetQuiz();
   }
 
   void resetQuiz() {
@@ -692,14 +791,25 @@ String _extractImageUrl(dynamic imageData) {
   return '';
 }
 
+/// Reads the XP an attempt earned, if the payload states it.
+///
+/// A bare `xp` number is deliberately not accepted: across these endpoints it
+/// is the student's new lifetime total, and reading it as the reward showed
+/// results like "+1250 XP Gained". Only a nested `xp` object is read, and only
+/// for its explicitly-named earned field.
 int? _readXpEarned(Map<String, dynamic> json) {
-  const keys = ['xpEarned', 'earnedXp', 'xpAwarded', 'awardedXp', 'xp'];
+  const keys = ['xpEarned', 'earnedXp', 'xpAwarded', 'awardedXp', 'xpGained'];
 
   for (final key in keys) {
     final value = json[key];
     if (value is num) {
       return value.toInt();
     }
+  }
+
+  final nested = json['xp'];
+  if (nested is Map<String, dynamic>) {
+    return _readXpEarned(nested);
   }
   return null;
 }

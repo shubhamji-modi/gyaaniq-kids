@@ -167,6 +167,22 @@ class FunFactController extends GetxController {
     );
   }
 
+  /// Throws away every cached batch and the remembered subject list.
+  ///
+  /// Both are keyed by subject, and a class change swaps the whole subject
+  /// set — without this the strip keeps replaying the old class's stories and
+  /// the next launch preloads them again from prefs.
+  Future<void> clearCache() async {
+    _batchBySubjectId.clear();
+    _inFlightBySubjectId.clear();
+    _cacheDate = _todayKey();
+    _isRestored = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefsKey);
+    await prefs.remove(_subjectsPrefsKey);
+  }
+
   /// Returns today's batch for a subject, fetching it only if the preload has
   /// not already done so.
   Future<FunFactBatch?> ensureBatch(String subjectId, String subjectTitle) =>

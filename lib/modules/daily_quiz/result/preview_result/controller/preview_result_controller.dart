@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../../core/data/user_profile_provider.dart';
 import '../../../../../core/service/api_service.dart';
 
 class PreviewResultController extends GetxController {
@@ -199,6 +200,43 @@ class ResultStatusTab {
 }
 
 class QuizSubmitResultRepository {
+  /// Drops attempts that belong to a class the student is no longer in.
+  ///
+  /// Attempt history is kept per account, not per class, so after a class
+  /// change the previous class's tests kept showing up under "Practice Test".
+  /// Attempts whose class the payload does not state are left alone — losing a
+  /// real result would be worse than showing one extra.
+  static List<QuizSubmitResultItem> _forCurrentClass(
+    List<QuizSubmitResultItem> items,
+  ) {
+    final currentClass = UserProfileProvider.currentClassLevel;
+    if (currentClass.isEmpty) {
+      return items;
+    }
+    return items
+        .where(
+          (item) =>
+              item.classLevel.isEmpty ||
+              _sameClass(item.classLevel, currentClass),
+        )
+        .toList();
+  }
+
+  /// Compares two class labels tolerantly.
+  ///
+  /// The same class reaches the app spelled several ways — "10", "10th",
+  /// "Class 10" — depending on which collection wrote it. Comparing the raw
+  /// strings would treat those as different classes and hide every result the
+  /// student has, so the digits are compared when both sides have them.
+  static bool _sameClass(String a, String b) {
+    final digitsA = a.replaceAll(RegExp(r'[^0-9]'), '');
+    final digitsB = b.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsA.isNotEmpty && digitsB.isNotEmpty) {
+      return digitsA == digitsB;
+    }
+    return a.trim().toLowerCase() == b.trim().toLowerCase();
+  }
+
   static Future<ApiResponse<QuizSubmitResultPage>> fetchResults({
     ResultHistoryType type = ResultHistoryType.practice,
     String status = 'all',
@@ -215,14 +253,19 @@ class QuizSubmitResultRepository {
       return fetchMockResults(status: status, page: page, limit: limit);
     }
 
+    // Scoped to the student's class unless the caller asked for another one,
+    // so a class change does not leave the old class's practice tests listed.
+    final effectiveClassLevel = (classLevel == null || classLevel.isEmpty)
+        ? UserProfileProvider.currentClassLevel
+        : classLevel;
+
     final response = await ApiService.instance.get<dynamic>(
       endpoint: ApiService.GET_SUBMIT_RESULT,
       showLoader: false,
       fromJson: (json) => json,
       queryParameters: {
         if (status.isNotEmpty) 'status': status,
-        if (classLevel != null && classLevel.isNotEmpty)
-          'classLevel': classLevel,
+        if (effectiveClassLevel.isNotEmpty) 'classLevel': effectiveClassLevel,
         if (subject != null && subject.isNotEmpty) 'subject': subject,
         'page': page,
         'limit': limit,
@@ -248,12 +291,14 @@ class QuizSubmitResultRepository {
       message: body['message']?.toString() ?? response.message,
       statusCode: response.statusCode,
       data: QuizSubmitResultPage(
-        results: resultsJson
-            .map(
-              (item) =>
-                  QuizSubmitResultItem.fromApi(item as Map<String, dynamic>),
-            )
-            .toList(),
+        results: _forCurrentClass(
+          resultsJson
+              .map(
+                (item) =>
+                    QuizSubmitResultItem.fromApi(item as Map<String, dynamic>),
+              )
+              .toList(),
+        ),
         pagination: QuizSubmitPagination.fromApi(paginationJson),
       ),
     );
@@ -291,13 +336,14 @@ class QuizSubmitResultRepository {
         )
         .where((item) => status == 'all' || item.status == status)
         .toList();
+    final scopedItems = _forCurrentClass(items);
 
     return ApiResponse<QuizSubmitResultPage>(
       success: true,
       message: body['message']?.toString() ?? response.message,
       statusCode: response.statusCode,
       data: QuizSubmitResultPage(
-        results: items,
+        results: scopedItems,
         pagination: QuizSubmitPagination.fromApi(paginationJson),
       ),
     );
@@ -341,7 +387,7 @@ class QuizSubmitResultRepository {
       message: body['message']?.toString() ?? response.message,
       statusCode: response.statusCode,
       data: QuizSubmitResultPage(
-        results: items,
+        results: _forCurrentClass(items),
         pagination: QuizSubmitPagination.fromApi(paginationJson),
       ),
     );

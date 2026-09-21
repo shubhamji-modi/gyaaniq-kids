@@ -311,6 +311,14 @@ class MyCourseRepository {
   static final Map<String, Set<String>> _completedLessons = {};
   static final Map<String, String> _lastViewedLesson = {};
 
+  /// Forgets every locally-tracked lesson. Course ids belong to one class, so
+  /// this progress is meaningless once the student switches class.
+  static void resetProgress() {
+    _viewedLessons.clear();
+    _completedLessons.clear();
+    _lastViewedLesson.clear();
+  }
+
   static Set<String> _setFor(Map<String, Set<String>> map, String courseId) {
     return map.putIfAbsent(courseId, () => <String>{});
   }

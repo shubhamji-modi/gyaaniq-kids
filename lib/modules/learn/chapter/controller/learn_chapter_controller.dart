@@ -1,6 +1,32 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
+
+/// The `classLevel` filter to send with progress requests.
+///
+/// Progress is stored per account, not per class, so an endpoint that does
+/// not narrow by class answers with everything the student has ever done.
+/// Servers that ignore the parameter are unaffected; [isCurrentClassProgressRow]
+/// covers those.
+Map<String, dynamic> currentClassProgressQuery() {
+  final classLevel = UserProfileProvider.currentClassLevel;
+  return classLevel.isEmpty ? const {} : {'classLevel': classLevel};
+}
+
+/// Whether a per-subject progress row belongs to the student's current class.
+///
+/// Rows that name no class are kept — a server that already scopes its reply
+/// has no reason to repeat the class on every row, and dropping those would
+/// leave the student with no progress at all.
+bool isCurrentClassProgressRow(Map<String, dynamic> row) {
+  final subject = (row['subject'] as Map<String, dynamic>?) ?? const {};
+  final classLevel = _safeText(
+    row['classLevel'],
+    fallback: _safeText(subject['classLevel']),
+  );
+  return UserProfileProvider.isCurrentClass(classLevel);
+}
 
 class LearnCatalogData {
   static Future<ApiResponse<List<LearnSubjectModel>>> getUserSubjects() async {
@@ -28,17 +54,26 @@ class LearnCatalogData {
     final summaryById =
         summaryResponse.data ?? const <String, SubjectProgressSummary>{};
 
-    final subjects = subjectsJson
+    // Scoped to the student's class here as well as server-side. A class
+    // change leaves every subject, lesson count and progress figure belonging
+    // to the class just left, and anything the response still carries from it
+    // would otherwise be shown as the new class's work.
+    final classSubjectsJson = subjectsJson
+        .whereType<Map<String, dynamic>>()
+        .where(
+          (subject) =>
+              UserProfileProvider.isCurrentClass(_safeText(subject['classLevel'])),
+        )
+        .toList();
+
+    final subjects = classSubjectsJson
         .asMap()
         .entries
         .map(
           (entry) => LearnSubjectModel.fromApi(
-            entry.value as Map<String, dynamic>,
+            entry.value,
             index: entry.key,
-            summary:
-                summaryById[_safeText(
-                  (entry.value as Map<String, dynamic>)['_id'],
-                )],
+            summary: summaryById[_safeText(entry.value['_id'])],
           ),
         )
         .toList();
@@ -223,6 +258,7 @@ class LearnCatalogData {
       endpoint: ApiService.DASHBOARD_PROGRESS_SUMMARY,
       showLoader: false,
       fromJson: (json) => json,
+      queryParameters: currentClassProgressQuery(),
     );
 
     if (!response.success || response.data is! Map<String, dynamic>) {
@@ -240,6 +276,9 @@ class LearnCatalogData {
     final summaryById = <String, SubjectProgressSummary>{};
     for (final entry in perSubjectJson) {
       if (entry is! Map<String, dynamic>) {
+        continue;
+      }
+      if (!isCurrentClassProgressRow(entry)) {
         continue;
       }
       final summary = SubjectProgressSummary.fromApi(entry);

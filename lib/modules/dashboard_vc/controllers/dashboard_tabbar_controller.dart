@@ -318,6 +318,66 @@ class DashboardTabbarController extends GetxController {
     }
   }
 
+  /// Wipes every piece of class-scoped state and refetches it.
+  ///
+  /// A class change swaps the student's whole syllabus, so progress, subjects,
+  /// XP, accuracy, leaderboard standing, tests and quiz history all belong to
+  /// the old class until they are reloaded. Everything is cleared first rather
+  /// than refreshed in place, so the dashboard shows an empty/zero state while
+  /// the new class's data arrives instead of the previous class's numbers.
+  Future<void> resetForClassChange() async {
+    _lastFetchedAt.clear();
+    _perSubjectSummaryById.clear();
+
+    lessonSummary.value = const DashboardLessonSummary();
+    learnSubjects.clear();
+    mockTests.clear();
+    dailyQuizAnalytics.clear();
+    liveClassSchedules.clear();
+    leaderboardSummary.value = const LeaderboardStripData();
+    weakAreasSummary.value = const WeakAreasSummaryData();
+    userXpSummary.value = const UserXpSummaryData();
+    dailyClaimXp.value = const DailyClaimXpData();
+    attendanceSummary.value = AttendanceSummaryModel.empty();
+
+    dashboardSummaryError.value = '';
+    learnSubjectsError.value = '';
+    mockTestsError.value = '';
+    dailyQuizAnalyticsError.value = '';
+    leaderboardSummaryError.value = '';
+    weakAreasError.value = '';
+    userXpError.value = '';
+    liveClassesError.value = '';
+    attendanceSummaryError.value = '';
+    dailyClaimXpError.value = '';
+
+    isLoadingDashboardSummary.value = true;
+    isLoadingLearnSubjects.value = true;
+    isLoadingMockTests.value = true;
+    isLoadingDailyQuizAnalytics.value = true;
+    isLoadingLeaderboardSummary.value = true;
+    isLoadingWeakAreas.value = true;
+    isLoadingUserXp.value = true;
+    isLoadingLiveClasses.value = true;
+    isLoadingAttendanceSummary.value = true;
+
+    refreshQuizHistory();
+
+    // The loaders are called directly rather than through the tab reload
+    // helpers: those return early while an earlier reload is still running,
+    // which would leave the dashboard blank on the state just cleared.
+    await _loadProgressSummary(force: true);
+    await _loadLearnSubjects(force: true);
+    await loadUserXp(force: true);
+    await loadDailyClaimXp(force: true);
+    await loadLiveClasses(force: true);
+    await loadAttendanceSummary(force: true);
+    await loadWeakAreas(force: true);
+    await loadLeaderboardSummary(force: true);
+    await loadMockTests(force: true);
+    await loadDailyQuizAnalytics(force: true);
+  }
+
   Future<void> reloadQuizTabData({bool force = false}) async {
     if (_isReloadingQuizTabData) {
       return;
@@ -651,6 +711,7 @@ class DashboardTabbarController extends GetxController {
       endpoint: ApiService.weakAreas,
       showLoader: false,
       fromJson: (json) => json,
+      queryParameters: currentClassProgressQuery(),
     );
 
     isLoadingWeakAreas.value = false;
@@ -781,6 +842,7 @@ class DashboardTabbarController extends GetxController {
       endpoint: ApiService.DASHBOARD_PROGRESS_SUMMARY,
       showLoader: false,
       fromJson: (json) => json,
+      queryParameters: currentClassProgressQuery(),
     );
 
     isLoadingDashboardSummary.value = false;
@@ -799,12 +861,15 @@ class DashboardTabbarController extends GetxController {
     _perSubjectSummaryById
       ..clear()
       ..addEntries(
-        perSubjectJson.map((entry) {
-          final summary = SubjectProgressSummary.fromApi(
-            entry as Map<String, dynamic>,
-          );
-          return MapEntry(summary.subjectId, summary);
-        }),
+        perSubjectJson
+            .whereType<Map<String, dynamic>>()
+            // Rows from the class the student has left would otherwise be
+            // matched onto this class's subject cards.
+            .where(isCurrentClassProgressRow)
+            .map((entry) {
+              final summary = SubjectProgressSummary.fromApi(entry);
+              return MapEntry(summary.subjectId, summary);
+            }),
       );
   }
 
@@ -839,6 +904,8 @@ class DashboardTabbarController extends GetxController {
       }),
     );
 
+    _recomputeLessonSummaryFromSubjects();
+
     isLoadingLearnSubjects.value = false;
 
     // Warm today's fun-fact stories so tapping a subject opens instantly.
@@ -854,6 +921,46 @@ class DashboardTabbarController extends GetxController {
     // Fetch the ambient background-sound URLs once, in the background, so the
     // audio bed is ready the instant a Fun Fact story opens.
     unawaited(FunFactBgSoundPlayer.instance.ensureFetched());
+  }
+
+  /// Rebuilds the Learning Progress card from the subjects the student is
+  /// actually enrolled in right now.
+  ///
+  /// The summary endpoint's top-level `lessons` block counts every lesson the
+  /// account has ever touched, so after a class change it still reported the
+  /// previous class's completions. The per-subject rows carry subject ids, so
+  /// restricting them to the current class's subjects gives a total that
+  /// starts from zero on a fresh class.
+  void _recomputeLessonSummaryFromSubjects() {
+    if (learnSubjects.isEmpty) {
+      return;
+    }
+
+    // Note the empty case is not an early return: a class the student has not
+    // started yet has no rows at all, and bailing out here left the endpoint's
+    // account-wide figure — the class they just left — on the card.
+    var total = 0;
+    var completed = 0;
+    for (final subject in learnSubjects) {
+      final summary = _perSubjectSummaryById[subject.subjectId];
+      if (summary == null) {
+        continue;
+      }
+      total += summary.lessonsTotal;
+      completed += summary.lessonsCompleted;
+    }
+
+    if (total == 0) {
+      lessonSummary.value = const DashboardLessonSummary();
+      return;
+    }
+
+    lessonSummary.value = DashboardLessonSummary(
+      total: total,
+      completed: completed,
+      notStarted: total - completed,
+      completionRate: (completed / total) * 100,
+    );
   }
 
   void openLeaderboard() {

@@ -44,9 +44,9 @@ class ApiService extends GetxService {
   //////https://e-learn-front.pixelnx.in/login
   // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
   static String temp_baseUrl =
-      'https://e-learn-front.pixelnx.in/api/temp-auth/';
+      'https://e-learn-api.pixelnx.in/api/temp-auth/';
   //static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
-  static String baseUrl = 'https://e-learn-front.pixelnx.in/api/v1/';
+  static String baseUrl = 'https://e-learn-api.pixelnx.in/api/v1/';
   static const bool useTemporaryAuth = true;
 
   ///End points
@@ -129,6 +129,7 @@ class ApiService extends GetxService {
   static const String googleVerifyEndpoint = 'user/subscription/google/verify';
   static const String subscriptionEndpoint = 'user/subscription';
   static const String DEVICE_TOKEN = 'user/device-token';
+  static const String USER_QUERIES = 'user/queries';
   static const String USER_NOTIFICATIONS = 'user/notifications';
   static const String USER_NOTIFICATION_DETAIL = 'user/notifications/:id';
 

@@ -74,15 +74,51 @@ class UserProfile {
 class UserProfileProvider with ChangeNotifier {
   UserProfile? _profile;
 
+  /// The signed-in student's class, mirrored outside the widget tree.
+  ///
+  /// Repositories (quiz history, for one) need to scope their requests to the
+  /// current class but run far from any [BuildContext], so the class is kept
+  /// here as well. Always written through [setProfile]/[clearProfile] so it
+  /// cannot drift from [profile].
+  static String currentClassLevel = '';
+
+  /// Whether [classLevel] is the class the student is in right now.
+  ///
+  /// True for anything that does not state a class, so content the server
+  /// leaves unlabelled is never hidden.
+  ///
+  /// The same class arrives spelled several ways — "10", "10th", "Class 10" —
+  /// depending on which collection wrote it, so the digits are compared when
+  /// both sides have them and the raw text otherwise.
+  static bool isCurrentClass(String classLevel) {
+    final value = classLevel.trim();
+    final current = currentClassLevel;
+    if (value.isEmpty || value == '-' || current.isEmpty) {
+      return true;
+    }
+    if (value == current) {
+      return true;
+    }
+
+    final digitsValue = value.replaceAll(RegExp(r'[^0-9]'), '');
+    final digitsCurrent = current.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsValue.isNotEmpty && digitsCurrent.isNotEmpty) {
+      return digitsValue == digitsCurrent;
+    }
+    return value.toLowerCase() == current.toLowerCase();
+  }
+
   UserProfile? get profile => _profile;
 
   void setProfile(UserProfile profile) {
     _profile = profile;
+    currentClassLevel = profile.userClass.trim();
     notifyListeners();
   }
 
   void clearProfile() {
     _profile = null;
+    currentClassLevel = '';
     notifyListeners();
   }
 }
