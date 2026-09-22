@@ -12,6 +12,7 @@ import '../../../../core/service/app_route_observer.dart';
 import '../../../../core/service/app_update_service.dart';
 import '../../../../core/service/device_token_service.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
+import '../../../../core/service/notification_badge_service.dart';
 import '../../../../core/service/notification_service.dart';
 import '../../../../core/theme/appcolors.dart';
 import '../../notifications/views/notification_views.dart';
@@ -674,18 +675,72 @@ class _NotificationBell extends StatelessWidget {
     return InkWell(
       onTap: () => Get.to(() => const NotificationViews()),
       borderRadius: BorderRadius.circular(20),
-      child: Container(
+      child: SizedBox(
         width: 40,
         height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.neutralSurface2,
-          shape: BoxShape.circle,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.neutralSurface2,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                color: AppColors.textPrimaryDeep,
+                size: 22,
+              ),
+            ),
+            Positioned(
+              top: -2,
+              right: -2,
+              child: ValueListenableBuilder<int>(
+                valueListenable:
+                    NotificationBadgeService.instance.unreadCount,
+                builder: (context, count, _) {
+                  if (count <= 0) return const SizedBox.shrink();
+                  return _UnreadDot(count: count);
+                },
+              ),
+            ),
+          ],
         ),
-        child: const Icon(
-          Icons.notifications_none_rounded,
-          color: AppColors.textPrimaryDeep,
-          size: 22,
+      ),
+    );
+  }
+}
+
+/// Red pill on the bell showing how many pushes arrived since the
+/// notifications screen was last opened (capped at 99+).
+class _UnreadDot extends StatelessWidget {
+  const _UnreadDot({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : '$count';
+    return Container(
+      constraints: const BoxConstraints(minWidth: 18),
+      height: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE53935),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.white, width: 1.5),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.white,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+          height: 1,
         ),
       ),
     );

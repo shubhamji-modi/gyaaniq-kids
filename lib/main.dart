@@ -11,6 +11,7 @@ import 'core/service/analytics_service.dart';
 import 'core/service/ad_service.dart';
 import 'core/service/api_service.dart';
 import 'core/service/app_route_observer.dart';
+import 'core/service/notification_badge_service.dart';
 import 'core/service/notification_service.dart';
 import 'core/service/session_manager.dart';
 import 'firebase_options.dart';
@@ -66,6 +67,7 @@ Future<void> main() async {
       await Get.putAsync(() => SessionManager().init());
       Get.put(ApiService());
 
+      await NotificationBadgeService.instance.init();
       await NotificationService.instance.init();
       unawaited(NotificationService.instance.requestPermission());
 

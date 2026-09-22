@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Color;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -8,6 +9,17 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../modules/notifications/controller/notification_controller.dart';
 import 'device_token_service.dart';
+import 'notification_badge_service.dart';
+
+/// Runs in its own isolate for pushes that arrive while the app is backgrounded
+/// or killed. The OS draws the notification itself; all we do here is keep the
+/// unread badge in step (SharedPreferences is the only state both isolates
+/// share — see [NotificationBadgeService]).
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (message.notification == null && message.data.isEmpty) return;
+  await NotificationBadgeService.incrementInBackground();
+}
 
 /// Push notifications — Android only for now.
 ///
@@ -24,6 +36,12 @@ class NotificationService {
   static const String _channelDescription =
       'General app notifications and reminders';
 
+  /// Monochrome status-bar icon (res/drawable/ic_notification.xml) and the
+  /// full-color brand mark shown next to the text.
+  static const String _smallIcon = 'ic_notification';
+  static const String _largeIcon = 'ic_notification_large';
+  static const Color _accentColor = Color(0xFF4A4FD9);
+
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
@@ -39,7 +57,7 @@ class NotificationService {
 
     try {
       const androidSettings = AndroidInitializationSettings(
-        '@mipmap/ic_launcher',
+        '@drawable/$_smallIcon',
       );
       const initSettings = InitializationSettings(android: androidSettings);
 
@@ -50,6 +68,8 @@ class NotificationService {
         _channelName,
         description: _channelDescription,
         importance: Importance.high,
+        // Lets the launcher put a dot/count on the app icon for this channel.
+        showBadge: true,
       );
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -72,6 +92,8 @@ class NotificationService {
     try {
       final messaging = FirebaseMessaging.instance;
 
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
       final token = await messaging.getToken();
       debugPrint('NotificationService: FCM token -> $token');
       currentToken = token;
@@ -85,13 +107,15 @@ class NotificationService {
 
       // Foreground: FCM does not show anything by itself, so display it
       // ourselves via flutter_local_notifications.
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
         final notification = message.notification;
         if (notification == null) return;
-        showNotification(
+        await NotificationBadgeService.instance.increment();
+        await showNotification(
           id: message.hashCode,
           title: notification.title ?? '',
           body: notification.body ?? '',
+          number: NotificationBadgeService.instance.unreadCount.value,
         );
       });
 
@@ -109,6 +133,8 @@ class NotificationService {
   }
 
   void _handleNotificationTap(RemoteMessage message) {
+    // Tapping a push counts as reading it.
+    unawaited(NotificationBadgeService.instance.clear());
     final notificationId = message.data['notificationId']?.toString();
     if (notificationId == null || notificationId.isEmpty) return;
     NotificationController.openDetail(notificationId);
@@ -143,17 +169,24 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
+    int? number,
   }) async {
     if (!Platform.isAndroid || !_isInitialized) return;
     try {
-      const androidDetails = AndroidNotificationDetails(
+      final androidDetails = AndroidNotificationDetails(
         _channelId,
         _channelName,
         channelDescription: _channelDescription,
         importance: Importance.high,
         priority: Priority.high,
+        // Status-bar silhouette + full-color brand mark inside the notification.
+        icon: _smallIcon,
+        largeIcon: const DrawableResourceAndroidBitmap(_largeIcon),
+        color: _accentColor,
+        // Badge count launchers that support numbers read off the notification.
+        number: number,
       );
-      const details = NotificationDetails(android: androidDetails);
+      final details = NotificationDetails(android: androidDetails);
       await _plugin.show(id, title, body, details, payload: payload);
     } catch (e) {
       debugPrint('NotificationService: showNotification failed -> $e');

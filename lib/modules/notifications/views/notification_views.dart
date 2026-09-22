@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/service/notification_badge_service.dart';
 import '../../../core/theme/appcolors.dart';
 import '../controller/notification_controller.dart';
 import '../notification_data.dart';
@@ -20,6 +21,9 @@ class _NotificationViewsState extends State<NotificationViews> {
   @override
   void initState() {
     super.initState();
+    // Opening this screen is what marks the pushes as read: drops the bell
+    // badge and the launcher badge on the app icon.
+    NotificationBadgeService.instance.clear();
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
