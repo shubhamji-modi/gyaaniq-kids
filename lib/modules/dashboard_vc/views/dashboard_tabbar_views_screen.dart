@@ -4971,8 +4971,8 @@ const List<_QueryOptionData> _queryOptions = [
   ),
 ];
 
-const String _supportEmail = 'support@gyaaniq.com';
-const String _supportPhone = '+911234567890';
+const String _supportEmail = 'support@pixelnx.com';
+const String _supportPhone = '+91 8989977272';
 
 /// Shared header for every Query screen, so the back button, title and the
 /// slot opposite it stay identical across them.
