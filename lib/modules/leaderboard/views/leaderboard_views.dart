@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/service/app_features_service.dart';
+import '../../../core/widgets/app_feature_gate.dart';
 import '../controller/leaderboard_controller.dart';
 
 class LeaderboardViews extends StatelessWidget {
@@ -191,42 +193,50 @@ class _LeaderboardHeader extends StatelessWidget {
               ),
             ),
           ),
-          InkWell(
-            onTap: () => _openClassPrizesSheet(controller),
-            borderRadius: BorderRadius.circular(22),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF8A3D), Color(0xFFFF5A5F)],
+          // Class Prizes is switched on per class from the admin panel; when
+          // it is off the button is gone and `user/class-prizes` is never hit.
+          AppFeatureGate(
+            feature: AppFeaturesService.classPrizes,
+            child: InkWell(
+              onTap: () => _openClassPrizesSheet(controller),
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 8,
                 ),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF5A5F).withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 5),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF8A3D), Color(0xFFFF5A5F)],
                   ),
-                ],
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.card_giftcard_rounded,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'Prizes',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF5A5F).withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.card_giftcard_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Prizes',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

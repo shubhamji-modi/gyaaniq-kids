@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
 import '../../../../routes/app_routes.dart';
+import '../../../../core/service/app_features_service.dart';
 import '../../../../core/service/app_route_observer.dart';
 import '../../../../core/service/app_update_service.dart';
 import '../../../../core/service/device_token_service.dart';
@@ -15,6 +16,7 @@ import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/service/notification_badge_service.dart';
 import '../../../../core/service/notification_service.dart';
 import '../../../../core/theme/appcolors.dart';
+import '../../../../core/widgets/app_feature_gate.dart';
 import '../../notifications/views/notification_views.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
@@ -830,8 +832,12 @@ class _HomeTab extends StatelessWidget {
         () => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _DailyQuizMiniCard(),
-            const SizedBox(height: 18),
+            const AppFeatureGate(
+              feature: AppFeaturesService.dailyQuiz,
+              child: Column(
+                children: [_DailyQuizMiniCard(), SizedBox(height: 18)],
+              ),
+            ),
             const _LeaderboardStripCard(),
             const SizedBox(height: 18),
             if (controller.dashboardSummaryError.value.isNotEmpty)
@@ -843,9 +849,14 @@ class _HomeTab extends StatelessWidget {
               const _JourneyCard(),
               const SizedBox(height: 18),
             ],
-            const _FunFactCard(),
-            const SizedBox(height: 18),
-            const _HomeMockTestCard(),
+            const AppFeatureGate(
+              feature: AppFeaturesService.funFact,
+              child: Column(children: [_FunFactCard(), SizedBox(height: 18)]),
+            ),
+            const AppFeatureGate(
+              feature: AppFeaturesService.mockTest,
+              child: _HomeMockTestCard(),
+            ),
             const _LearningJourneyBanner(),
           ],
         ),
@@ -912,7 +923,14 @@ class _LearnTab extends GetView<DashboardTabbarController> {
               ),
             ),
             const SizedBox(height: 14),
-            ...controller.studyTools.map(_StudyToolCard.new),
+            // Study Tools drops entries (today: Notes) the admin switched off.
+            AppFeaturesBuilder(
+              builder: (context) => Column(
+                children: controller.studyTools
+                    .map(_StudyToolCard.new)
+                    .toList(),
+              ),
+            ),
           ],
         ),
       ),
@@ -927,16 +945,33 @@ class _QuizTab extends GetView<DashboardTabbarController> {
   Widget build(BuildContext context) {
     return _DashboardScaffold(
       child: Column(
-        children: [
-          const _QuizChallengeCard(),
-          const SizedBox(height: 14),
-          const _QuizPracticeCard(),
-          const SizedBox(height: 14),
-          const _MockTestCard(),
-          const SizedBox(height: 14),
-          const _AnalyticsCard(),
-          const SizedBox(height: 14),
-          const _PreviousResultsCard(),
+        children: const [
+          // Each card is its own admin-controlled section: when one is
+          // switched off for this class it disappears along with its spacing.
+          AppFeatureGate(
+            feature: AppFeaturesService.dailyQuiz,
+            child: Column(
+              children: [_QuizChallengeCard(), SizedBox(height: 14)],
+            ),
+          ),
+          AppFeatureGate(
+            feature: AppFeaturesService.practiceQuiz,
+            child: Column(
+              children: [_QuizPracticeCard(), SizedBox(height: 14)],
+            ),
+          ),
+          AppFeatureGate(
+            feature: AppFeaturesService.mockTest,
+            child: Column(children: [_MockTestCard(), SizedBox(height: 14)]),
+          ),
+          AppFeatureGate(
+            feature: AppFeaturesService.dailyQuiz,
+            child: Column(children: [_AnalyticsCard(), SizedBox(height: 14)]),
+          ),
+          AppFeatureGate(
+            feature: AppFeaturesService.quizHistory,
+            child: _PreviousResultsCard(),
+          ),
         ],
       ),
     );
@@ -1006,8 +1041,12 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
           const SizedBox(height: 14),
           const _ProfileStatsCard(),
           const SizedBox(height: 14),
-          const _SubscriptionBanner(),
-          const SizedBox(height: 18),
+          const AppFeatureGate(
+            feature: AppFeaturesService.subscription,
+            child: Column(
+              children: [_SubscriptionBanner(), SizedBox(height: 18)],
+            ),
+          ),
           Container(
             decoration: BoxDecoration(
               color: AppColors.white,
@@ -1020,10 +1059,14 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
                 ),
               ],
             ),
-            child: Column(
-              children: controller.profileMenuItems
-                  .map((item) => _ProfileMenuTile(item: item))
-                  .toList(),
+            // The menu drops entries (today: Change Class) the admin switched
+            // off, so it has to rebuild when a fresh answer lands.
+            child: AppFeaturesBuilder(
+              builder: (context) => Column(
+                children: controller.profileMenuItems
+                    .map((item) => _ProfileMenuTile(item: item))
+                    .toList(),
+              ),
             ),
           ),
           const SizedBox(height: 40),
@@ -3929,8 +3972,18 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
         _loadResults(silent: true);
       }
     });
-    _loadResults();
+    // The tabs live in an IndexedStack, so this card is built at launch even
+    // while Home is showing. Fetching here would spend three requests on a
+    // card nobody is looking at — opening the Quiz tab bumps the tick above,
+    // which loads it.
+    // Until then it keeps its initial spinner, which nobody sees anyway.
+    if (controller.currentTabIndex.value == _quizTabIndex) {
+      _loadResults();
+    }
   }
+
+  /// Index of the Quiz tab in the dashboard's IndexedStack.
+  static const int _quizTabIndex = 2;
 
   @override
   void dispose() {
@@ -3951,9 +4004,13 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
     });
 
     final responses = await Future.wait([
+      // Same page the Quiz tab's weekly chart asks for, so the two share a
+      // single `daily-quiz/my-attempts` round trip; only the first couple are
+      // shown below.
       QuizSubmitResultRepository.fetchResults(
         type: ResultHistoryType.daily,
-        limit: 2,
+        limit: QuizSubmitResultRepository.quizTabSharedLimit,
+        cacheFor: QuizSubmitResultRepository.quizTabShareWindow,
       ),
       QuizSubmitResultRepository.fetchResults(
         type: ResultHistoryType.practice,
@@ -3975,7 +4032,9 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
 
     setState(() {
       _isLoading = false;
-      _dailyResults = dailyResponse.data?.results ?? const [];
+      _dailyResults = (dailyResponse.data?.results ?? const [])
+          .take(2)
+          .toList();
       _practiceResults = practiceResponse.data?.results ?? const [];
       _mockResults = mockResponse.data?.results ?? const [];
       _dailyErrorMessage = dailyResponse.success ? '' : dailyResponse.message;

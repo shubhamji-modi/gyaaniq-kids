@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../routes/app_routes.dart';
+import 'api_service.dart';
+import 'app_features_service.dart';
 import 'device_token_service.dart';
 import 'notification_service.dart';
 
@@ -121,6 +123,10 @@ class SessionManager extends GetxService {
         NotificationService.instance.currentToken,
       ),
     );
+
+    // Which sections are switched on is per class, so it belongs to the
+    // session that just started — fetch it before the dashboard is built.
+    unawaited(AppFeaturesService.instance.refresh());
   }
 
   // Logout
@@ -136,6 +142,11 @@ class SessionManager extends GetxService {
     await _prefs?.remove(_keyUserEmail);
     await _prefs?.remove(_keyProfilePic);
     await setHasActiveSubscription(false);
+    // The switches belong to the class of the student signing out.
+    await AppFeaturesService.instance.clear();
+    if (Get.isRegistered<ApiService>()) {
+      ApiService.instance.clearCache();
+    }
   }
 
   bool _hasNavigatedToLogin = false;

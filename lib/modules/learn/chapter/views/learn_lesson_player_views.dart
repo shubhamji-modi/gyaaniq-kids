@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../../core/service/app_features_service.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../../core/service/offline_download_service.dart';
 import '../../../../core/utils/google_drive_url_utils.dart';
@@ -160,6 +161,13 @@ class _LearnLessonPlayerViewsState extends State<LearnLessonPlayerViews> {
 
   Future<void> _showMarkCompleteDialog() async {
     if (_isMarkingComplete) {
+      return;
+    }
+
+    // With the practice quiz switched off for this class there is nothing to
+    // offer, so the lesson is completed straight away instead of asking.
+    if (!AppFeaturesService.instance.isPracticeQuizEnabled) {
+      await _markLessonAsComplete();
       return;
     }
 
@@ -487,7 +495,8 @@ class _LessonPlayerBottomActions extends StatelessWidget {
               ),
             ),
           ),
-          if (isCompleted) ...[
+          if (isCompleted &&
+              AppFeaturesService.instance.isPracticeQuizEnabled) ...[
             const SizedBox(height: 12),
             SizedBox(
               height: 46,

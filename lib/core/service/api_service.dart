@@ -18,6 +18,10 @@ class ApiService extends GetxService {
   /// Future instead of hitting the server again (double taps, rebuilds).
   final Map<String, Future<dynamic>> _inFlight = {};
 
+  /// Recently completed GET responses, kept only for the callers that opt in
+  /// via `get(cacheFor: ...)` — see that method.
+  final Map<String, ({dynamic response, DateTime at})> _cache = {};
+
   /// Auth / OTP endpoints must never be auto-retried: a 429 here is a
   /// deliberate cooldown (60s resend, 5 sends / 15 min) and retrying only
   /// burns the user's quota.
@@ -41,10 +45,10 @@ class ApiService extends GetxService {
   }
 
   ///BASE URL
-  //////https://e-learn-front.pixelnx.in/login
+  //////https://e-learn-api.pixelnx.in/login
   // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
   static String temp_baseUrl =
-      'nhttps://e-learn-api.pixelnx.i/api/temp-auth/';
+      'https://e-learn-api.pixelnx.in/api/temp-auth/';
   //static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
   static String baseUrl = 'https://e-learn-api.pixelnx.in/api/v1/';
   static const bool useTemporaryAuth = true;
@@ -418,15 +422,31 @@ class ApiService extends GetxService {
   }
 
   ///GET Request
+  ///
+  /// [cacheFor] lets two screens that legitimately need the same GET share one
+  /// round trip: a successful response is kept for that long and handed to any
+  /// identical call made within the window. Only pass it where slightly stale
+  /// data is harmless — never right after a mutation whose result must be read
+  /// back. Without it nothing is cached; in-flight calls are still deduped.
   Future<ApiResponse<T>> get<T>({
     required String endpoint,
     Map<String, dynamic>? queryParameters,
     bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
+    Duration? cacheFor,
   }) async {
-    return _dedupe<T>(
-      _requestKey('GET', endpoint, null, queryParameters),
+    final key = _requestKey('GET', endpoint, null, queryParameters);
+
+    if (cacheFor != null) {
+      final cached = _readCache<T>(key, cacheFor);
+      if (cached != null) {
+        return cached;
+      }
+    }
+
+    final response = await _dedupe<T>(
+      key,
       () => _apiCall<T>(
         method: 'GET',
         endpoint: endpoint,
@@ -436,6 +456,36 @@ class ApiService extends GetxService {
         fromJson: fromJson,
       ),
     );
+
+    if (response.success) {
+      if (cacheFor == null) {
+        // A caller that asked for fresh data makes any entry stored for this
+        // request obsolete, so the next sharer refetches rather than reading
+        // something older than what was just returned here.
+        _cache.remove(key);
+      } else {
+        _cache[key] = (response: response, at: DateTime.now());
+      }
+    }
+
+    return response;
+  }
+
+  ApiResponse<T>? _readCache<T>(String key, Duration cacheFor) {
+    final entry = _cache[key];
+    if (entry == null) return null;
+    if (DateTime.now().difference(entry.at) >= cacheFor) {
+      _cache.remove(key);
+      return null;
+    }
+    final response = entry.response;
+    return response is ApiResponse<T> ? response : null;
+  }
+
+  /// Drops every cached GET response. Called on sign-out so the next student
+  /// never reads the previous one's data.
+  void clearCache() {
+    _cache.clear();
   }
 
   ///POST Request

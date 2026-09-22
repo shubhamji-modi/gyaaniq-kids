@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/data/subscription_access.dart';
+import '../../../../core/service/app_features_service.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../subscription/subscription_views.dart';
 import '../../exercise/views/lesson_qa_search_views.dart';
@@ -59,7 +60,11 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
     final lessonsFuture = LearnCatalogData.getUserLessons(
       subject: widget.subject,
     );
-    final subscribedFuture = SubscriptionAccess.isSubscribed();
+    // Nothing is paywalled when the subscription section is off, so
+    // `user/subscription` is not called either.
+    final subscribedFuture = AppFeaturesService.instance.isSubscriptionEnabled
+        ? SubscriptionAccess.isSubscribed()
+        : Future<bool>.value(false);
 
     final response = await lessonsFuture;
     final subscribed = await subscribedFuture;
@@ -179,8 +184,13 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
                         final index = entry.key;
                         final chapter = entry.value;
                         // Free students keep the first N lessons; the rest are
-                        // gated behind the purchase prompt.
+                        // gated behind the purchase prompt. With the
+                        // subscription section switched off for this class
+                        // there is no plans screen to send them to, so the
+                        // prompt is not shown either — access stays enforced
+                        // server-side regardless.
                         final paywallLocked =
+                            AppFeaturesService.instance.isSubscriptionEnabled &&
                             !_isSubscribed &&
                             index >= SubscriptionAccess.freeLessonLimit;
                         return Padding(

@@ -6,6 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../models/ad_config_data.dart';
 import 'api_service.dart';
+import 'app_features_service.dart';
 
 class AdService extends GetxService {
   static AdService get instance => Get.find<AdService>();
@@ -29,6 +30,13 @@ class AdService extends GetxService {
 
   Future<void> showQuizResultAdIfEnabled() async {
     if (!_isMobilePlatform) {
+      return;
+    }
+
+    // Ads need both switches: the class-level one from `user/app-features`
+    // and the platform-level one from the ad settings checked below.
+    if (!AppFeaturesService.instance.isGoogleAdEnabled) {
+      debugPrint('Quiz result ad skipped: googleAd is off for this class.');
       return;
     }
 

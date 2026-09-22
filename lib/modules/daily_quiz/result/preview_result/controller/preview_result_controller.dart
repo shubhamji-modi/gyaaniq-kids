@@ -200,6 +200,18 @@ class ResultStatusTab {
 }
 
 class QuizSubmitResultRepository {
+  /// How long a fetched page of daily-quiz attempts may be shared between the
+  /// Quiz tab's weekly chart and its history card, which open together and
+  /// would otherwise each call `daily-quiz/my-attempts`.
+  /// Kept short on purpose: it only has to span the few hundred milliseconds
+  /// between the two, never long enough to hide an attempt the student just
+  /// finished.
+  static const Duration quizTabShareWindow = Duration(seconds: 8);
+
+  /// Page size both of those use, so their requests are identical and one
+  /// answer serves both. The history card only shows the first couple.
+  static const int quizTabSharedLimit = 50;
+
   /// Drops attempts that belong to a class the student is no longer in.
   ///
   /// Attempt history is kept per account, not per class, so after a class
@@ -244,9 +256,15 @@ class QuizSubmitResultRepository {
     String? subject,
     int page = 1,
     int limit = 20,
+    Duration? cacheFor,
   }) async {
     if (type == ResultHistoryType.daily) {
-      return fetchDailyResults(status: status, page: page, limit: limit);
+      return fetchDailyResults(
+        status: status,
+        page: page,
+        limit: limit,
+        cacheFor: cacheFor,
+      );
     }
 
     if (type == ResultHistoryType.mock) {
@@ -308,12 +326,14 @@ class QuizSubmitResultRepository {
     String status = 'all',
     int page = 1,
     int limit = 20,
+    Duration? cacheFor,
   }) async {
     final response = await ApiService.instance.get<dynamic>(
       endpoint: ApiService.DAILY_QUIZZS_HISTORY,
       showLoader: false,
       fromJson: (json) => json,
       queryParameters: {'page': page, 'limit': limit},
+      cacheFor: cacheFor,
     );
 
     if (!response.success || response.data is! Map<String, dynamic>) {

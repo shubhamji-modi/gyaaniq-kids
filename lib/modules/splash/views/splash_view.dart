@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import '../../../core/service/api_service.dart';
+import '../../../core/service/app_features_service.dart';
 import '../../../core/service/device_token_service.dart';
 import '../../../core/service/notification_service.dart';
 import '../../../core/service/secure_storage_service.dart';
@@ -51,6 +52,10 @@ class _SplashViewState extends State<SplashView> {
           NotificationService.instance.currentToken,
         ),
       );
+      // Every launch with a token: which sections are switched on can have
+      // changed since last time. Not awaited — the cached answer carries the
+      // first frames.
+      unawaited(AppFeaturesService.instance.refresh());
 
       final hasVerifiedMobile = await _hasVerifiedMobile();
       if (!mounted) {

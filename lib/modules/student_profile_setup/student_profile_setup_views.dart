@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/data/class_catalogue.dart';
 import '../../core/service/api_service.dart';
+import '../../core/service/app_features_service.dart';
 import '../../core/values/constants.dart';
 import '../../routes/app_routes.dart';
 
@@ -192,6 +193,10 @@ class _StudentProfileSetupViewsState extends State<StudentProfileSetupViews> {
       await preferences.setBool(StorageKeys.profileSetupCompleted, true);
 
       profileProvider.setProfile(UserProfile.fromApi(data));
+
+      // The sections are switched on per class, and the student just picked
+      // one — the answer from before setup was for "no class yet".
+      await AppFeaturesService.instance.refresh();
 
       _showMessage(body['message']?.toString() ?? 'Profile setup successful');
       Get.offAllNamed(AppRoutes.dashboard);

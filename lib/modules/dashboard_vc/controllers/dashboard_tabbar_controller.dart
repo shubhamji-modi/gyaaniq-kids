@@ -9,8 +9,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/data/user_profile_provider.dart';
 import '../../../core/models/xp_config_data.dart';
 import '../../../core/service/api_service.dart';
+import '../../../core/service/app_features_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/theme/appcolors.dart';
+import '../../daily_quiz/result/preview_result/controller/preview_result_controller.dart';
 import '../../learn/chapter/controller/learn_chapter_controller.dart';
 import '../../menubar/download/views/menubar_download_views.dart';
 import '../views/class_change_sheet.dart';
@@ -144,20 +146,24 @@ class DashboardTabbarController extends GetxController {
       accent: Color(0xFF4A4FD9),
       iconBackground: Color(0xFFE5E6FF),
     ),
-    const StudyToolData(
-      title: 'Notes',
-      subtitle: 'View all shared class notes',
-      icon: Icons.note_alt_outlined,
-      accent: Color(0xFFFFA615),
-      iconBackground: Color(0xFFFFE6B7),
-    ),
-    const StudyToolData(
-      title: 'Homework',
-      subtitle: 'Keep learning daily',
-      icon: Icons.assignment_outlined,
-      accent: Color(0xFF7E2AD9),
-      iconBackground: Color(0xFFEAD7FF),
-    ),
+    // Lesson notes are an admin-controlled section: when they are off for this
+    // class the tool is gone and `user/notes/by-lesson` is never called.
+    if (AppFeaturesService.instance.isNotesEnabled)
+      const StudyToolData(
+        title: 'Notes',
+        subtitle: 'View all shared class notes',
+        icon: Icons.note_alt_outlined,
+        accent: Color(0xFFFFA615),
+        iconBackground: Color(0xFFFFE6B7),
+      ),
+    if (AppFeaturesService.instance.isHomeworkEnabled)
+      const StudyToolData(
+        title: 'Homework',
+        subtitle: 'Keep learning daily',
+        icon: Icons.assignment_outlined,
+        accent: Color(0xFF7E2AD9),
+        iconBackground: Color(0xFFEAD7FF),
+      ),
     // const StudyToolData(
     //   title: 'Doubt Solve',
     //   subtitle: 'Chat with AI or Teachers',
@@ -172,13 +178,14 @@ class DashboardTabbarController extends GetxController {
     //   accent: Color(0xFF4A4FD9),
     //   iconBackground: Color(0xFFF0F1F5),
     // ),
-    StudyToolData(
-      title: 'Attendance',
-      subtitle: attendanceSubtitle,
-      icon: Icons.calendar_month_outlined,
-      accent: Color(0xFF6366F1),
-      iconBackground: Color(0xFFE2E7FF),
-    ),
+    if (AppFeaturesService.instance.isAttendanceEnabled)
+      StudyToolData(
+        title: 'Attendance',
+        subtitle: attendanceSubtitle,
+        icon: Icons.calendar_month_outlined,
+        accent: Color(0xFF6366F1),
+        iconBackground: Color(0xFFE2E7FF),
+      ),
   ];
 
   String get attendanceSubtitle {
@@ -214,7 +221,19 @@ class DashboardTabbarController extends GetxController {
     ),
   ];
 
-  final List<ProfileMenuData> profileMenuItems = const [
+  /// Profile menu, minus the entries the admin switched off for this class.
+  /// 'Change Class' is the only one of those today, and the server enforces it
+  /// as well — hiding it here just keeps the student from hitting that wall.
+  List<ProfileMenuData> get profileMenuItems {
+    if (AppFeaturesService.instance.isClassChangeEnabled) {
+      return _allProfileMenuItems;
+    }
+    return _allProfileMenuItems
+        .where((item) => item.title != 'Change Class')
+        .toList();
+  }
+
+  final List<ProfileMenuData> _allProfileMenuItems = const [
     ProfileMenuData(title: 'Leaderboard', icon: Icons.leaderboard_outlined),
     ProfileMenuData(title: 'Change Class', icon: Icons.school_outlined),
     ProfileMenuData(title: 'My Course', icon: Icons.import_contacts_rounded),
@@ -259,7 +278,7 @@ class DashboardTabbarController extends GetxController {
       return;
     }
     if (index == 3) {
-      loadLiveClasses();
+     // loadLiveClasses();
     }
   }
 
@@ -269,7 +288,9 @@ class DashboardTabbarController extends GetxController {
     // Deliberately the dashboard's first request. Fun-fact images take the
     // longest to become usable, so they get a head start instead of queueing
     // behind the progress and subjects calls.
-    unawaited(FunFactController.instance.preloadFromCachedSubjects());
+    if (AppFeaturesService.instance.isFunFactEnabled) {
+      unawaited(FunFactController.instance.preloadFromCachedSubjects());
+    }
     loadDashboardData();
     loadWeakAreas();
     loadLeaderboardSummary();
@@ -311,7 +332,7 @@ class DashboardTabbarController extends GetxController {
       await _loadLearnSubjects(force: force);
       await loadUserXp(force: force);
       await loadDailyClaimXp(force: force);
-      await loadLiveClasses(force: force);
+     // await loadLiveClasses(force: force);
       await loadAttendanceSummary(force: force);
     } finally {
       _isReloadingHomeTabData = false;
@@ -370,7 +391,7 @@ class DashboardTabbarController extends GetxController {
     await _loadLearnSubjects(force: true);
     await loadUserXp(force: true);
     await loadDailyClaimXp(force: true);
-    await loadLiveClasses(force: true);
+   // await loadLiveClasses(force: true);
     await loadAttendanceSummary(force: true);
     await loadWeakAreas(force: true);
     await loadLeaderboardSummary(force: true);
@@ -403,6 +424,11 @@ class DashboardTabbarController extends GetxController {
   }
 
   Future<void> loadAttendanceSummary({bool force = false}) async {
+    // Hidden section → `user/attendance` and its summary are not called.
+    if (!AppFeaturesService.instance.isAttendanceEnabled) {
+      isLoadingAttendanceSummary.value = false;
+      return;
+    }
     if (_shouldSkipRefetch('attendanceSummary', force: force)) {
       return;
     }
@@ -614,6 +640,11 @@ class DashboardTabbarController extends GetxController {
   }
 
   Future<void> loadDailyQuizAnalytics({bool force = false}) async {
+    // Hidden section → its API is not called at all.
+    if (!AppFeaturesService.instance.isDailyQuizEnabled) {
+      isLoadingDailyQuizAnalytics.value = false;
+      return;
+    }
     if (_shouldSkipRefetch('dailyQuizAnalytics', force: force)) {
       return;
     }
@@ -624,7 +655,14 @@ class DashboardTabbarController extends GetxController {
       endpoint: ApiService.DAILY_QUIZZS_HISTORY,
       showLoader: false,
       fromJson: (json) => json,
-      queryParameters: const {'page': 1, 'limit': 50},
+      queryParameters: {
+        'page': 1,
+        'limit': QuizSubmitResultRepository.quizTabSharedLimit,
+      },
+      // The Quiz tab's history card reads the same page of attempts, so the
+      // two share one round trip instead of hitting the endpoint twice. A
+      // forced reload (class change) always goes to the server.
+      cacheFor: force ? null : QuizSubmitResultRepository.quizTabShareWindow,
     );
 
     isLoadingDailyQuizAnalytics.value = false;
@@ -789,6 +827,11 @@ class DashboardTabbarController extends GetxController {
   }
 
   Future<void> loadMockTests({bool force = false}) async {
+    // Hidden section → its API is not called at all.
+    if (!AppFeaturesService.instance.isMockTestEnabled) {
+      isLoadingMockTests.value = false;
+      return;
+    }
     if (_shouldSkipRefetch('mockTests', force: force)) {
       return;
     }
@@ -911,16 +954,20 @@ class DashboardTabbarController extends GetxController {
     // Warm today's fun-fact stories so tapping a subject opens instantly.
     // Fire-and-forget: the Home tab must never wait on an optional strip.
     // Already-cached subjects cost no request, so a reload is free.
-    unawaited(
-      FunFactController.instance.preloadForSubjects([
-        for (final subject in learnSubjects)
-          (id: subject.subjectId, title: subject.title),
-      ]),
-    );
+    // Nothing is warmed when the admin switched Fun Facts off for this class:
+    // the strip is hidden, so its images and sounds are never needed.
+    if (AppFeaturesService.instance.isFunFactEnabled) {
+      unawaited(
+        FunFactController.instance.preloadForSubjects([
+          for (final subject in learnSubjects)
+            (id: subject.subjectId, title: subject.title),
+        ]),
+      );
 
-    // Fetch the ambient background-sound URLs once, in the background, so the
-    // audio bed is ready the instant a Fun Fact story opens.
-    unawaited(FunFactBgSoundPlayer.instance.ensureFetched());
+      // Fetch the ambient background-sound URLs once, in the background, so
+      // the audio bed is ready the instant a Fun Fact story opens.
+      unawaited(FunFactBgSoundPlayer.instance.ensureFetched());
+    }
   }
 
   /// Rebuilds the Learning Progress card from the subjects the student is
@@ -963,9 +1010,14 @@ class DashboardTabbarController extends GetxController {
     );
   }
 
-  void openLeaderboard() {
-    loadLeaderboardSummary(force: true);
-    Get.toNamed(AppRoutes.leaderboard);
+  Future<void> openLeaderboard() async {
+    // The strip's own fetch is deliberately *not* fired here: the Leaderboard
+    // screen loads the same endpoint (with a bigger topLimit) the moment it
+    // opens, so forcing it would hit `user/leaderboard` twice in the same
+    // millisecond. The strip is refreshed on the way back instead, when the
+    // student's rank may actually have changed.
+    await Get.toNamed(AppRoutes.leaderboard);
+    await loadLeaderboardSummary(force: true);
   }
 
   void openLearnSubjects() {
