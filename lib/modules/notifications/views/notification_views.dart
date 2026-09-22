@@ -305,14 +305,9 @@ class _NotificationCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    item.message,
-                    style: const TextStyle(
-                      color: AppColors.textMuted2,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
-                    ),
+                  _ExpandableMessage(
+                    message: item.message,
+                    linkColor: item.tagColor,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -352,6 +347,98 @@ class _NotificationCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A notification body, clamped to a few lines with a "See more" toggle.
+///
+/// Admins can send up to 1000 characters, which used to render in full and
+/// push a single notification past the height of the screen. The whole text is
+/// already in the list payload, so expanding costs nothing — no request, and
+/// no need to open the detail sheet just to read to the end.
+class _ExpandableMessage extends StatefulWidget {
+  const _ExpandableMessage({required this.message, required this.linkColor});
+
+  final String message;
+
+  /// Matches the notification's tag colour, so the toggle reads as part of
+  /// this card rather than as a button on the list.
+  final Color linkColor;
+
+  /// Lines shown while collapsed.
+  static const int _collapsedLines = 3;
+
+  @override
+  State<_ExpandableMessage> createState() => _ExpandableMessageState();
+}
+
+class _ExpandableMessageState extends State<_ExpandableMessage> {
+  static const TextStyle _messageStyle = TextStyle(
+    color: AppColors.textMuted2,
+    fontSize: 12.5,
+    fontWeight: FontWeight.w500,
+    height: 1.3,
+  );
+
+  bool _isExpanded = false;
+
+  @override
+  void didUpdateWidget(_ExpandableMessage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A recycled card showing a different notification starts collapsed again.
+    if (oldWidget.message != widget.message) {
+      _isExpanded = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The toggle is only worth showing when the text actually runs past
+        // the clamp — a two-line message should not offer "See more".
+        final painter = TextPainter(
+          text: TextSpan(text: widget.message, style: _messageStyle),
+          maxLines: _ExpandableMessage._collapsedLines,
+          textDirection: Directionality.of(context),
+        )..layout(maxWidth: constraints.maxWidth);
+        final isOverflowing = painter.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.message,
+              style: _messageStyle,
+              maxLines: _isExpanded
+                  ? null
+                  : _ExpandableMessage._collapsedLines,
+              overflow: _isExpanded
+                  ? TextOverflow.visible
+                  : TextOverflow.ellipsis,
+            ),
+            if (isOverflowing)
+              GestureDetector(
+                // Swallows the tap so it does not also open the card's detail
+                // sheet underneath.
+                onTap: () => setState(() => _isExpanded = !_isExpanded),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 2),
+                  child: Text(
+                    _isExpanded ? 'See less' : 'See more',
+                    style: TextStyle(
+                      color: widget.linkColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

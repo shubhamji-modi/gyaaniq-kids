@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -5085,8 +5086,78 @@ const List<_QueryOptionData> _queryOptions = [
   ),
 ];
 
+/// Accent of the Contact Us screen — its button, and the focus ring on its
+/// message box. The other Query screens take theirs from the option tapped.
+const Color _contactAccent = Color(0xFF1671D9);
+
+/// WhatsApp brand green, used for its tile's mark and tinted circle.
+const Color _whatsappGreen = Color(0xFF25D366);
+
 const String _supportEmail = 'support@pixelnx.com';
 const String _supportPhone = '+91 8989977272';
+
+/// Opens a chat with support in WhatsApp.
+///
+/// `wa.me` needs the number as digits only, country code included and no `+`.
+/// It resolves in the WhatsApp app when installed and falls back to WhatsApp
+/// Web in a browser otherwise, so it works either way — hence
+/// `externalApplication` rather than an in-app webview.
+Future<void> _openWhatsApp() async {
+  final digits = _supportPhone.replaceAll(RegExp(r'\D'), '');
+  final uri = Uri.parse('https://wa.me/$digits');
+  try {
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (launched) return;
+  } catch (_) {
+    // Falls through to the message below.
+  }
+  Get.snackbar(
+    'WhatsApp',
+    'Could not open WhatsApp. You can message us on $_supportPhone.',
+    snackPosition: SnackPosition.BOTTOM,
+  );
+}
+
+/// Message box shared by every Query form.
+///
+/// The fill used to be `scaffoldBackground`, which is pure white, on a white
+/// card and with no border — so the field was invisible until you happened to
+/// tap it. It now sits on a tinted fill inside a visible outline that picks up
+/// the screen's own accent colour while focused.
+InputDecoration _queryFieldDecoration({
+  required String hintText,
+  required Color accent,
+}) {
+  OutlineInputBorder outline(Color color, double width) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: color, width: width),
+    );
+  }
+
+  return InputDecoration(
+    hintText: hintText,
+    hintStyle: const TextStyle(
+      color: AppColors.textMuted8,
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    ),
+    filled: true,
+    fillColor: AppColors.neutralSurface2,
+    border: outline(AppColors.headerBorder, 1.2),
+    enabledBorder: outline(AppColors.headerBorder, 1.2),
+    focusedBorder: outline(accent, 1.6),
+    contentPadding: const EdgeInsets.all(14),
+    counterStyle: const TextStyle(
+      color: AppColors.textMuted8,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+    ),
+  );
+}
 
 /// Shared header for every Query screen, so the back button, title and the
 /// slot opposite it stay identical across them.
@@ -5428,15 +5499,17 @@ class _QueryFormScreenState extends State<_QueryFormScreen> {
                           // Stops the student writing past what the API
                           // accepts, and shows them how much room is left.
                           maxLength: UserQueryRepository.maxMessageLength,
-                          decoration: InputDecoration(
-                            hintText: 'Type your ${widget.option.title.toLowerCase()} here...',
-                            filled: true,
-                            fillColor: AppColors.scaffoldBackground,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.all(14),
+                          cursorColor: widget.option.color,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                          decoration: _queryFieldDecoration(
+                            hintText:
+                                'Type your ${widget.option.title.toLowerCase()} here...',
+                            accent: widget.option.color,
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -5545,8 +5618,12 @@ class _ContactUsScreenState extends State<_ContactUsScreen> {
                     child: Column(
                       children: [
                         _ContactActionTile(
-                          icon: Icons.email_outlined,
-                          color: const Color(0xFF1671D9),
+                          icon: const Icon(
+                            Icons.email_outlined,
+                            color: _contactAccent,
+                            size: 22,
+                          ),
+                          color: _contactAccent,
                           title: 'Email us',
                           subtitle: _supportEmail,
                           onTap: () => launchUrl(
@@ -5554,14 +5631,22 @@ class _ContactUsScreenState extends State<_ContactUsScreen> {
                           ),
                         ),
                         _ContactActionTile(
-                          icon: Icons.call_outlined,
-                          color: const Color(0xFF19945F),
-                          title: 'Call us',
+                          // Material has no WhatsApp glyph, so the brand mark
+                          // ships as an asset.
+                          icon: SvgPicture.asset(
+                            'assets/icon/whatsapp.svg',
+                            width: 24,
+                            height: 24,
+                            colorFilter: const ColorFilter.mode(
+                              _whatsappGreen,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                          color: _whatsappGreen,
+                          title: 'WhatsApp us',
                           subtitle: _supportPhone,
                           isLast: true,
-                          onTap: () => launchUrl(
-                            Uri(scheme: 'tel', path: _supportPhone),
-                          ),
+                          onTap: _openWhatsApp,
                         ),
                       ],
                     ),
@@ -5597,15 +5682,16 @@ class _ContactUsScreenState extends State<_ContactUsScreen> {
                           maxLines: 6,
                           minLines: 6,
                           maxLength: UserQueryRepository.maxMessageLength,
-                          decoration: InputDecoration(
+                          cursorColor: _contactAccent,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                          decoration: _queryFieldDecoration(
                             hintText: 'Type your message here...',
-                            filled: true,
-                            fillColor: AppColors.scaffoldBackground,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.all(14),
+                            accent: _contactAccent,
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -5614,7 +5700,7 @@ class _ContactUsScreenState extends State<_ContactUsScreen> {
                           child: ElevatedButton(
                             onPressed: _isSubmitting ? null : _submit,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1671D9),
+                              backgroundColor: _contactAccent,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
@@ -5662,7 +5748,10 @@ class _ContactActionTile extends StatelessWidget {
     this.isLast = false,
   });
 
-  final IconData icon;
+  /// Drawn inside the tinted circle. A widget rather than an `IconData` so
+  /// brand marks that Material has no glyph for (WhatsApp) fit here too.
+  final Widget icon;
+
   final Color color;
   final String title;
   final String subtitle;
@@ -5692,7 +5781,7 @@ class _ContactActionTile extends StatelessWidget {
                 color: color.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 22),
+              child: icon,
             ),
             const SizedBox(width: 16),
             Expanded(

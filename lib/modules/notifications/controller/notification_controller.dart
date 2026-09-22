@@ -96,64 +96,73 @@ class NotificationController extends GetxController {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      // A message can run to 1000 characters, which overflowed the sheet's
+      // default height: it now grows to at most 80% of the screen and the body
+      // scrolls past that.
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.8,
+      ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: item.tagColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      item.tagLabel,
-                      style: TextStyle(
-                        color: item.tagColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: item.tagColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        item.tagLabel,
+                        style: TextStyle(
+                          color: item.tagColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    item.time,
-                    style: const TextStyle(
-                      color: AppColors.textMuted6,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    const Spacer(),
+                    Text(
+                      item.time,
+                      style: const TextStyle(
+                        color: AppColors.textMuted6,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimaryDeep,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                item.title,
-                style: const TextStyle(
-                  color: AppColors.textPrimaryDeep,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item.message,
-                style: const TextStyle(
-                  color: AppColors.textMuted2,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
+                const SizedBox(height: 8),
+                Text(
+                  item.message,
+                  style: const TextStyle(
+                    color: AppColors.textMuted2,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
