@@ -100,55 +100,89 @@ class AdService extends GetxService {
     return _config;
   }
 
-  Future<void> _loadAndShowRewardedAd(String adUnitId) {
-    final completer = Completer<void>();
-    RewardedAd? rewardedAd;
-    var shouldShowAd = true;
+  /// How long we wait for an ad to *load* before giving up on it. Only the
+  /// load is on a clock — see [_loadAndShowRewardedAd].
+  static const Duration _loadTimeout = Duration(seconds: 12);
+
+  /// Last-resort guard in case the dismiss callback never arrives, so a stuck
+  /// ad can't strand the student on the quiz screen forever. Comfortably
+  /// longer than any rewarded ad.
+  static const Duration _displayGuard = Duration(minutes: 3);
+
+  /// Breathing room after the ad is dismissed, so Android has finished tearing
+  /// the ad activity down before the caller pushes the result screen.
+  static const Duration _teardownDelay = Duration(milliseconds: 350);
+
+  /// Loads a rewarded ad and, if it arrives in time, shows it — returning only
+  /// once the ad is really gone from the screen.
+  ///
+  /// The timeout deliberately covers the load only. It used to cover the whole
+  /// thing at 12 seconds, but a rewarded ad runs longer than that, so the
+  /// timeout kept firing *while the ad was still playing*: it disposed the ad
+  /// mid-display and let the caller navigate underneath it. The ad activity
+  /// was then still on top of the Flutter view when it came back, which is why
+  /// the bottom tab bar stopped responding to taps after an ad.
+  Future<void> _loadAndShowRewardedAd(String adUnitId) async {
+    final loadCompleter = Completer<RewardedAd?>();
+    var hasLoadTimedOut = false;
 
     RewardedAd.load(
       adUnitId: adUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          rewardedAd = ad;
-          if (!shouldShowAd) {
+          // Arrived after we stopped waiting — throw it away rather than
+          // interrupt a student who has already moved on.
+          if (hasLoadTimedOut) {
             ad.dispose();
-            if (!completer.isCompleted) {
-              completer.complete();
-            }
             return;
           }
-          ad.fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              if (!completer.isCompleted) {
-                completer.complete();
-              }
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              if (!completer.isCompleted) {
-                completer.complete();
-              }
-            },
-          );
-          ad.show(onUserEarnedReward: (adWithoutView, rewardItem) {});
+          if (!loadCompleter.isCompleted) {
+            loadCompleter.complete(ad);
+          }
         },
         onAdFailedToLoad: (error) {
-          rewardedAd?.dispose();
-          if (!completer.isCompleted) {
-            completer.complete();
+          debugPrint('Quiz result ad failed to load: $error');
+          if (!loadCompleter.isCompleted) {
+            loadCompleter.complete(null);
           }
         },
       ),
     );
 
-    return completer.future.timeout(
-      const Duration(seconds: 12),
+    final ad = await loadCompleter.future.timeout(
+      _loadTimeout,
       onTimeout: () {
-        shouldShowAd = false;
-        rewardedAd?.dispose();
+        hasLoadTimedOut = true;
+        return null;
       },
     );
+
+    if (ad == null) {
+      return;
+    }
+
+    final dismissed = Completer<void>();
+    ad.fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        if (!dismissed.isCompleted) {
+          dismissed.complete();
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('Quiz result ad failed to show: $error');
+        ad.dispose();
+        if (!dismissed.isCompleted) {
+          dismissed.complete();
+        }
+      },
+    );
+
+    await ad.show(onUserEarnedReward: (adWithoutView, rewardItem) {});
+    // No disposing here on timeout: an ad that is on screen must be left
+    // alone. This only stops us waiting forever.
+    await dismissed.future.timeout(_displayGuard, onTimeout: () {});
+    await Future<void>.delayed(_teardownDelay);
   }
 }

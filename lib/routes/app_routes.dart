@@ -8,6 +8,8 @@ class AppRoutes {
   static const String phoneVerification = '/phone-verification';
   static const String dashboard = '/dashboard';
   static const String leaderboard = '/leaderboard';
+  static const String notifications = '/notifications';
+  static const String improvementAreas = '/improvement-areas';
 
   const AppRoutes._();
 }

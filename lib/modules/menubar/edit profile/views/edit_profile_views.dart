@@ -1110,18 +1110,9 @@ class _ProfilePhotoSheetState extends State<_ProfilePhotoSheet> {
             ),
             const SizedBox(height: 14),
             SizedBox(height: 100, child: _buildAvatarRow()),
-            const SizedBox(height: 18),
-            _ImageSourceTile(
-              icon: Icons.camera_alt_outlined,
-              title: 'Camera',
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            const SizedBox(height: 10),
-            _ImageSourceTile(
-              icon: Icons.photo_library_outlined,
-              title: 'Gallery',
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
+            // Camera/Gallery are intentionally hidden: the profile photo can
+            // only come from the admin-managed avatar library above.
+            const SizedBox(height: 6),
           ],
         ),
       ),
@@ -1315,48 +1306,6 @@ class _AvatarTile extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageSourceTile extends StatelessWidget {
-  const _ImageSourceTile({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F8),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF4B49E3), size: 24),
-            const SizedBox(width: 14),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFF1D2231),
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
         ),
       ),
     );

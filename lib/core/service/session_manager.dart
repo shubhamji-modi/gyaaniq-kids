@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../modules/notifications/controller/notification_controller.dart';
 import '../../routes/app_routes.dart';
 import 'api_service.dart';
 import 'app_features_service.dart';
@@ -144,6 +145,8 @@ class SessionManager extends GetxService {
     await setHasActiveSubscription(false);
     // The switches belong to the class of the student signing out.
     await AppFeaturesService.instance.clear();
+    // A push tapped but not yet opened belongs to the student signing out.
+    NotificationController.reset();
     if (Get.isRegistered<ApiService>()) {
       ApiService.instance.clearCache();
     }

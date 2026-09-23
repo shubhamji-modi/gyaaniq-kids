@@ -2,9 +2,9 @@ import 'package:get/get.dart';
 
 import '../../../core/models/xp_config_data.dart';
 import '../../../core/service/api_service.dart';
+import '../../../routes/app_routes.dart';
 import '../practice_test/Views/quiz_practice_paper_subject_views.dart';
 import '../../dashboard_vc/controllers/dashboard_tabbar_controller.dart';
-import '../../dashboard_vc/views/dashboard_tabbar_views_screen.dart';
 import 'question_answer_show_controller.dart';
 
 class QuizDailyResultController extends GetxController {
@@ -138,7 +138,7 @@ class QuizDailyResultController extends GetxController {
   }
 
   void goHome() {
-    _openDashboardHome();
+    _returnToDashboard();
   }
 
   void backToSubjects() {
@@ -148,32 +148,41 @@ class QuizDailyResultController extends GetxController {
     }
 
     if (rewardSource != QuizRewardSource.practiceTest) {
-      _openDashboardHome();
+      _returnToDashboard();
+      return;
+    }
+
+    _returnToDashboard();
+    Get.to(() => const QuizPracticePaperSubjectViews());
+  }
+
+  /// Goes back to the dashboard the student came from, on the Home tab.
+  ///
+  /// This used to `Get.offAll(() => const DashboardTabbarViewsScreen())`,
+  /// which built a *second* dashboard and threw the original route away. GetX
+  /// deletes every controller registered under a route when that route is
+  /// disposed, and the removed route is disposed a frame or two *after* the
+  /// replacement screen has already been built — so the new dashboard ended up
+  /// holding a DashboardTabbarController that was killed moments later. Its Rx
+  /// values could no longer emit, which is exactly why the bottom tab bar
+  /// stopped responding to taps after finishing a practice test.
+  ///
+  /// Popping back instead keeps the original dashboard, and its controller,
+  /// alive and reactive.
+  void _returnToDashboard() {
+    // Every path into the app lands on the named dashboard route, so it is the
+    // bottom of the stack.
+    Get.until((route) => route.isFirst);
+
+    if (Get.currentRoute != AppRoutes.dashboard) {
+      // Should not happen, but never leave the student on a stray screen.
+      Get.offAllNamed(AppRoutes.dashboard);
       return;
     }
 
     if (Get.isRegistered<DashboardTabbarController>()) {
       Get.find<DashboardTabbarController>().changeTab(0);
     }
-    Get.offAll(() => const DashboardTabbarViewsScreen());
-    Future<void>.delayed(const Duration(milliseconds: 10), () {
-      if (Get.isRegistered<DashboardTabbarController>()) {
-        Get.find<DashboardTabbarController>().changeTab(0);
-      }
-      Get.to(() => const QuizPracticePaperSubjectViews());
-    });
-  }
-
-  void _openDashboardHome() {
-    if (Get.isRegistered<DashboardTabbarController>()) {
-      Get.find<DashboardTabbarController>().changeTab(0);
-    }
-    Get.offAll(() => const DashboardTabbarViewsScreen());
-    Future<void>.delayed(const Duration(milliseconds: 10), () {
-      if (Get.isRegistered<DashboardTabbarController>()) {
-        Get.find<DashboardTabbarController>().changeTab(0);
-      }
-    });
   }
 
   void _backToLessonPlayer() {

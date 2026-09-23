@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../modules/notifications/controller/notification_controller.dart';
 import 'device_token_service.dart';
@@ -30,6 +31,11 @@ class NotificationService {
   NotificationService._();
 
   static final NotificationService instance = NotificationService._();
+
+  /// Message ids of pushes whose tap has already been acted on, so a
+  /// re-delivered launch intent cannot reopen the same notification.
+  static const String _handledPushIdsKey = 'handled_push_message_ids';
+  static const int _handledPushIdsLimit = 20;
 
   static const String _channelId = 'general_channel';
   static const String _channelName = 'General';
@@ -123,12 +129,51 @@ class NotificationService {
       // only need to react to the user tapping it.
       FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
+      // A push that launched the app from the killed state. Android keeps the
+      // launching intent attached to the task, so this same message comes back
+      // on later plain launches from the launcher too — opening Notifications
+      // for a student who just tapped the app icon. Handling each message id
+      // only once keeps a normal launch on the Home tab.
       final initialMessage = await messaging.getInitialMessage();
-      if (initialMessage != null) {
+      if (initialMessage != null &&
+          !await _hasAlreadyHandled(initialMessage)) {
         _handleNotificationTap(initialMessage);
       }
     } catch (e) {
       debugPrint('NotificationService: FCM init failed -> $e');
+    }
+  }
+
+  /// Whether this push was already opened once, remembered across launches.
+  ///
+  /// Only used for `getInitialMessage()`: a real tap arriving through
+  /// `onMessageOpenedApp` is always a fresh one.
+  Future<bool> _hasAlreadyHandled(RemoteMessage message) async {
+    final messageId = message.messageId ?? '';
+    if (messageId.isEmpty) {
+      // Nothing to match on — treat it as new rather than swallow a real tap.
+      return false;
+    }
+
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final handled =
+          preferences.getStringList(_handledPushIdsKey) ?? <String>[];
+      if (handled.contains(messageId)) {
+        return true;
+      }
+
+      handled.add(messageId);
+      // A short tail is enough: only the most recent launch intent can come
+      // back, and the list must not grow forever.
+      if (handled.length > _handledPushIdsLimit) {
+        handled.removeRange(0, handled.length - _handledPushIdsLimit);
+      }
+      await preferences.setStringList(_handledPushIdsKey, handled);
+      return false;
+    } catch (e) {
+      debugPrint('NotificationService: handled-push check failed -> $e');
+      return false;
     }
   }
 
@@ -137,7 +182,10 @@ class NotificationService {
     unawaited(NotificationBadgeService.instance.clear());
     final notificationId = message.data['notificationId']?.toString();
     if (notificationId == null || notificationId.isEmpty) return;
-    NotificationController.openDetail(notificationId);
+    // Never opens the detail straight away: when the app was killed this runs
+    // while the splash screen is still up. The controller parks the id and
+    // opens it on the Notifications screen once the app is ready.
+    NotificationController.handlePushTap(notificationId);
   }
 
   /// Requests the runtime POST_NOTIFICATIONS permission (Android 13+).

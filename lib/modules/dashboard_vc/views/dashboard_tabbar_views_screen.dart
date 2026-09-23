@@ -18,7 +18,7 @@ import '../../../../core/service/notification_badge_service.dart';
 import '../../../../core/service/notification_service.dart';
 import '../../../../core/theme/appcolors.dart';
 import '../../../../core/widgets/app_feature_gate.dart';
-import '../../notifications/views/notification_views.dart';
+import '../../notifications/controller/notification_controller.dart';
 
 import '../../menubar/edit profile/views/edit_profile_views.dart';
 import '../../menubar/query/controller/user_query_controller.dart';
@@ -96,6 +96,10 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
       _fetchProfile();
       _sendDeviceToken();
       AppUpdateService.instance.checkForUpdate();
+      // Navigation is safe from here on: a push tapped while the app was
+      // killed has been waiting for this and now opens on the Notifications
+      // screen rather than over the splash or whichever tab is showing.
+      NotificationController.markAppReady();
     });
   }
 
@@ -143,6 +147,9 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
     final controller = _dashboardController();
     if (controller.currentTabIndex.value == 0) {
       controller.reloadHomeTabData();
+      // Returning from a quiz/lesson can change the weak areas, so they are
+      // always refetched rather than served from the TTL cache.
+      controller.loadWeakAreas(force: true);
     } else if (controller.currentTabIndex.value == 2) {
       controller.reloadQuizTabData();
     }
@@ -676,7 +683,9 @@ class _NotificationBell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Get.to(() => const NotificationViews()),
+      // Named route: a push tapped later needs to be able to tell whether the
+      // Notifications screen is already open.
+      onTap: () => Get.toNamed(AppRoutes.notifications),
       borderRadius: BorderRadius.circular(20),
       child: SizedBox(
         width: 40,
@@ -850,6 +859,8 @@ class _HomeTab extends StatelessWidget {
               const _JourneyCard(),
               const SizedBox(height: 18),
             ],
+            const _WeakAreasSection(),
+            const SizedBox(height: 18),
             const AppFeatureGate(
               feature: AppFeaturesService.funFact,
               child: Column(children: [_FunFactCard(), SizedBox(height: 18)]),
@@ -2310,23 +2321,30 @@ class _LeaderboardStripCard extends StatelessWidget {
   }
 }
 
+/// Home-tab entry point into the student's weak subjects: the worst ones as a
+/// swipeable row, and a way through to the full list.
 class _WeakAreasSection extends GetView<DashboardTabbarController> {
   const _WeakAreasSection();
+
+  /// Ring + name + meta + bar + CTA, plus the card's own padding.
+  static const double _carouselHeight = 166;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final summary = controller.weakAreasSummary.value;
-      final subjects = summary.subjects.take(4).toList();
+      final subjects = summary.subjects;
 
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: _cardDecoration().copyWith(
-          color: const Color(0xFFF8FAFF),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFEBEEF8)),
           boxShadow: [
             BoxShadow(
-              color: AppColors.cardShadow.withValues(alpha: 0.12),
+              color: const Color(0xFF9AA4C8).withValues(alpha: 0.13),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -2336,54 +2354,69 @@ class _WeakAreasSection extends GetView<DashboardTabbarController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Expanded(
-                  child: Text(
-                    'Improvement Areas',
-                    style: TextStyle(
-                      color: AppColors.textPrimaryNavy,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE1EEFF),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Text(
-                    '${summary.subjects.length}',
-                    style: const TextStyle(
-                      color: Color(0xFF1671D9),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                InkWell(
-                  onTap: () => Get.to(() => const PerformanceDnaViews()),
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                    child: Text(
-                      'See All',
-                      style: TextStyle(
-                        color: Color(0xFF1671D9),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Flexible(
+                            child: Text(
+                              'Improvement Areas',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Color(0xFF151935),
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ),
+                          if (subjects.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF0FF),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${subjects.length}',
+                                style: const TextStyle(
+                                  color: Color(0xFF4B3FD8),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Your weakest subjects right now',
+                        style: TextStyle(
+                          color: Color(0xFF6B7192),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(width: 10),
+                _SeeAllChip(
+                  onTap: () => Get.toNamed(AppRoutes.improvementAreas),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             if (controller.isLoadingWeakAreas.value)
               const _WeakAreasSkeleton()
             else if (controller.weakAreasError.value.isNotEmpty)
@@ -2391,30 +2424,66 @@ class _WeakAreasSection extends GetView<DashboardTabbarController> {
                 message: controller.weakAreasError.value,
                 onRetry: () => controller.loadWeakAreas(force: true),
               )
-            else if (summary.subjects.isEmpty)
+            else if (subjects.isEmpty)
               _WeakAreasEmptyState(hasAttempts: summary.hasAttempts)
             else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: subjects.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  mainAxisExtent: 150,
-                ),
-                itemBuilder: (context, index) {
-                  return _WeakAreaTile(
+              SizedBox(
+                height: _carouselHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  itemCount: subjects.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) => _WeakAreaTile(
                     subject: subjects[index],
-                    isHighlighted: index < 2,
-                  );
-                },
+                    isTopPriority: index == 0,
+                  ),
+                ),
               ),
           ],
         ),
       );
     });
+  }
+}
+
+class _SeeAllChip extends StatelessWidget {
+  const _SeeAllChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFEEF0FF),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(12, 7, 9, 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'See All',
+                style: TextStyle(
+                  color: Color(0xFF4B3FD8),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(width: 3),
+              Icon(
+                Icons.arrow_forward_rounded,
+                color: Color(0xFF4B3FD8),
+                size: 14,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2427,146 +2496,221 @@ class _WeakAreasEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4EAF6)),
+        color: const Color(0xFFF8F9FE),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EBF6)),
       ),
-      child: Text(
-        hasAttempts
-            ? 'Great job, no weak areas right now!'
-            : 'Start attempting quizzes to find what you should practice.',
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: AppColors.textMuted6,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          height: 1.45,
+      child: Column(
+        children: [
+          Icon(
+            hasAttempts
+                ? Icons.verified_rounded
+                : Icons.insights_rounded,
+            color: const Color(0xFF4B3FD8),
+            size: 26,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            hasAttempts
+                ? 'Nothing to fix right now — every subject is above the mark!'
+                : 'Attempt a quiz and we will show you exactly what to practise.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF6B7192),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One subject in the Home carousel. Tapping it opens the weak lessons behind
+/// that subject, the same sheet the full screen uses.
+class _WeakAreaTile extends StatelessWidget {
+  const _WeakAreaTile({required this.subject, required this.isTopPriority});
+
+  final WeakAreaSubjectData subject;
+
+  /// The worst subject is outlined and badged, so there is one obvious start.
+  final bool isTopPriority;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _weakAreaAccent(subject.name);
+    final mastery = subject.accuracy.clamp(0, 100).toDouble();
+
+    return SizedBox(
+      width: 172,
+      child: Material(
+        color: const Color(0xFFF8F9FE),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => showWeakAreaLessonsBottomSheet(
+            context,
+            subject,
+            dashboardController: Get.find<DashboardTabbarController>(),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isTopPriority
+                    ? accent.withValues(alpha: 0.38)
+                    : const Color(0xFFE8EBF6),
+                width: isTopPriority ? 1.4 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _WeakAreaRing(
+                      percent: mastery,
+                      accent: accent,
+                      label: subject.accuracyLabel,
+                    ),
+                    const Spacer(),
+                    if (isTopPriority)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'FOCUS',
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  subject.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF151935),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${subject.correct}/${subject.answered} correct'
+                  '${subject.skipped > 0 ? '  ·  ${subject.skipped} skipped' : ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF6B7192),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    minHeight: 5,
+                    value: mastery / 100,
+                    backgroundColor: const Color(0xFFE8EBF6),
+                    valueColor: AlwaysStoppedAnimation<Color>(accent),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text(
+                      'Practice',
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: accent,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _WeakAreaTile extends StatelessWidget {
-  const _WeakAreaTile({required this.subject, required this.isHighlighted});
+/// Mastery as a small ring with the figure inside it.
+class _WeakAreaRing extends StatelessWidget {
+  const _WeakAreaRing({
+    required this.percent,
+    required this.accent,
+    required this.label,
+  });
 
-  final WeakAreaSubjectData subject;
-  final bool isHighlighted;
+  final double percent;
+  final Color accent;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final accent = _weakAreaAccent(subject.name);
+    // Guarded so a stray value from the API can never reach the painter.
+    final safePercent = percent.isNaN ? 0.0 : percent.clamp(0, 100).toDouble();
 
-    return InkWell(
-      onTap: () => showWeakAreaLessonsBottomSheet(
-        context,
-        subject,
-        dashboardController: Get.find<DashboardTabbarController>(),
-      ),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isHighlighted
-                ? const Color(0xFFD7E6FA)
-                : AppColors.transparent,
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox.expand(
+            child: CircularProgressIndicator(
+              value: safePercent / 100,
+              strokeWidth: 4,
+              strokeCap: StrokeCap.round,
+              backgroundColor: accent.withValues(alpha: 0.14),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.cardShadow.withValues(alpha: 0.10),
-              blurRadius: 14,
-              offset: const Offset(0, 7),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.menu_book_rounded, color: accent, size: 12),
+          Padding(
+            padding: const EdgeInsets.all(7),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
                 ),
-                const Spacer(),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: accent.withValues(alpha: 0.70),
-                  size: 18,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              subject.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimaryNavy,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${subject.accuracyLabel} Accuracy',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textMuted6,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  'Tap to practice',
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (subject.skipped > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF2E0),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '+${subject.skipped} skipped',
-                      style: const TextStyle(
-                        color: Color(0xFFB25E09),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3071,39 +3215,42 @@ class _WeakAreasSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 4,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        mainAxisExtent: 150,
-      ),
-      itemBuilder: (context, index) => Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _ShimmerBox(width: 20, height: 20, radius: 8),
-                Spacer(),
-                _ShimmerBox(width: 18, height: 18, radius: 9),
-              ],
-            ),
-            SizedBox(height: 16),
-            _ShimmerBox(height: 12, radius: 6),
-            SizedBox(height: 8),
-            _ShimmerBox(width: 86, height: 10, radius: 5),
-            Spacer(),
-            _ShimmerBox(width: 92, height: 10, radius: 5),
-          ],
+    return SizedBox(
+      height: _WeakAreasSection._carouselHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        itemCount: 3,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) => Container(
+          width: 172,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FE),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE8EBF6)),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _ShimmerBox(width: 44, height: 44, radius: 22),
+                  Spacer(),
+                  _ShimmerBox(width: 42, height: 16, radius: 8),
+                ],
+              ),
+              SizedBox(height: 12),
+              _ShimmerBox(width: 104, height: 13, radius: 6),
+              SizedBox(height: 7),
+              _ShimmerBox(width: 78, height: 10, radius: 5),
+              Spacer(),
+              _ShimmerBox(width: double.infinity, height: 5, radius: 3),
+              SizedBox(height: 12),
+              _ShimmerBox(width: 64, height: 11, radius: 5),
+            ],
+          ),
         ),
       ),
     );
@@ -3961,6 +4108,9 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
   List<QuizSubmitResultItem> _dailyResults = const [];
   List<QuizSubmitResultItem> _practiceResults = const [];
   List<QuizSubmitResultItem> _mockResults = const [];
+  int _dailyTotal = 0;
+  int _practiceTotal = 0;
+  int _mockTotal = 0;
   Worker? _refreshWorker;
 
   @override
@@ -3985,6 +4135,22 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
 
   /// Index of the Quiz tab in the dashboard's IndexedStack.
   static const int _quizTabIndex = 2;
+
+  /// How many attempts of this type the student actually has.
+  ///
+  /// This card only fetches the first couple of rows, so counting the rows is
+  /// what made a student who had given 3 practice tests read "2 recent
+  /// results". The server's pagination total is the real figure; the fetched
+  /// rows are only used as a floor for it, in case the endpoint leaves
+  /// `total` at 0.
+  static int _totalOf(ApiResponse<QuizSubmitResultPage> response) {
+    final page = response.data;
+    if (page == null) {
+      return 0;
+    }
+    final fetched = page.results.length;
+    return page.pagination.total > fetched ? page.pagination.total : fetched;
+  }
 
   @override
   void dispose() {
@@ -4038,6 +4204,9 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
           .toList();
       _practiceResults = practiceResponse.data?.results ?? const [];
       _mockResults = mockResponse.data?.results ?? const [];
+      _dailyTotal = _totalOf(dailyResponse);
+      _practiceTotal = _totalOf(practiceResponse);
+      _mockTotal = _totalOf(mockResponse);
       _dailyErrorMessage = dailyResponse.success ? '' : dailyResponse.message;
       _practiceErrorMessage = practiceResponse.success
           ? ''
@@ -4071,6 +4240,7 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
             emptyMessage: 'No daily quiz result yet.',
             errorMessage: _dailyErrorMessage,
             results: _dailyResults,
+            totalCount: _dailyTotal,
             assetPath: 'assets/daily_quiz.png',
             accentColor: const Color(0xFF5A5FEF),
             backgroundColor: const Color(0xFFEDEBFF),
@@ -4088,6 +4258,7 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
             emptyMessage: 'No practice test result yet.',
             errorMessage: _practiceErrorMessage,
             results: _practiceResults,
+            totalCount: _practiceTotal,
             assetPath: 'assets/practice_test.png',
             accentColor: const Color(0xFF17935F),
             backgroundColor: const Color(0xFFE7F6EE),
@@ -4105,6 +4276,7 @@ class _PreviousResultsCardState extends State<_PreviousResultsCard> {
             emptyMessage: 'No mock test result yet.',
             errorMessage: _mockErrorMessage,
             results: _mockResults,
+            totalCount: _mockTotal,
             assetPath: 'assets/mock_test.png',
             accentColor: const Color(0xFFF1670C),
             backgroundColor: const Color(0xFFFFF4E6),
@@ -4127,6 +4299,7 @@ class _DashboardResultSection extends StatelessWidget {
     required this.emptyMessage,
     required this.errorMessage,
     required this.results,
+    required this.totalCount,
     required this.assetPath,
     required this.accentColor,
     required this.backgroundColor,
@@ -4139,6 +4312,10 @@ class _DashboardResultSection extends StatelessWidget {
   final String emptyMessage;
   final String errorMessage;
   final List<QuizSubmitResultItem> results;
+
+  /// Every attempt the student has of this type, not just the rows fetched
+  /// for this card — that is what the subtitle counts.
+  final int totalCount;
   final String assetPath;
   final Color accentColor;
   final Color backgroundColor;
@@ -4152,7 +4329,7 @@ class _DashboardResultSection extends StatelessWidget {
         ? errorMessage
         : (results.isEmpty
               ? emptyMessage
-              : '${results.length} recent result${results.length == 1 ? '' : 's'}');
+              : '$totalCount result${totalCount == 1 ? '' : 's'}');
 
     return Material(
       color: backgroundColor,

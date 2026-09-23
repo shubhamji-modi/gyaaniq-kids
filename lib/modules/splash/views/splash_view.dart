@@ -163,7 +163,7 @@ class _SplashViewState extends State<SplashView> {
                           ),
                           SizedBox(height: height * 0.04),
                           Text(
-                            'GyaanIQ Kids',
+                            'GyaanIQ',
                             style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(
                                   color: Colors.white,

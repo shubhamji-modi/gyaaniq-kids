@@ -471,10 +471,16 @@ class QuestionAnswerShowController extends GetxController {
       tag: 'daily_quiz_result',
     );
 
-    // The attempt has moved the student's XP and streak, so the dashboard's
-    // TTL-cached copy is now wrong — refresh it rather than wait it out.
+    // The attempt has moved the student's XP and streak, and it has changed
+    // which subjects they are weak in — the dashboard's TTL-cached copies of
+    // both are now wrong. Forced from here, at the one moment the numbers
+    // actually change, so every quiz type and every way back to the Home tab
+    // shows the new figures: the tab's own reload asks without `force` and
+    // would sit on the 3-minute cache, which a quiz easily finishes inside.
     if (Get.isRegistered<DashboardTabbarController>()) {
-      unawaited(Get.find<DashboardTabbarController>().loadUserXp(force: true));
+      final dashboardController = Get.find<DashboardTabbarController>();
+      unawaited(dashboardController.loadUserXp(force: true));
+      unawaited(dashboardController.loadWeakAreas(force: true));
     }
 
     await AdService.instance.showQuizResultAdIfEnabled();

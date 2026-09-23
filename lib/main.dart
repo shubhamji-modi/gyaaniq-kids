@@ -23,7 +23,9 @@ import 'modules/auth/views/login_screen.dart';
 import 'modules/auth/views/phone_verification_gate_screen.dart';
 import 'modules/dashboard_vc/controllers/dashboard_tabbar_controller.dart';
 import 'modules/dashboard_vc/views/dashboard_tabbar_views_screen.dart';
+import 'modules/dashboard_vc/views/performance_dna_views.dart';
 import 'modules/leaderboard/views/leaderboard_views.dart';
+import 'modules/notifications/views/notification_views.dart';
 import 'modules/onboard/views/onboard_view.dart';
 import 'modules/splash/views/splash_view.dart';
 import 'modules/student_profile_setup/student_profile_setup_views.dart';
@@ -149,6 +151,25 @@ class EduPathApp extends StatelessWidget {
         GetPage(
           name: AppRoutes.leaderboard,
           page: () => const LeaderboardViews(),
+        ),
+        // Named so a tapped push can land here (and can tell it is already
+        // here) instead of opening the detail over whatever screen was up.
+        GetPage(
+          name: AppRoutes.notifications,
+          page: () => const NotificationViews(),
+        ),
+        // Named, and bound to the dashboard controller it reads from, so the
+        // screen can be opened from anywhere without depending on that
+        // controller already being alive.
+        GetPage(
+          name: AppRoutes.improvementAreas,
+          binding: BindingsBuilder(() {
+            Get.lazyPut<DashboardTabbarController>(
+              () => DashboardTabbarController(),
+              fenix: true,
+            );
+          }),
+          page: () => const PerformanceDnaViews(),
         ),
       ],
       theme: ThemeData(

@@ -269,7 +269,9 @@ class DashboardTabbarController extends GetxController {
     currentTabIndex.value = index;
     if (index == 0) {
       reloadHomeTabData();
-      loadWeakAreas();
+      // Weak areas change as soon as the student answers anything, so the
+      // Home tab always refetches them instead of serving the TTL cache.
+      loadWeakAreas(force: true);
       loadLeaderboardSummary();
       return;
     }
