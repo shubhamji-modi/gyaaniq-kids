@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:get/get.dart';
 
 import '../../../core/service/api_service.dart';
+import '../../../core/models/question_explanation.dart';
 import '../../../core/models/xp_config_data.dart';
 import '../../../core/service/ad_service.dart';
+import '../../../core/service/explanation_catalog_service.dart';
 
 import '../../dashboard_vc/controllers/dashboard_tabbar_controller.dart';
 import '../controller/quiz_daily_result_controller.dart';
@@ -139,8 +141,8 @@ class QuestionAnswerShowController extends GetxController {
   /// for the whole session.
   static QuestionAnswerShowController get instance =>
       Get.isRegistered<QuestionAnswerShowController>()
-          ? Get.find<QuestionAnswerShowController>()
-          : Get.put(QuestionAnswerShowController(), permanent: true);
+      ? Get.find<QuestionAnswerShowController>()
+      : Get.put(QuestionAnswerShowController(), permanent: true);
 
   final RxInt currentQuestionIndex = 0.obs;
   final RxList<int?> selectedAnswers = <int?>[].obs;
@@ -157,12 +159,16 @@ class QuestionAnswerShowController extends GetxController {
   final RxBool isDailyQuiz = false.obs;
   final RxBool isMockTest = false.obs;
   final RxBool returnToLessonOnResultBack = false.obs;
-  final RxMap<String, QuizExplanationData> explanationByQuestionId =
-      <String, QuizExplanationData>{}.obs;
+  final RxMap<String, QuestionExplanationData> explanationByQuestionId =
+      <String, QuestionExplanationData>{}.obs;
   final RxMap<String, bool> explanationLoadingByQuestionId =
       <String, bool>{}.obs;
   final RxMap<String, String> explanationErrorByQuestionId =
       <String, String>{}.obs;
+  final RxMap<String, bool> explanationRegenerationAllowedByQuestionId =
+      <String, bool>{}.obs;
+  final RxMap<String, bool> explanationRegeneratingByQuestionId =
+      <String, bool>{}.obs;
 
   List<QuizQuestion> questions = const [];
 
@@ -184,6 +190,7 @@ class QuestionAnswerShowController extends GetxController {
     markedQuestions.assignAll(List<bool>.filled(questions.length, false));
     _markVisited(0);
     isReviewMode.value = Get.arguments?['reviewMode'] == true;
+    unawaited(ExplanationCatalogService.instance.loadStyles());
   }
 
   int get totalQuestions => questions.length;
@@ -260,6 +267,7 @@ class QuestionAnswerShowController extends GetxController {
     explanationByQuestionId.clear();
     explanationLoadingByQuestionId.clear();
     explanationErrorByQuestionId.clear();
+    explanationRegenerationAllowedByQuestionId.clear();
     resetQuiz();
 
     // Fire-and-forget: taken now so submitting costs no extra round trip.
@@ -529,12 +537,15 @@ class QuestionAnswerShowController extends GetxController {
     );
   }
 
-  Future<void> fetchExplanation(QuizQuestion question) async {
+  Future<void> fetchExplanation(
+    QuizQuestion question, {
+    bool force = false,
+  }) async {
     if (!isReviewMode.value || question.id.isEmpty) {
       return;
     }
 
-    if (explanationByQuestionId.containsKey(question.id) ||
+    if ((!force && explanationByQuestionId.containsKey(question.id)) ||
         explanationLoadingByQuestionId[question.id] == true) {
       return;
     }
@@ -550,12 +561,16 @@ class QuestionAnswerShowController extends GetxController {
       endpoint: endpoint,
       showLoader: false,
       fromJson: (json) => json,
+      requestTimeout: const Duration(seconds: 90),
     );
 
     explanationLoadingByQuestionId.remove(question.id);
 
     if (!response.success || response.data is! Map<String, dynamic>) {
-      explanationErrorByQuestionId[question.id] = response.message;
+      explanationErrorByQuestionId[question.id] = _explanationError(
+        response.statusCode,
+        response.message,
+      );
       return;
     }
 
@@ -567,7 +582,7 @@ class QuestionAnswerShowController extends GetxController {
       return;
     }
 
-    final explanation = QuizExplanationData.fromApi(data);
+    final explanation = QuestionExplanationData.fromApi(data);
     if (explanation.explanation.isEmpty) {
       explanationErrorByQuestionId[question.id] =
           'Explanation is not available for this question.';
@@ -575,6 +590,87 @@ class QuestionAnswerShowController extends GetxController {
     }
 
     explanationByQuestionId[question.id] = explanation;
+    explanationRegenerationAllowedByQuestionId[question.id] = true;
+  }
+
+  Future<void> seeAnotherExplanation(QuizQuestion question) async {
+    final current = explanationByQuestionId[question.id];
+    if (current == null ||
+        current.explanationId.isEmpty ||
+        explanationLoadingByQuestionId[question.id] == true) {
+      return;
+    }
+
+    explanationErrorByQuestionId.remove(question.id);
+    explanationLoadingByQuestionId[question.id] = true;
+    final endpoint = ApiService.GET_ANOTHER_QUESTION_EXPLANATION
+        .replaceFirst(':type', explanationType)
+        .replaceFirst(':questionId', question.id);
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: endpoint,
+      queryParameters: {'after': current.explanationId},
+      showLoader: false,
+      fromJson: (json) => json,
+      requestTimeout: const Duration(seconds: 90),
+    );
+    explanationLoadingByQuestionId.remove(question.id);
+    if (response.statusCode == 404) {
+      explanationByQuestionId.remove(question.id);
+      await fetchExplanation(question, force: true);
+      return;
+    }
+    final data = _explanationData(response);
+    if (data == null) {
+      explanationErrorByQuestionId[question.id] = _explanationError(
+        response.statusCode,
+        response.message,
+      );
+      return;
+    }
+    explanationByQuestionId[question.id] = data;
+  }
+
+  Future<void> regenerateExplanation(
+    QuizQuestion question,
+    String style,
+  ) async {
+    if (style.isEmpty || explanationLoadingByQuestionId[question.id] == true) {
+      return;
+    }
+    explanationErrorByQuestionId.remove(question.id);
+    explanationLoadingByQuestionId[question.id] = true;
+    explanationRegeneratingByQuestionId[question.id] = true;
+    final endpoint = ApiService.REGENERATE_QUESTION_EXPLANATION
+        .replaceFirst(':type', explanationType)
+        .replaceFirst(':questionId', question.id);
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: endpoint,
+      data: {'style': style},
+      showLoader: false,
+      fromJson: (json) => json,
+      requestTimeout: const Duration(seconds: 90),
+    );
+    explanationLoadingByQuestionId.remove(question.id);
+    explanationRegeneratingByQuestionId.remove(question.id);
+    if (response.statusCode == 403) {
+      explanationRegenerationAllowedByQuestionId[question.id] = false;
+    }
+    final data = _explanationData(response);
+    if (data == null) {
+      explanationErrorByQuestionId[question.id] = _explanationError(
+        response.statusCode,
+        response.message,
+      );
+      return;
+    }
+    explanationByQuestionId[question.id] = data;
+  }
+
+  void closeExplanation(QuizQuestion question) {
+    explanationByQuestionId.remove(question.id);
+    explanationErrorByQuestionId.remove(question.id);
+    explanationRegenerationAllowedByQuestionId.remove(question.id);
+    explanationRegeneratingByQuestionId.remove(question.id);
   }
 
   /// Drops the loaded quiz entirely, not just the answers.
@@ -595,6 +691,8 @@ class QuestionAnswerShowController extends GetxController {
     explanationByQuestionId.clear();
     explanationLoadingByQuestionId.clear();
     explanationErrorByQuestionId.clear();
+    explanationRegenerationAllowedByQuestionId.clear();
+    explanationRegeneratingByQuestionId.clear();
     resetQuiz();
   }
 
@@ -618,6 +716,25 @@ class QuestionAnswerShowController extends GetxController {
     visitedQuestions[index] = true;
     visitedQuestions.refresh();
   }
+}
+
+QuestionExplanationData? _explanationData(ApiResponse<dynamic> response) {
+  if (!response.success || response.data is! Map<String, dynamic>) return null;
+  final data = (response.data as Map<String, dynamic>)['data'];
+  if (data is! Map<String, dynamic>) return null;
+  final explanation = QuestionExplanationData.fromApi(data);
+  return explanation.explanation.isEmpty ? null : explanation;
+}
+
+String _explanationError(int statusCode, String message) {
+  return switch (statusCode) {
+    400 => 'We could not load this explanation. Please try again.',
+    404 => 'This question is no longer available.',
+    422 => "We can't explain this question yet.",
+    503 ||
+    504 => "Explanations aren't available right now. Please try again later.",
+    _ => message.isEmpty ? 'Unable to load explanation.' : message,
+  };
 }
 
 class QuizAnswerFeedback {
@@ -645,32 +762,6 @@ class QuizAnswerFeedback {
       isCorrect: json['isCorrect'] == true,
       marks: (json['marks'] as num?)?.toInt() ?? 0,
       marksAwarded: (json['marksAwarded'] as num?)?.toInt() ?? 0,
-    );
-  }
-}
-
-class QuizExplanationData {
-  const QuizExplanationData({
-    required this.questionId,
-    required this.explanation,
-    required this.source,
-    required this.model,
-    required this.fromCache,
-  });
-
-  final String questionId;
-  final String explanation;
-  final String source;
-  final String model;
-  final bool fromCache;
-
-  factory QuizExplanationData.fromApi(Map<String, dynamic> json) {
-    return QuizExplanationData(
-      questionId: _safeText(json['questionId']),
-      explanation: _safeText(json['explanation']),
-      source: _safeText(json['source']),
-      model: _safeText(json['model']),
-      fromCache: json['fromCache'] == true,
     );
   }
 }

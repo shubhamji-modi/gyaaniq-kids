@@ -12,6 +12,7 @@ import 'core/service/ad_service.dart';
 import 'core/service/api_service.dart';
 import 'core/service/app_features_service.dart';
 import 'core/service/app_route_observer.dart';
+import 'core/service/explanation_catalog_service.dart';
 import 'core/service/notification_badge_service.dart';
 import 'core/service/notification_service.dart';
 import 'core/service/session_manager.dart';
@@ -69,6 +70,10 @@ Future<void> main() async {
 
       await Get.putAsync(() => SessionManager().init());
       Get.put(ApiService());
+      Get.put(ExplanationCatalogService(), permanent: true);
+      if (SessionManager.instance.isLoggedIn) {
+        unawaited(ExplanationCatalogService.instance.loadStyles());
+      }
 
       // Cached section switches, so the first frame already hides whatever the
       // admin had switched off. The fresh answer is fetched from the splash

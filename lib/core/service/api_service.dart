@@ -47,8 +47,7 @@ class ApiService extends GetxService {
   ///BASE URL
   //////https://e-learn-api.pixelnx.in/login
   // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
-  static String temp_baseUrl =
-      'https://e-learn-api.pixelnx.in/api/temp-auth/';
+  static String temp_baseUrl = 'https://e-learn-api.pixelnx.in/api/temp-auth/';
   //static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
   static String baseUrl = 'https://e-learn-api.pixelnx.in/api/v1/';
   static const bool useTemporaryAuth = true;
@@ -87,6 +86,12 @@ class ApiService extends GetxService {
   static const String FETCH_SINGLE_QUIZZES = 'user/quizzes/:id';
   static const String GET_QUESTION_EXPLANATION =
       'user/explanations/:type/:questionId';
+  static const String GET_EXPLANATION_STYLES = 'user/explanations/styles';
+  static const String GET_EXPLANATION_QUOTA = 'user/explanations/quota';
+  static const String GET_ANOTHER_QUESTION_EXPLANATION =
+      'user/explanations/:type/:questionId/another';
+  static const String REGENERATE_QUESTION_EXPLANATION =
+      'user/explanations/:type/:questionId/regenerate';
   static const String SUBMIT_PRACTICE_QUIZZES = 'user/quizzes/:id/attempt';
   static const String GET_SUBMIT_RESULT = 'user/progress/quizzes/attempts';
   static const String DASHBOARD_PROGRESS_SUMMARY = 'user/progress/summary';
@@ -237,6 +242,7 @@ class ApiService extends GetxService {
     T Function(dynamic)? fromJson,
     int retryCount = 0,
     int maxRetries = 0,
+    Duration? requestTimeout,
   }) async {
     print(endpoint);
     try {
@@ -249,7 +255,11 @@ class ApiService extends GetxService {
           response = await _dio.get(
             endpoint,
             queryParameters: queryParameters,
-            options: Options(extra: {'includeAuth': includeAuth}),
+            options: Options(
+              extra: {'includeAuth': includeAuth},
+              receiveTimeout: requestTimeout,
+              sendTimeout: requestTimeout,
+            ),
           );
           print('GET API SERVICE RES $endpoint');
           print('$response');
@@ -259,7 +269,11 @@ class ApiService extends GetxService {
             endpoint,
             data: data,
             queryParameters: queryParameters,
-            options: Options(extra: {'includeAuth': includeAuth}),
+            options: Options(
+              extra: {'includeAuth': includeAuth},
+              receiveTimeout: requestTimeout,
+              sendTimeout: requestTimeout,
+            ),
           );
           print('POST API SERVICE RES $endpoint');
           print('$response');
@@ -343,6 +357,7 @@ class ApiService extends GetxService {
           fromJson: fromJson,
           retryCount: retryCount + 1,
           maxRetries: maxRetries,
+          requestTimeout: requestTimeout,
         );
       }
 
@@ -435,6 +450,7 @@ class ApiService extends GetxService {
     bool showLoader = true,
     T Function(dynamic)? fromJson,
     Duration? cacheFor,
+    Duration? requestTimeout,
   }) async {
     final key = _requestKey('GET', endpoint, null, queryParameters);
 
@@ -454,6 +470,7 @@ class ApiService extends GetxService {
         includeAuth: includeAuth,
         showLoader: showLoader,
         fromJson: fromJson,
+        requestTimeout: requestTimeout,
       ),
     );
 
@@ -496,6 +513,7 @@ class ApiService extends GetxService {
     bool includeAuth = true,
     bool showLoader = true,
     T Function(dynamic)? fromJson,
+    Duration? requestTimeout,
   }) async {
     return _dedupe<T>(
       _requestKey('POST', endpoint, data, queryParameters),
@@ -507,6 +525,7 @@ class ApiService extends GetxService {
         includeAuth: includeAuth,
         showLoader: showLoader,
         fromJson: fromJson,
+        requestTimeout: requestTimeout,
       ),
     );
   }

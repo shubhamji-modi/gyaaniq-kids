@@ -39,6 +39,7 @@ class AppFeaturesService with WidgetsBindingObserver {
   static const String attendance = 'attendance';
   static const String subscription = 'subscription';
   static const String googleAd = 'googleAd';
+  static const String weakAreas = 'weakAreas';
 
   static const String _prefsFeaturesKey = 'app_features';
   static const String _prefsClassLevelKey = 'app_features_class_level';
@@ -102,6 +103,7 @@ class AppFeaturesService with WidgetsBindingObserver {
   bool get isAttendanceEnabled => isEnabled(attendance);
   bool get isSubscriptionEnabled => isEnabled(subscription);
   bool get isGoogleAdEnabled => isEnabled(googleAd);
+  bool get isWeakAreasEnabled => isEnabled(weakAreas);
 
   /// Fetches the current answer. Safe to call from anywhere and as often as
   /// needed: concurrent calls share one request, and a failure leaves the

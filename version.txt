@@ -1,0 +1,4 @@
+App Name: edupath_learning
+Version: 1.0.17+19
+Updated On: 2026-09-24
+Status: Version bumped for new release

@@ -74,6 +74,7 @@ class DashboardTabbarController extends GetxController {
   final Rx<AttendanceSummaryModel> attendanceSummary =
       AttendanceSummaryModel.empty().obs;
   Timer? _liveClassClockTimer;
+  bool _wasWeakAreasEnabled = AppFeaturesService.instance.isWeakAreasEnabled;
   bool _isLoggingOut = false;
   bool _isDeletingAccount = false;
 
@@ -296,6 +297,7 @@ class DashboardTabbarController extends GetxController {
     loadDashboardData();
     loadWeakAreas();
     loadLeaderboardSummary();
+    AppFeaturesService.instance.revision.addListener(_onAppFeaturesChanged);
     _liveClassClockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (currentTabIndex.value == 3 && liveClassSchedules.isNotEmpty) {
         liveClassSchedules.refresh();
@@ -305,9 +307,21 @@ class DashboardTabbarController extends GetxController {
 
   @override
   void onClose() {
+    AppFeaturesService.instance.revision
+        .removeListener(_onAppFeaturesChanged);
     _liveClassClockTimer?.cancel();
     _dailyClaimCountdownTimer?.cancel();
     super.onClose();
+  }
+
+  /// Weak areas skip their API while switched off, so when the admin turns
+  /// them back on the section would reappear empty — fetch it right away.
+  void _onAppFeaturesChanged() {
+    final isEnabled = AppFeaturesService.instance.isWeakAreasEnabled;
+    if (isEnabled && !_wasWeakAreasEnabled) {
+      unawaited(loadWeakAreas(force: true));
+    }
+    _wasWeakAreasEnabled = isEnabled;
   }
 
   Future<void> loadDashboardData({bool force = false}) async {
@@ -741,6 +755,11 @@ class DashboardTabbarController extends GetxController {
   }
 
   Future<void> loadWeakAreas({bool force = false}) async {
+    // Hidden section → its API is not called at all.
+    if (!AppFeaturesService.instance.isWeakAreasEnabled) {
+      isLoadingWeakAreas.value = false;
+      return;
+    }
     if (_shouldSkipRefetch('weakAreas', force: force)) {
       return;
     }

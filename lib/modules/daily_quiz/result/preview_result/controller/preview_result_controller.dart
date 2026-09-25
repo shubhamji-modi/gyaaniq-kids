@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../../core/data/user_profile_provider.dart';
+import '../../../../../core/models/question_explanation.dart';
 import '../../../../../core/service/api_service.dart';
+import '../../../../../core/service/explanation_catalog_service.dart';
 
 class PreviewResultController extends GetxController {
   final RxBool isLoading = true.obs;
@@ -11,12 +13,16 @@ class PreviewResultController extends GetxController {
   final RxInt selectedTypeIndex = 0.obs;
   final RxInt selectedTabIndex = 0.obs;
   final RxList<QuizSubmitResultItem> results = <QuizSubmitResultItem>[].obs;
-  final RxMap<String, QuizExplanationData> explanationByQuestionId =
-      <String, QuizExplanationData>{}.obs;
+  final RxMap<String, QuestionExplanationData> explanationByQuestionId =
+      <String, QuestionExplanationData>{}.obs;
   final RxMap<String, bool> explanationLoadingByQuestionId =
       <String, bool>{}.obs;
   final RxMap<String, String> explanationErrorByQuestionId =
       <String, String>{}.obs;
+  final RxMap<String, bool> explanationRegenerationAllowedByQuestionId =
+      <String, bool>{}.obs;
+  final RxMap<String, bool> explanationRegeneratingByQuestionId =
+      <String, bool>{}.obs;
 
   int _page = 1;
   int _totalPages = 1;
@@ -42,6 +48,7 @@ class PreviewResultController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    ExplanationCatalogService.instance.loadStyles();
     loadResults();
   }
 
@@ -145,12 +152,16 @@ class PreviewResultController extends GetxController {
       endpoint: endpoint,
       showLoader: false,
       fromJson: (json) => json,
+      requestTimeout: const Duration(seconds: 90),
     );
 
     explanationLoadingByQuestionId.remove(answer.questionId);
 
     if (!response.success || response.data is! Map<String, dynamic>) {
-      explanationErrorByQuestionId[answer.questionId] = response.message;
+      explanationErrorByQuestionId[answer.questionId] = _explanationError(
+        response.statusCode,
+        response.message,
+      );
       return;
     }
 
@@ -162,7 +173,7 @@ class PreviewResultController extends GetxController {
       return;
     }
 
-    final explanation = QuizExplanationData.fromApi(data);
+    final explanation = QuestionExplanationData.fromApi(data);
     if (explanation.explanation.isEmpty) {
       explanationErrorByQuestionId[answer.questionId] =
           'Explanation is not available for this question.';
@@ -170,6 +181,91 @@ class PreviewResultController extends GetxController {
     }
 
     explanationByQuestionId[answer.questionId] = explanation;
+    explanationRegenerationAllowedByQuestionId[answer.questionId] = true;
+  }
+
+  Future<void> seeAnotherExplanation(
+    ResultHistoryType type,
+    QuizAttemptAnswerFeedback answer,
+  ) async {
+    final current = explanationByQuestionId[answer.questionId];
+    if (current == null ||
+        current.explanationId.isEmpty ||
+        explanationLoadingByQuestionId[answer.questionId] == true) {
+      return;
+    }
+    explanationErrorByQuestionId.remove(answer.questionId);
+    explanationLoadingByQuestionId[answer.questionId] = true;
+    final endpoint = ApiService.GET_ANOTHER_QUESTION_EXPLANATION
+        .replaceFirst(':type', type.explanationApiType)
+        .replaceFirst(':questionId', answer.questionId);
+    final response = await ApiService.instance.get<dynamic>(
+      endpoint: endpoint,
+      queryParameters: {'after': current.explanationId},
+      showLoader: false,
+      fromJson: (json) => json,
+      requestTimeout: const Duration(seconds: 90),
+    );
+    explanationLoadingByQuestionId.remove(answer.questionId);
+    if (response.statusCode == 404) {
+      explanationByQuestionId.remove(answer.questionId);
+      await fetchExplanation(type, answer);
+      return;
+    }
+    final data = _explanationData(response);
+    if (data == null) {
+      explanationErrorByQuestionId[answer.questionId] = _explanationError(
+        response.statusCode,
+        response.message,
+      );
+      return;
+    }
+    explanationByQuestionId[answer.questionId] = data;
+  }
+
+  Future<void> regenerateExplanation(
+    ResultHistoryType type,
+    QuizAttemptAnswerFeedback answer,
+    String style,
+  ) async {
+    if (style.isEmpty ||
+        explanationLoadingByQuestionId[answer.questionId] == true) {
+      return;
+    }
+    explanationErrorByQuestionId.remove(answer.questionId);
+    explanationLoadingByQuestionId[answer.questionId] = true;
+    explanationRegeneratingByQuestionId[answer.questionId] = true;
+    final endpoint = ApiService.REGENERATE_QUESTION_EXPLANATION
+        .replaceFirst(':type', type.explanationApiType)
+        .replaceFirst(':questionId', answer.questionId);
+    final response = await ApiService.instance.post<dynamic>(
+      endpoint: endpoint,
+      data: {'style': style},
+      showLoader: false,
+      fromJson: (json) => json,
+      requestTimeout: const Duration(seconds: 90),
+    );
+    explanationLoadingByQuestionId.remove(answer.questionId);
+    explanationRegeneratingByQuestionId.remove(answer.questionId);
+    if (response.statusCode == 403) {
+      explanationRegenerationAllowedByQuestionId[answer.questionId] = false;
+    }
+    final data = _explanationData(response);
+    if (data == null) {
+      explanationErrorByQuestionId[answer.questionId] = _explanationError(
+        response.statusCode,
+        response.message,
+      );
+      return;
+    }
+    explanationByQuestionId[answer.questionId] = data;
+  }
+
+  void closeExplanation(QuizAttemptAnswerFeedback answer) {
+    explanationByQuestionId.remove(answer.questionId);
+    explanationErrorByQuestionId.remove(answer.questionId);
+    explanationRegenerationAllowedByQuestionId.remove(answer.questionId);
+    explanationRegeneratingByQuestionId.remove(answer.questionId);
   }
 }
 
@@ -711,30 +807,23 @@ class QuizAttemptAnswerFeedback {
   }
 }
 
-class QuizExplanationData {
-  const QuizExplanationData({
-    required this.questionId,
-    required this.explanation,
-    required this.source,
-    required this.model,
-    required this.fromCache,
-  });
+QuestionExplanationData? _explanationData(ApiResponse<dynamic> response) {
+  if (!response.success || response.data is! Map<String, dynamic>) return null;
+  final data = (response.data as Map<String, dynamic>)['data'];
+  if (data is! Map<String, dynamic>) return null;
+  final explanation = QuestionExplanationData.fromApi(data);
+  return explanation.explanation.isEmpty ? null : explanation;
+}
 
-  final String questionId;
-  final String explanation;
-  final String source;
-  final String model;
-  final bool fromCache;
-
-  factory QuizExplanationData.fromApi(Map<String, dynamic> json) {
-    return QuizExplanationData(
-      questionId: _safeText(json['questionId']),
-      explanation: _safeText(json['explanation']),
-      source: _safeText(json['source']),
-      model: _safeText(json['model']),
-      fromCache: json['fromCache'] == true,
-    );
-  }
+String _explanationError(int statusCode, String message) {
+  return switch (statusCode) {
+    400 => 'We could not load this explanation. Please try again.',
+    404 => 'This question is no longer available.',
+    422 => "We can't explain this question yet.",
+    503 ||
+    504 => "Explanations aren't available right now. Please try again later.",
+    _ => message.isEmpty ? 'Unable to load explanation.' : message,
+  };
 }
 
 class QuizSubmitResultPage {

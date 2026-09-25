@@ -14,7 +14,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application
-        android:label="GyaanIQ Kids"
+        android:label="GyaanIQ - Class 6-12 Exam prep"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:fullBackupContent="@xml/backup_rules"
@@ -22,18 +22,6 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-4271519308644982~5399509750" />
-
-        <!-- Icon/color/channel used for pushes that FCM itself displays while
-             the app is backgrounded or killed (the Dart side never runs then). -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_notification" />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/notification_color" />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="general_channel" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -84,17 +72,6 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
-        </intent>
-        <!-- Android 11+ hides other apps unless they are declared here, and
-             url_launcher can only open what it can see: the WhatsApp/browser
-             links and the "Email us" tile on the Contact Us screen. -->
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="https"/>
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="mailto"/>
         </intent>
     </queries>
 </manifest>

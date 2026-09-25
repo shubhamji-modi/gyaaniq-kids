@@ -859,8 +859,12 @@ class _HomeTab extends StatelessWidget {
               const _JourneyCard(),
               const SizedBox(height: 18),
             ],
-            const _WeakAreasSection(),
-            const SizedBox(height: 18),
+            const AppFeatureGate(
+              feature: AppFeaturesService.weakAreas,
+              child: Column(
+                children: [_WeakAreasSection(), SizedBox(height: 18)],
+              ),
+            ),
             const AppFeatureGate(
               feature: AppFeaturesService.funFact,
               child: Column(children: [_FunFactCard(), SizedBox(height: 18)]),
