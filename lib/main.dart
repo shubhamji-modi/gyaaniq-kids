@@ -13,6 +13,7 @@ import 'core/service/api_service.dart';
 import 'core/service/app_features_service.dart';
 import 'core/service/app_route_observer.dart';
 import 'core/service/explanation_catalog_service.dart';
+import 'core/service/device_token_service.dart';
 import 'core/service/notification_badge_service.dart';
 import 'core/service/notification_service.dart';
 import 'core/service/session_manager.dart';
@@ -82,7 +83,14 @@ Future<void> main() async {
 
       await NotificationBadgeService.instance.init();
       await NotificationService.instance.init();
-      unawaited(NotificationService.instance.requestPermission());
+      // App open: send the FCM token once the permission prompt (if any) is
+      // answered, then again every time the app returns from the background.
+      DeviceTokenService.instance.init();
+      unawaited(
+        NotificationService.instance
+            .requestPermission()
+            .whenComplete(DeviceTokenService.instance.sync),
+      );
 
       Get.put(AdService(), permanent: true);
       unawaited(AdService.instance.initialize());

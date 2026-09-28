@@ -5,7 +5,9 @@ import 'package:get/get.dart';
 
 import '../../../core/service/explanation_catalog_service.dart';
 import '../../../core/widgets/question_explanation_section.dart';
+import '../../../core/service/question_translation_service.dart';
 import '../controller/question_answer_show_controller.dart';
+import '../controller/quiz_reading_controller.dart';
 
 class QuestionAnswerShowViews extends StatefulWidget {
   const QuestionAnswerShowViews({super.key});
@@ -23,6 +25,7 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
   void initState() {
     super.initState();
     controller = QuestionAnswerShowController.instance;
+    unawaited(QuizReadingController.instance.onQuizOpened());
 
     if (!controller.isReviewMode.value) {
       _timer?.cancel();
@@ -145,18 +148,18 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                                 children: [
                                   // ---- Progress header (attempt mode) ----
                                   if (!isReview) ...[
-                                    const Text(
-                                      'QUIZ PROGRESS',
-                                      style: TextStyle(
-                                        color: Color(0xFF9AA0B4),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
                                     Row(
                                       children: [
+                                        const Text(
+                                          'QUIZ PROGRESS',
+                                          style: TextStyle(
+                                            color: Color(0xFF9AA0B4),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
                                         Expanded(
                                           child: ClipRRect(
                                             borderRadius: BorderRadius.circular(
@@ -220,6 +223,9 @@ class _QuestionAnswerShowViewsState extends State<QuestionAnswerShowViews> {
                                     ),
                                     const SizedBox(height: 16),
                                   ],
+                                  // ---- Translate / text size ----
+                                  const _ReadingToolbar(),
+                                  const SizedBox(height: 14),
                                   // ---- Question card ----
                                   _QuestionCard(
                                     questionNumber: questionNumber,
@@ -494,48 +500,49 @@ class _QuestionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Q.$questionNumber ${question.question}',
-                      style: const TextStyle(
-                        color: Color(0xFF202436),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 1.6,
-                      ),
-                    ),
+                    Obx(() {
+                      final reading = QuizReadingController.instance;
+                      final scale = reading.textScale.value;
+                      final translation = reading.translationFor(question);
+                      final isTranslating = reading.isTranslating(question);
+                      final showOriginal =
+                          translation != null &&
+                          translation.question != question.question;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Q.$questionNumber ${translation?.question ?? question.question}',
+                            style: TextStyle(
+                              color: const Color(0xFF202436),
+                              fontSize: 16 * scale,
+                              fontWeight: FontWeight.w600,
+                              height: 1.6,
+                            ),
+                          ),
+                          if (isTranslating && translation == null) ...[
+                            const SizedBox(height: 8),
+                            const _TranslatingHint(),
+                          ],
+                          if (showOriginal) ...[
+                            const SizedBox(height: 10),
+                            _OriginalText(
+                              text: question.question,
+                              fontSize: 13 * scale,
+                            ),
+                          ],
+                        ],
+                      );
+                    }),
                     if (question.questionImageUrl.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          height: 200,
-                          width: double.infinity,
-                          color: const Color(0xFFF0F1F5),
-                          // BoxFit.contain shows the whole diagram inside the
-                          // box without cropping any edge.
-                          child: Image.network(
-                            question.questionImageUrl,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF4A4FD9),
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  color: Color(0xFF9CA3AF),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
+                      _ZoomableQuizImage(
+                        url: question.questionImageUrl,
+                        height: 200,
+                        borderRadius: 12,
+                        // The whole question image opens the zoom viewer.
+                        openOnTap: true,
                       ),
                     ],
                     if (question.tags.isNotEmpty) ...[
@@ -554,6 +561,611 @@ class _QuestionCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Translate button and A−/A+ text size control above the question card.
+class _ReadingToolbar extends StatelessWidget {
+  const _ReadingToolbar();
+
+  @override
+  Widget build(BuildContext context) {
+    final reading = QuizReadingController.instance;
+
+    return Obx(() {
+      final target = reading.language.value;
+      final isPreparing = reading.isPreparingLanguage.value;
+      final isOn = target != null && !isPreparing;
+      final foreground = isOn ? Colors.white : const Color(0xFF4D4FE1);
+
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isPreparing
+                    ? null
+                    : () => Get.bottomSheet<void>(
+                        const _LanguageSheet(),
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        barrierColor: Colors.black.withValues(alpha: 0.55),
+                      ),
+                borderRadius: BorderRadius.circular(22),
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  decoration: BoxDecoration(
+                    color: isOn ? const Color(0xFF4D4FE1) : Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: isOn
+                          ? const Color(0xFF4D4FE1)
+                          : const Color(0xFFD9DCEA),
+                      width: 1.3,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isPreparing)
+                        const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF4D4FE1),
+                          ),
+                        )
+                      else
+                        Icon(
+                          Icons.translate_rounded,
+                          size: 17,
+                          color: foreground,
+                        ),
+                      const SizedBox(width: 7),
+                      Flexible(
+                        child: Text(
+                          isPreparing
+                              ? 'Downloading…'
+                              : isOn
+                              ? target.nativeLabel
+                              : 'Translate',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: foreground,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (!isPreparing) ...[
+                        const SizedBox(width: 3),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
+                          color: foreground,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFD9DCEA), width: 1.3),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _TextSizeButton(
+                  icon: Icons.text_decrease_rounded,
+                  tooltip: 'Smaller text',
+                  onTap: reading.canZoomOut ? reading.zoomOut : null,
+                ),
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    reading.textScaleLabel,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF1E2230),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                _TextSizeButton(
+                  icon: Icons.text_increase_rounded,
+                  tooltip: 'Bigger text',
+                  onTap: reading.canZoomIn ? reading.zoomIn : null,
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _TextSizeButton extends StatelessWidget {
+  const _TextSizeButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 38,
+          height: 36,
+          child: Icon(
+            icon,
+            size: 19,
+            color: onTap == null
+                ? const Color(0xFFC3C7D4)
+                : const Color(0xFF4D4FE1),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks the language questions are shown in, or back to the original.
+class _LanguageSheet extends StatelessWidget {
+  const _LanguageSheet();
+
+  void _select(QuizLanguage? language) {
+    Get.back<void>();
+    unawaited(QuizReadingController.instance.selectLanguage(language));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reading = QuizReadingController.instance;
+    final selected = reading.language.value;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 48,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE1E4EA),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            const Text(
+              'Translate Questions',
+              style: TextStyle(
+                color: Color(0xFF1D2433),
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Each language downloads once (about 30 MB) and then works offline. The original English stays visible below.',
+              style: TextStyle(
+                color: Color(0xFF697181),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  _LanguageTile(
+                    title: 'English',
+                    subtitle: 'Original',
+                    isSelected: selected == null,
+                    onTap: () => _select(null),
+                  ),
+                  for (final language in QuestionTranslationService.languages)
+                    _LanguageTile(
+                      title: language.nativeLabel,
+                      subtitle: language.label,
+                      isSelected: selected?.code == language.code,
+                      onTap: () => _select(language),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageTile extends StatelessWidget {
+  const _LanguageTile({
+    required this.title,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFEEEDFF) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF4D4FE1)
+                  : const Color(0xFFE6E4F5),
+              width: isSelected ? 1.8 : 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Color(0xFF202436),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFF8A90A2),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: Color(0xFF4D4FE1),
+                  size: 22,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TranslatingHint extends StatelessWidget {
+  const _TranslatingHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.8,
+            color: Color(0xFF4D4FE1),
+          ),
+        ),
+        SizedBox(width: 8),
+        Text(
+          'Translating…',
+          style: TextStyle(
+            color: Color(0xFF8A90A2),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The untranslated English, shown muted under a translation so the student
+/// can check any word the machine translation got wrong.
+class _OriginalText extends StatelessWidget {
+  const _OriginalText({
+    required this.text,
+    required this.fontSize,
+    this.showLabel = true,
+  });
+
+  final String text;
+  final double fontSize;
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = Text(
+      text,
+      style: TextStyle(
+        color: const Color(0xFF8A90A2),
+        fontSize: fontSize,
+        fontWeight: FontWeight.w500,
+        height: 1.45,
+      ),
+    );
+    if (!showLabel) {
+      return body;
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F7FC),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ORIGINAL',
+            style: TextStyle(
+              color: Color(0xFFA7ABBC),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          body,
+        ],
+      ),
+    );
+  }
+}
+
+/// A question or option image with a zoom button that opens it full screen.
+class _ZoomableQuizImage extends StatelessWidget {
+  const _ZoomableQuizImage({
+    required this.url,
+    required this.height,
+    required this.borderRadius,
+    required this.openOnTap,
+  });
+
+  final String url;
+  final double height;
+  final double borderRadius;
+
+  /// Whether a tap anywhere on the image opens the viewer. Off for option
+  /// images, where a tap has to keep selecting the option.
+  final bool openOnTap;
+
+  void _open(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.black,
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 160),
+        pageBuilder: (_, _, _) => _QuizImageViewer(url: url),
+        transitionsBuilder: (_, animation, _, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: Container(
+        height: height,
+        width: double.infinity,
+        color: const Color(0xFFF0F1F5),
+        // BoxFit.contain shows the whole image without cropping any edge.
+        child: Image.network(
+          url,
+          fit: BoxFit.contain,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return const Center(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A4FD9)),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return const Center(
+              child: Icon(Icons.image_not_supported, color: Color(0xFF9CA3AF)),
+            );
+          },
+        ),
+      ),
+    );
+
+    return Stack(
+      children: [
+        openOnTap
+            ? GestureDetector(onTap: () => _open(context), child: image)
+            : image,
+        Positioned(
+          right: 8,
+          bottom: 8,
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.55),
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: () => _open(context),
+              customBorder: const CircleBorder(),
+              child: const Padding(
+                padding: EdgeInsets.all(7),
+                child: Icon(
+                  Icons.zoom_in_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-screen image viewer: pinch to zoom, drag to pan, double-tap to zoom
+/// in on a spot or back out.
+class _QuizImageViewer extends StatefulWidget {
+  const _QuizImageViewer({required this.url});
+
+  final String url;
+
+  @override
+  State<_QuizImageViewer> createState() => _QuizImageViewerState();
+}
+
+class _QuizImageViewerState extends State<_QuizImageViewer> {
+  static const double _doubleTapScale = 2.5;
+
+  final TransformationController _transform = TransformationController();
+  Offset _doubleTapPosition = Offset.zero;
+
+  @override
+  void dispose() {
+    _transform.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap() {
+    if (_transform.value.getMaxScaleOnAxis() > 1.01) {
+      _transform.value = Matrix4.identity();
+      return;
+    }
+    final position = _doubleTapPosition;
+    _transform.value = Matrix4.identity()
+      ..translateByDouble(
+        -position.dx * (_doubleTapScale - 1),
+        -position.dy * (_doubleTapScale - 1),
+        0,
+        1,
+      )
+      ..scaleByDouble(_doubleTapScale, _doubleTapScale, 1, 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onDoubleTapDown: (details) =>
+                  _doubleTapPosition = details.localPosition,
+              onDoubleTap: _handleDoubleTap,
+              child: InteractiveViewer(
+                transformationController: _transform,
+                minScale: 1,
+                maxScale: 5,
+                child: Center(
+                  child: Image.network(
+                    widget.url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.image_not_supported,
+                      color: Colors.white54,
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.15),
+                    ),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Pinch or double-tap to zoom',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -619,6 +1231,14 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
       final isCorrect = question.correctOptionIndex == optionIndex;
       final showReviewColors =
           controller.isReviewMode.value && controller.hasAnswerKey;
+      final reading = QuizReadingController.instance;
+      final scale = reading.textScale.value;
+      final translation = reading.translationFor(question);
+      final originalText = question.options[optionIndex];
+      final translatedText =
+          translation != null && optionIndex < translation.options.length
+          ? translation.options[optionIndex]
+          : originalText;
 
       Color borderColor = const Color(0xFFE6E4F5);
       Color fillColor = Colors.white;
@@ -679,14 +1299,27 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Text(
-                      question.options[optionIndex],
-                      style: const TextStyle(
-                        color: Color(0xFF202436),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          translatedText,
+                          style: TextStyle(
+                            color: const Color(0xFF202436),
+                            fontSize: 15 * scale,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (translatedText != originalText) ...[
+                          const SizedBox(height: 4),
+                          _OriginalText(
+                            text: originalText,
+                            fontSize: 12 * scale,
+                            showLabel: false,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -694,41 +1327,13 @@ class _OptionTile extends GetView<QuestionAnswerShowController> {
               if (optionIndex < question.optionImageUrls.length &&
                   question.optionImageUrls[optionIndex].isNotEmpty) ...[
                 const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    height: 140,
-                    width: double.infinity,
-                    color: const Color(0xFFF0F1F5),
-                    // Show the full option image without cropping.
-                    child: Image.network(
-                      question.optionImageUrls[optionIndex],
-                      fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: SizedBox(
-                            width: 30,
-                            height: 30,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF3B82F6),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(
-                            Icons.image_not_supported,
-                            color: Color(0xFF9CA3AF),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                // Tapping the image still picks the option; the corner
+                // button opens the zoom viewer.
+                _ZoomableQuizImage(
+                  url: question.optionImageUrls[optionIndex],
+                  height: 140,
+                  borderRadius: 10,
+                  openOnTap: false,
                 ),
               ],
             ],

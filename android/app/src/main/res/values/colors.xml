@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accent applied to the small notification icon / app name in the shade.
+         Matches AppColors.primary. -->
+    <color name="notification_color">#4A4FD9</color>
+</resources>

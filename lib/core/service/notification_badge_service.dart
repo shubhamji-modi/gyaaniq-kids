@@ -49,6 +49,9 @@ class NotificationBadgeService with WidgetsBindingObserver {
   Future<void> refresh() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // SharedPreferences caches values per isolate: without a reload the
+      // pushes counted by the background isolate would never show up here.
+      await prefs.reload();
       await _apply(prefs.getInt(prefsKey) ?? 0, persist: false);
     } catch (e) {
       debugPrint('NotificationBadgeService: refresh failed -> $e');
@@ -72,6 +75,7 @@ class NotificationBadgeService with WidgetsBindingObserver {
   Future<void> _bump(int by) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
       final current = prefs.getInt(prefsKey) ?? 0;
       await _apply(current + by);
     } catch (e) {

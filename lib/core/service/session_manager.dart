@@ -9,7 +9,6 @@ import '../../routes/app_routes.dart';
 import 'api_service.dart';
 import 'app_features_service.dart';
 import 'device_token_service.dart';
-import 'notification_service.dart';
 
 class SessionManager extends GetxService {
   static SessionManager get instance => Get.find<SessionManager>();
@@ -119,11 +118,8 @@ class SessionManager extends GetxService {
     }
 
     // Fire-and-forget: links this device's FCM token to the new session.
-    unawaited(
-      DeviceTokenService.instance.sendToken(
-        NotificationService.instance.currentToken,
-      ),
-    );
+    // Login and register both end up here.
+    unawaited(DeviceTokenService.instance.sync());
 
     // Which sections are switched on is per class, so it belongs to the
     // session that just started — fetch it before the dashboard is built.

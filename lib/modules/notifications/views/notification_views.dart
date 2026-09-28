@@ -94,7 +94,7 @@ class _NotificationViewsState extends State<NotificationViews> {
       body: Column(
         children: [
           Obx(
-            () => _NotificationFilterBar(
+                () => _NotificationFilterBar(
               options: _availableTags(_controller.notifications),
               selectedTagKey: _selectedTagKey,
               onChanged: (key) => setState(() => _selectedTagKey = key),
@@ -185,7 +185,7 @@ class _NotificationFilterBar extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             ...options.map(
-              (option) => Padding(
+                  (option) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: _FilterChip(
                   label: option.label,
@@ -305,13 +305,8 @@ class _NotificationCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // Always exactly two lines in the list, however long the
-                  // admin's message is — the full text lives in the detail
-                  // dialog that tapping the card opens.
                   Text(
                     item.message,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppColors.textMuted2,
                       fontSize: 12.5,

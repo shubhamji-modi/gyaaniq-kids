@@ -47,9 +47,9 @@ class ApiService extends GetxService {
   ///BASE URL
   //////https://e-learn-api.pixelnx.in/login
   // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
-  static String temp_baseUrl = 'https://e-learn-api.pixelnx.in/api/temp-auth/';
+  static String temp_baseUrl = 'https://gyaaniqkids.pixelnx.in/api/temp-auth/';
   //static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
-  static String baseUrl = 'https://e-learn-api.pixelnx.in/api/v1/';
+  static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
   static const bool useTemporaryAuth = true;
 
   ///End points

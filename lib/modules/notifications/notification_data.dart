@@ -162,8 +162,8 @@ class NotificationRepository {
   }
 
   static Future<ApiResponse<NotificationModel>> fetchNotificationDetail(
-    String id,
-  ) async {
+      String id,
+      ) async {
     final response = await ApiService.instance.get<dynamic>(
       endpoint: ApiService.USER_NOTIFICATION_DETAIL.replaceFirst(':id', id),
       showLoader: false,

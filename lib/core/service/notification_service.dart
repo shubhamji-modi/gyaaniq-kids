@@ -102,8 +102,9 @@ class NotificationService {
 
       final token = await messaging.getToken();
       debugPrint('NotificationService: FCM token -> $token');
+      // Sent to the server by DeviceTokenService.sync() once the permission
+      // prompt is answered — see main().
       currentToken = token;
-      unawaited(DeviceTokenService.instance.sendToken(token));
 
       messaging.onTokenRefresh.listen((newToken) {
         debugPrint('NotificationService: FCM token refreshed -> $newToken');
@@ -114,13 +115,20 @@ class NotificationService {
       // Foreground: FCM does not show anything by itself, so display it
       // ourselves via flutter_local_notifications.
       FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-        final notification = message.notification;
-        if (notification == null) return;
+        // Same rule as the background handler, so a data-only push bumps the
+        // bell too instead of being counted only while the app is closed.
+        if (message.notification == null && message.data.isEmpty) return;
         await NotificationBadgeService.instance.increment();
+
+        final title =
+            message.notification?.title ?? message.data['title']?.toString();
+        final body =
+            message.notification?.body ?? message.data['body']?.toString();
+        if ((title ?? '').isEmpty && (body ?? '').isEmpty) return;
         await showNotification(
           id: message.hashCode,
-          title: notification.title ?? '',
-          body: notification.body ?? '',
+          title: title ?? '',
+          body: body ?? '',
           number: NotificationBadgeService.instance.unreadCount.value,
         );
       });
@@ -197,14 +205,7 @@ class NotificationService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
-      final isGranted = granted ?? true;
-      unawaited(
-        DeviceTokenService.instance.sendToken(
-          currentToken,
-          notificationsEnabled: isGranted,
-        ),
-      );
-      return isGranted;
+      return granted ?? true;
     } catch (e) {
       debugPrint('NotificationService: permission request failed -> $e');
       return false;
