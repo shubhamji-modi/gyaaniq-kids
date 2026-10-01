@@ -12,6 +12,7 @@ import 'core/service/ad_service.dart';
 import 'core/service/api_service.dart';
 import 'core/service/app_features_service.dart';
 import 'core/service/app_route_observer.dart';
+import 'core/service/auth_screen_content_service.dart';
 import 'core/service/explanation_catalog_service.dart';
 import 'core/service/device_token_service.dart';
 import 'core/service/notification_badge_service.dart';
@@ -80,6 +81,11 @@ Future<void> main() async {
       // admin had switched off. The fresh answer is fetched from the splash
       // screen, once there is a token.
       await AppFeaturesService.instance.init();
+
+      // Login / Register text and logo: draw from the cached copy at once,
+      // fetch the current one in the background.
+      await AuthScreenContentService.instance.init();
+      unawaited(AuthScreenContentService.instance.refreshAll());
 
       await NotificationBadgeService.instance.init();
       await NotificationService.instance.init();

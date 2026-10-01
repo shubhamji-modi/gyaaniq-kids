@@ -46,8 +46,12 @@ class AdService extends GetxService {
       return;
     }
 
+    // Android: always the fixed live unit below, in debug and release alike,
+    // whatever the admin config says. Other platforms keep the configured one.
     final configuredAdUnitId = config.quizResultRewardedAdUnitId;
-    final adUnitId = configuredAdUnitId.isNotEmpty
+    final adUnitId = defaultTargetPlatform == TargetPlatform.android
+        ? _androidRewardedAdUnitId
+        : configuredAdUnitId.isNotEmpty
         ? configuredAdUnitId
         : _debugRewardedAdUnitId;
     if (adUnitId.isEmpty) {
@@ -63,13 +67,17 @@ class AdService extends GetxService {
     }
   }
 
+  /// Live rewarded unit used for every Android build.
+  static const String _androidRewardedAdUnitId =
+      'ca-app-pub-4271519308644982/1285110127';
+
   String get _debugRewardedAdUnitId {
     if (!kDebugMode) {
       return '';
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return 'ca-app-pub-4271519308644982/1285110127'; //	ca-app-pub-4271519308644982/1285110127
+        return _androidRewardedAdUnitId;
       case TargetPlatform.iOS:
         return 'ca-app-pub-4271519308644982/1582291892';
       case TargetPlatform.fuchsia:

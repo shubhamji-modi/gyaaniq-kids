@@ -1,13 +1,17 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/models/auth_screen_content.dart';
 import '../../../core/service/api_service.dart';
+import '../../../core/service/auth_screen_content_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/values/constants.dart';
+import '../../../core/widgets/auth_screen_logo.dart';
 import '../../../routes/app_routes.dart';
 import '../../../core/service/secure_storage_service.dart';
 
@@ -37,14 +41,40 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   bool _registrationWentToBackground = false;
   int _otpRemainingSeconds = 600;
 
+  /// Server-side email error (400 invalid / 409 already linked), shown under
+  /// the email field until the student edits it.
+  final _emailFieldKey = GlobalKey<FormFieldState<String>>();
+  String? _emailServerError;
+
+  // Link taps; the URL is read at tap time so an admin edit applies at once.
+  late final TapGestureRecognizer _consentTap = TapGestureRecognizer()
+    ..onTap = () => openAuthScreenLink(
+      AuthScreenContentService.instance.register.value.consent.url,
+    );
+  late final TapGestureRecognizer _termsTap = TapGestureRecognizer()
+    ..onTap = () => openAuthScreenLink(
+      AuthScreenContentService.instance.login.value.footer.termsUrl,
+    );
+  late final TapGestureRecognizer _privacyTap = TapGestureRecognizer()
+    ..onTap = () => openAuthScreenLink(
+      AuthScreenContentService.instance.login.value.footer.privacyUrl,
+    );
+
+  bool get _isEmailVisible =>
+      AuthScreenContentService.instance.register.value.emailField.visible;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AuthScreenContentService.instance.refreshRegisterIfStale();
   }
 
   @override
   void dispose() {
+    _consentTap.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     _otpTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
@@ -86,6 +116,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
+        showEmail: _isEmailVisible,
+        confirmLabel:
+            AuthScreenContentService.instance.register.value.primaryButtonText,
       ),
     );
 
@@ -113,7 +146,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
       'name': _nameController.text.trim(),
       'phone': _phoneController.text.trim(),
     };
-    final email = _emailController.text.trim();
+    // Email is optional, and never sent while the admin has the field hidden.
+    final email = _isEmailVisible ? _emailController.text.trim() : '';
     if (email.isNotEmpty) {
       requestData['email'] = email;
     }
@@ -132,6 +166,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     setState(() => _isLoading = false);
 
     if (!response.success || response.data is! Map<String, dynamic>) {
+      if (email.isNotEmpty && _isEmailError(response)) {
+        // Shown under the email field so the student can fix or clear it.
+        _emailServerError = response.message;
+        _emailFieldKey.currentState?.validate();
+        return;
+      }
       _showMessage(response.message, isError: true);
       return;
     }
@@ -399,7 +439,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     return null;
   }
 
+  /// `400 "Enter a valid email address."` / `409 "This email is already
+  /// linked to another account."` from register belong under the email field.
+  bool _isEmailError(ApiResponse<dynamic> response) {
+    if (response.statusCode == 409) {
+      return true;
+    }
+    return response.statusCode == 400 &&
+        response.message.toLowerCase().contains('email');
+  }
+
   String? _validateEmail(String? value) {
+    if (_emailServerError != null) {
+      return _emailServerError;
+    }
     final email = value?.trim() ?? '';
     if (email.isEmpty) {
       return null;
@@ -447,7 +500,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
           child: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(10, 1, 10, 28),
-              child: _buildSignupForm(theme),
+              child: ListenableBuilder(
+                // The footer reuses the login screen's Terms / Privacy links.
+                listenable: Listenable.merge([
+                  AuthScreenContentService.instance.register,
+                  AuthScreenContentService.instance.login,
+                ]),
+                builder: (context, _) => _buildSignupForm(
+                  theme,
+                  AuthScreenContentService.instance.register.value,
+                  AuthScreenContentService.instance.login.value.footer,
+                ),
+              ),
             ),
           ),
         ),
@@ -455,12 +519,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     );
   }
 
-  Widget _buildSignupForm(ThemeData theme) {
+  Widget _buildSignupForm(
+    ThemeData theme,
+    RegisterPageData content,
+    AuthFooterText footer,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const SizedBox(height: 8),
-        const _AppMark(size: 84),
+        AuthScreenLogo(logoUrl: content.logoUrl, fit: BoxFit.fill),
         const SizedBox(height: 16),
         // const _Wordmark(),
         // const SizedBox(height: 4),
@@ -480,62 +548,72 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Please Enter Your Details to Continue',
-                  style: TextStyle(
+                Text(
+                  content.heading,
+                  style: const TextStyle(
                     color: _AuthColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.3,
                   ),
                 ),
-                // const SizedBox(height: 3),
-                // const Text(
-                //   'Fill in your details and we will send a 6-digit OTP to verify your number.',
-                //   style: TextStyle(
-                //     color: _AuthColors.textSecondary,
-                //     fontSize: 14,
-                //     fontWeight: FontWeight.w400,
-                //     height: 1.45,
-                //   ),
-                // ),
+                if (content.subheading.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    content.subheading,
+                    style: const TextStyle(
+                      color: _AuthColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 15),
-                const _FieldLabel('FULL NAME'),
+                _FieldLabel(content.nameField.label),
                 const SizedBox(height: 8),
                 _AuthTextField(
                   controller: _nameController,
-                  hintText: 'Alex Johnson',
+                  hintText: content.nameField.placeholder,
                   prefixIcon: Icons.person_outline_rounded,
                   validator: _validateName,
                   textCapitalization: TextCapitalization.words,
                 ),
+                if (content.emailField.visible) ...[
+                  const SizedBox(height: 18),
+                  _FieldLabel(content.emailField.label),
+                  const SizedBox(height: 8),
+                  _AuthTextField(
+                    fieldKey: _emailFieldKey,
+                    controller: _emailController,
+                    hintText: content.emailField.placeholder,
+                    prefixIcon: Icons.mail_outline_rounded,
+                    validator: _validateEmail,
+                    keyboardType: TextInputType.emailAddress,
+                    // Editing the email clears the server's complaint about it.
+                    onChanged: (_) => _emailServerError = null,
+                  ),
+                ],
                 const SizedBox(height: 18),
-                const _FieldLabel('EMAIL ADDRESS (OPTIONAL)'),
-                const SizedBox(height: 8),
-                _AuthTextField(
-                  controller: _emailController,
-                  hintText: 'alex@school.com',
-                  prefixIcon: Icons.mail_outline_rounded,
-                  validator: _validateEmail,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 18),
-                const _FieldLabel('MOBILE NUMBER'),
+                _FieldLabel(content.phoneField.label),
                 const SizedBox(height: 8),
                 _PhoneField(
                   controller: _phoneController,
                   validator: _validatePhone,
+                  hintText: content.phoneField.placeholder,
                 ),
                 const SizedBox(height: 16),
                 _OtpConsentCheckbox(
                   value: _otpConsentAccepted,
+                  consent: content.consent,
+                  linkRecognizer: _consentTap,
                   onChanged: (value) {
                     setState(() => _otpConsentAccepted = value ?? false);
                   },
                 ),
                 const SizedBox(height: 20),
                 _PrimaryButton(
-                  label: 'Send OTP',
+                  label: content.primaryButtonText,
                   icon: Icons.arrow_forward_rounded,
                   isLoading: _isLoading,
                   onPressed: _isLoading || !_otpConsentAccepted
@@ -543,10 +621,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
                       : _showReviewSheet,
                 ),
                 const SizedBox(height: 22),
-                const _OrDivider(label: 'ALREADY HAVE AN ACCOUNT?'),
-                const SizedBox(height: 18),
+                if (content.dividerText.isNotEmpty) ...[
+                  _OrDivider(label: content.dividerText),
+                  const SizedBox(height: 18),
+                ],
                 _SecondaryButton(
-                  label: 'Login',
+                  label: content.secondaryButtonText,
                   onPressed: _isLoading ? null : () => Get.back(),
                 ),
               ],
@@ -557,20 +637,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text.rich(
-            const TextSpan(
-              text: 'By continuing, you agree to our ',
+            TextSpan(
+              text: '${footer.text} ',
               children: [
                 TextSpan(
-                  text: 'Terms of Service',
-                  style: TextStyle(
+                  text: footer.termsLinkText,
+                  recognizer: _termsTap,
+                  style: const TextStyle(
                     color: _AuthColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextSpan(text: ' & '),
+                TextSpan(text: ' ${footer.joinText} '),
                 TextSpan(
-                  text: 'Privacy Policy',
-                  style: TextStyle(
+                  text: footer.privacyLinkText,
+                  recognizer: _privacyTap,
+                  style: const TextStyle(
                     color: _AuthColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
@@ -785,36 +867,6 @@ OutlineInputBorder _inputBorder(Color color, [double width = 1]) {
   );
 }
 
-class _AppMark extends StatelessWidget {
-  const _AppMark({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      height: 210,
-      padding: const EdgeInsets.all(4),
-      // decoration: BoxDecoration(
-      //   color: Colors.white,
-      //   borderRadius: BorderRadius.circular(size * 0.26),
-      //   boxShadow: [
-      //     BoxShadow(
-      //       color: _AuthColors.cardShadow.withValues(alpha: 0.18),
-      //       blurRadius: 24,
-      //       offset: const Offset(0, 10),
-      //     ),
-      //   ],
-      // ),
-      child: ClipRRect(
-        // borderRadius: BorderRadius.circular(size * 0.22),
-        child: Image.asset('assets/icon/app_icon.png', fit: BoxFit.fill),
-      ),
-    );
-  }
-}
-
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
@@ -875,23 +927,44 @@ class _OrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: _AuthColors.border, height: 1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: _AuthColors.textMuted,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
+    // The label is a fixed (non-flex) child so the two rules share the
+    // leftover space equally and it stays centred; a long admin label is
+    // scaled down to stay on one line instead of wrapping.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Row(
+          children: [
+            const Expanded(
+              child: Divider(color: _AuthColors.border, height: 1),
             ),
-          ),
-        ),
-        const Expanded(child: Divider(color: _AuthColors.border, height: 1)),
-      ],
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth * 0.8,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: _AuthColors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Expanded(
+              child: Divider(color: _AuthColors.border, height: 1),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -920,7 +993,9 @@ class _AuthTextField extends StatelessWidget {
     required this.controller,
     required this.hintText,
     required this.prefixIcon,
+    this.fieldKey,
     this.validator,
+    this.onChanged,
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
   });
@@ -928,15 +1003,19 @@ class _AuthTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
   final IconData prefixIcon;
+  final GlobalKey<FormFieldState<String>>? fieldKey;
   final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      key: fieldKey,
       controller: controller,
       validator: validator,
+      onChanged: onChanged,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
@@ -975,10 +1054,15 @@ class _AuthTextField extends StatelessWidget {
 }
 
 class _PhoneField extends StatelessWidget {
-  const _PhoneField({required this.controller, required this.validator});
+  const _PhoneField({
+    required this.controller,
+    required this.validator,
+    required this.hintText,
+  });
 
   final TextEditingController controller;
   final String? Function(String?) validator;
+  final String hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -1000,7 +1084,7 @@ class _PhoneField extends StatelessWidget {
       decoration: InputDecoration(
         filled: true,
         fillColor: _AuthColors.fieldBackground,
-        hintText: 'Enter 10-digit number',
+        hintText: hintText,
         hintStyle: const TextStyle(
           color: _AuthColors.textMuted,
           fontSize: 15,
@@ -1114,9 +1198,16 @@ class _OtpBox extends StatelessWidget {
 }
 
 class _OtpConsentCheckbox extends StatelessWidget {
-  const _OtpConsentCheckbox({required this.value, required this.onChanged});
+  const _OtpConsentCheckbox({
+    required this.value,
+    required this.consent,
+    required this.linkRecognizer,
+    required this.onChanged,
+  });
 
   final bool value;
+  final AuthConsentText consent;
+  final TapGestureRecognizer linkRecognizer;
   final ValueChanged<bool?> onChanged;
 
   @override
@@ -1145,21 +1236,22 @@ class _OtpConsentCheckbox extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => onChanged(!value),
-            child: const Text.rich(
+            child: Text.rich(
               TextSpan(
-                text: 'I accept the ',
+                text: '${consent.text} ',
                 children: [
+                  // Tapping the link opens it; tapping the rest toggles.
                   TextSpan(
-                    text: 'Privacy Policy',
-                    style: TextStyle(
+                    text: consent.linkText,
+                    recognizer: linkRecognizer,
+                    style: const TextStyle(
                       color: _AuthColors.primary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  TextSpan(text: '.'),
                 ],
               ),
-              style: TextStyle(
+              style: const TextStyle(
                 color: _AuthColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -1233,13 +1325,17 @@ class _PrimaryButton extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 0.2,
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
                       if (icon != null) ...[
@@ -1292,11 +1388,15 @@ class _SignupReviewSheet extends StatelessWidget {
     required this.name,
     required this.email,
     required this.phone,
+    required this.showEmail,
+    required this.confirmLabel,
   });
 
   final String name;
   final String email;
   final String phone;
+  final bool showEmail;
+  final String confirmLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1373,12 +1473,14 @@ class _SignupReviewSheet extends StatelessWidget {
               value: name,
             ),
             const SizedBox(height: 12),
-            _ReviewRow(
-              icon: Icons.mail_outline_rounded,
-              label: 'Email (Optional)',
-              value: email.isEmpty ? 'Not provided' : email,
-            ),
-            const SizedBox(height: 12),
+            if (showEmail) ...[
+              _ReviewRow(
+                icon: Icons.mail_outline_rounded,
+                label: 'Email (Optional)',
+                value: email.isEmpty ? 'Not provided' : email,
+              ),
+              const SizedBox(height: 12),
+            ],
             _ReviewRow(
               icon: Icons.phone_android_rounded,
               label: 'Mobile Number',
@@ -1415,7 +1517,7 @@ class _SignupReviewSheet extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _PrimaryButton(
-                    label: 'Send OTP',
+                    label: confirmLabel,
                     icon: Icons.arrow_forward_rounded,
                     isLoading: false,
                     onPressed: () => Navigator.of(context).pop(true),

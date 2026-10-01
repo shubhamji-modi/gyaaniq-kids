@@ -1,13 +1,17 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/models/auth_screen_content.dart';
 import '../../../core/service/api_service.dart';
+import '../../../core/service/auth_screen_content_service.dart';
 import '../../../core/service/session_manager.dart';
 import '../../../core/values/constants.dart';
+import '../../../core/widgets/auth_screen_logo.dart';
 import '../../../routes/app_routes.dart';
 import '../../../core/service/secure_storage_service.dart';
 
@@ -37,8 +41,26 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _otpConsentAccepted = true;
   int _otpRemainingSeconds = 600;
 
+  // Footer links; the URL is read at tap time so an admin edit applies at once.
+  late final TapGestureRecognizer _termsTap = TapGestureRecognizer()
+    ..onTap = () => openAuthScreenLink(
+      AuthScreenContentService.instance.login.value.footer.termsUrl,
+    );
+  late final TapGestureRecognizer _privacyTap = TapGestureRecognizer()
+    ..onTap = () => openAuthScreenLink(
+      AuthScreenContentService.instance.login.value.footer.privacyUrl,
+    );
+
+  @override
+  void initState() {
+    super.initState();
+    AuthScreenContentService.instance.refreshLoginIfStale();
+  }
+
   @override
   void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
     _otpTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
@@ -534,7 +556,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
-              child: _buildLoginForm(theme),
+              child: ValueListenableBuilder<LoginPageData>(
+                valueListenable: AuthScreenContentService.instance.login,
+                builder: (context, content, _) =>
+                    _buildLoginForm(theme, content),
+              ),
             ),
           ),
         ),
@@ -542,13 +568,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildLoginForm(ThemeData theme) {
+  Widget _buildLoginForm(ThemeData theme, LoginPageData content) {
+    final footer = content.footer;
     return Column(
       key: const ValueKey('login'),
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const SizedBox(height: 0),
-        const _AppMark(size: 150),
+        AuthScreenLogo(logoUrl: content.logoUrl),
         const SizedBox(height: 16),
         // const _Wordmark(),
         // const SizedBox(height: 4),
@@ -568,37 +595,40 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Welcome Back!',
-                  style: TextStyle(
+                Text(
+                  content.heading,
+                  style: const TextStyle(
                     color: _AuthColors.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 3),
-                const Text(
-                  'Continue your smart learning journey.',
-                  style: TextStyle(
-                    color: _AuthColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    height: 1.45,
+                if (content.subheading.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    content.subheading,
+                    style: const TextStyle(
+                      color: _AuthColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1.45,
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 22),
-                const _FieldLabel('MOBILE NUMBER'),
+                _FieldLabel(content.phoneField.label),
                 const SizedBox(height: 8),
                 _PhoneField(
                   controller: _phoneController,
                   validator: _validatePhone,
+                  hintText: content.phoneField.placeholder,
                 ),
                 const SizedBox(height: 8),
                 const Padding(padding: EdgeInsets.only(left: 4)),
                 const SizedBox(height: 20),
                 _PrimaryButton(
-                  label: 'Continue with OTP',
+                  label: content.primaryButtonText,
                   icon: Icons.arrow_forward_rounded,
                   isLoading: _isOtpLoading,
                   onPressed: _isOtpLoading || !_otpConsentAccepted
@@ -606,10 +636,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       : _sendOtp,
                 ),
                 const SizedBox(height: 22),
-                const _OrDivider(label: 'OR CONTINUE WITH'),
-                const SizedBox(height: 22),
+                if (content.dividerText.isNotEmpty) ...[
+                  _OrDivider(label: content.dividerText),
+                  const SizedBox(height: 22),
+                ],
                 _SecondaryButton(
-                  label: 'Create new account',
+                  label: content.secondaryButtonText,
                   onPressed: () => Get.toNamed(AppRoutes.createAccount),
                 ),
               ],
@@ -620,20 +652,22 @@ class _LoginScreenState extends State<LoginScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text.rich(
-            const TextSpan(
-              text: 'By continuing, you agree to our \n',
+            TextSpan(
+              text: '${footer.text} \n',
               children: [
                 TextSpan(
-                  text: 'Terms of Service',
-                  style: TextStyle(
+                  text: footer.termsLinkText,
+                  recognizer: _termsTap,
+                  style: const TextStyle(
                     color: _AuthColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextSpan(text: ' & '),
+                TextSpan(text: ' ${footer.joinText} '),
                 TextSpan(
-                  text: 'Privacy Policy',
-                  style: TextStyle(
+                  text: footer.privacyLinkText,
+                  recognizer: _privacyTap,
+                  style: const TextStyle(
                     color: _AuthColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
@@ -853,26 +887,6 @@ const LinearGradient _backgroundGradient = LinearGradient(
   stops: [0.0, 0.45, 1.0],
 );
 
-class _AppMark extends StatelessWidget {
-  const _AppMark({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      height: 210,
-      padding: const EdgeInsets.all(4),
-
-      child: ClipRRect(
-        // borderRadius: BorderRadius.circular(size * 0.22),
-        child: Image.asset('assets/icon/app_icon.png'),
-      ),
-    );
-  }
-}
-
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
@@ -933,23 +947,44 @@ class _OrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: _AuthColors.border, height: 1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: _AuthColors.textMuted,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
+    // The label is a fixed (non-flex) child so the two rules share the
+    // leftover space equally and it stays centred; a long admin label is
+    // scaled down to stay on one line instead of wrapping.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Row(
+          children: [
+            const Expanded(
+              child: Divider(color: _AuthColors.border, height: 1),
             ),
-          ),
-        ),
-        const Expanded(child: Divider(color: _AuthColors.border, height: 1)),
-      ],
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth * 0.8,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: _AuthColors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Expanded(
+              child: Divider(color: _AuthColors.border, height: 1),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -974,10 +1009,15 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _PhoneField extends StatelessWidget {
-  const _PhoneField({required this.controller, required this.validator});
+  const _PhoneField({
+    required this.controller,
+    required this.validator,
+    required this.hintText,
+  });
 
   final TextEditingController controller;
   final String? Function(String?) validator;
+  final String hintText;
 
   OutlineInputBorder _border(Color color, [double width = 1]) {
     return OutlineInputBorder(
@@ -1006,7 +1046,7 @@ class _PhoneField extends StatelessWidget {
       decoration: InputDecoration(
         filled: true,
         fillColor: _AuthColors.fieldBackground,
-        hintText: 'Enter 10-digit number',
+        hintText: hintText,
         hintStyle: const TextStyle(
           color: _AuthColors.textMuted,
           fontSize: 15,
@@ -1186,13 +1226,17 @@ class _PrimaryButton extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 0.2,
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
                       if (icon != null) ...[

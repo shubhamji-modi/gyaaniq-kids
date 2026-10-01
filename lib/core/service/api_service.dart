@@ -142,6 +142,8 @@ class ApiService extends GetxService {
   static const String USER_NOTIFICATIONS = 'user/notifications';
   static const String USER_NOTIFICATION_DETAIL = 'user/notifications/:id';
   static const String APP_FEATURES = 'user/app-features';
+  static const String APP_SCREEN_LOGIN = 'app-screens/login';
+  static const String APP_SCREEN_REGISTER = 'app-screens/register';
 
   @override
   void onInit() {

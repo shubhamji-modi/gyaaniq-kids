@@ -45,7 +45,7 @@ class NotificationBadgeService with WidgetsBindingObserver {
     }
   }
 
-  /// Re-reads the stored count and republishes it to the icon + the bell.
+    /// Re-reads the stored count and republishes it to the icon + the bell.
   Future<void> refresh() async {
     try {
       final prefs = await SharedPreferences.getInstance();
