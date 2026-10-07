@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/appcolors.dart';
 import '../../../routes/app_routes.dart';
+import '../../library/library_navigation.dart';
 import '../notification_data.dart';
 
 class NotificationController extends GetxController {
@@ -83,6 +84,10 @@ class NotificationController extends GetxController {
   /// dashboard.
   static String? _pendingNotificationId;
 
+  /// Library lesson a tapped push points at (`linkType: libraryLesson`),
+  /// parked the same way as [_pendingNotificationId].
+  static String? _pendingLibraryLessonId;
+
   /// True once the app is past splash/auth and safe to navigate from.
   static bool _isAppReady = false;
 
@@ -90,6 +95,17 @@ class NotificationController extends GetxController {
   static void handlePushTap(String id) {
     if (id.trim().isEmpty) return;
     _pendingNotificationId = id.trim();
+    if (_isAppReady) {
+      unawaited(_consumePending());
+    }
+  }
+
+  /// Entry point for a tapped Library push: opens that lesson rather than the
+  /// notification text.
+  static void handleLibraryLessonTap(String lessonId) {
+    if (lessonId.trim().isEmpty) return;
+    _pendingLibraryLessonId = lessonId.trim();
+    _pendingNotificationId = null;
     if (_isAppReady) {
       unawaited(_consumePending());
     }
@@ -106,9 +122,17 @@ class NotificationController extends GetxController {
   static void reset() {
     _isAppReady = false;
     _pendingNotificationId = null;
+    _pendingLibraryLessonId = null;
   }
 
   static Future<void> _consumePending() async {
+    final lessonId = _pendingLibraryLessonId;
+    if (lessonId != null) {
+      _pendingLibraryLessonId = null;
+      unawaited(LibraryNavigation.openLesson(lessonId));
+      return;
+    }
+
     final id = _pendingNotificationId;
     if (id == null) return;
     _pendingNotificationId = null;

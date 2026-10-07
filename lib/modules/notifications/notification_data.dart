@@ -35,6 +35,8 @@ String _defaultLabelFor(String type) {
       return 'Ranking';
     case 'daily-quiz':
       return 'Daily Quiz';
+    case 'library-lesson':
+      return 'Library';
     default:
       if (type.isEmpty) return 'General';
       return type
@@ -57,6 +59,8 @@ IconData _defaultIconFor(String type) {
       return Icons.emoji_events_rounded;
     case 'daily-quiz':
       return Icons.quiz_rounded;
+    case 'library-lesson':
+      return Icons.local_library_rounded;
     default:
       return Icons.notifications_rounded;
   }
@@ -73,7 +77,13 @@ class NotificationModel {
     required this.message,
     required this.time,
     required this.isRead,
+    this.linkType = '',
+    this.linkId = '',
   });
+
+  /// Push `linkType` that lets the notification open the screen it is about
+  /// (`libraryLesson` → the Library lesson [linkId]).
+  static const String libraryLessonLink = 'libraryLesson';
 
   final String id;
 
@@ -89,6 +99,11 @@ class NotificationModel {
   final String message;
   final String time;
   final bool isRead;
+  final String linkType;
+  final String linkId;
+
+  bool get isLibraryLesson =>
+      linkType == libraryLessonLink && linkId.isNotEmpty;
 
   factory NotificationModel.fromApi(Map<String, dynamic> json) {
     final type = json['type']?.toString() ?? '';
@@ -96,6 +111,10 @@ class NotificationModel {
     final sentAt = DateTime.tryParse(
       json['sentAt']?.toString() ?? '',
     )?.toLocal();
+    // The link may sit at the top level or under `data`, like the push.
+    final data = json['data'] is Map ? json['data'] as Map : const {};
+    final linkType = (json['linkType'] ?? data['linkType'])?.toString() ?? '';
+    final linkId = (json['linkId'] ?? data['linkId'])?.toString() ?? '';
 
     return NotificationModel(
       id: json['_id']?.toString() ?? '',
@@ -107,6 +126,8 @@ class NotificationModel {
       message: json['body']?.toString() ?? '',
       time: sentAt == null ? '' : _timeAgo(sentAt),
       isRead: true,
+      linkType: linkType,
+      linkId: linkId,
     );
   }
 
@@ -121,6 +142,8 @@ class NotificationModel {
       message: message,
       time: time,
       isRead: isRead ?? this.isRead,
+      linkType: linkType,
+      linkId: linkId,
     );
   }
 }

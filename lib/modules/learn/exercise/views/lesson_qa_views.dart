@@ -17,11 +17,18 @@ class LessonQaViews extends StatefulWidget {
     required this.lessonId,
     this.lessonTitle = '',
     this.accent = const Color(0xFF4A4FD9),
+    this.endpoint,
+    this.screenTitle = 'Exercise',
   });
 
   final String lessonId;
   final String lessonTitle;
   final Color accent;
+
+  /// Where the rows come from when not the NCERT lesson Q&A (same row shape).
+  /// Search only covers NCERT lessons, so it is hidden then.
+  final String? endpoint;
+  final String screenTitle;
 
   @override
   State<LessonQaViews> createState() => _LessonQaViewsState();
@@ -40,6 +47,7 @@ class _LessonQaViewsState extends State<LessonQaViews> {
       LessonQaController(
         lessonId: widget.lessonId,
         lessonTitle: widget.lessonTitle,
+        endpoint: widget.endpoint,
       ),
       tag: _tag,
     );
@@ -71,24 +79,27 @@ class _LessonQaViewsState extends State<LessonQaViews> {
         child: Column(
           children: [
             LearnTopBar(
-              title: 'Exercise',
-              trailing: IconButton(
-                padding: EdgeInsets.zero,
-                onPressed: () => Get.to(
-                  () => LessonQaSearchViews(
-                    lessonId: widget.lessonId,
-                    scopeTitle: controller.resolvedLessonTitle.value.isEmpty
-                        ? widget.lessonTitle
-                        : controller.resolvedLessonTitle.value,
-                    accent: widget.accent,
-                  ),
-                ),
-                icon: Icon(
-                  Icons.search_rounded,
-                  color: widget.accent,
-                  size: 24,
-                ),
-              ),
+              title: widget.screenTitle,
+              trailing: widget.endpoint != null
+                  ? null
+                  : IconButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Get.to(
+                        () => LessonQaSearchViews(
+                          lessonId: widget.lessonId,
+                          scopeTitle:
+                              controller.resolvedLessonTitle.value.isEmpty
+                              ? widget.lessonTitle
+                              : controller.resolvedLessonTitle.value,
+                          accent: widget.accent,
+                        ),
+                      ),
+                      icon: Icon(
+                        Icons.search_rounded,
+                        color: widget.accent,
+                        size: 24,
+                      ),
+                    ),
             ),
             Expanded(
               child: Obx(() {
@@ -122,7 +133,11 @@ class _LessonQaViewsState extends State<LessonQaViews> {
 
                 return Column(
                   children: [
-                    _BookHeader(title: title, accent: widget.accent),
+                    _BookHeader(
+                      title: title,
+                      label: widget.screenTitle.toUpperCase(),
+                      accent: widget.accent,
+                    ),
                     Expanded(
                       child: PageView.builder(
                         controller: _pageController,
@@ -133,6 +148,7 @@ class _LessonQaViewsState extends State<LessonQaViews> {
                             controller: controller,
                             item: controller.rows[index],
                             accent: widget.accent,
+                            showSource: widget.endpoint == null,
                           );
                         },
                       ),
@@ -140,10 +156,8 @@ class _LessonQaViewsState extends State<LessonQaViews> {
                     _BookNavBar(
                       controller: controller,
                       accent: widget.accent,
-                      onPrev: () =>
-                          _goToPage(controller.currentPage.value - 1),
-                      onNext: () =>
-                          _goToPage(controller.currentPage.value + 1),
+                      onPrev: () => _goToPage(controller.currentPage.value - 1),
+                      onNext: () => _goToPage(controller.currentPage.value + 1),
                     ),
                   ],
                 );
@@ -157,9 +171,14 @@ class _LessonQaViewsState extends State<LessonQaViews> {
 }
 
 class _BookHeader extends StatelessWidget {
-  const _BookHeader({required this.title, required this.accent});
+  const _BookHeader({
+    required this.title,
+    required this.accent,
+    this.label = 'EXERCISE',
+  });
 
   final String title;
+  final String label;
   final Color accent;
 
   @override
@@ -170,7 +189,7 @@ class _BookHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'EXERCISE',
+            label,
             style: TextStyle(
               color: accent,
               fontSize: 12,
@@ -201,11 +220,15 @@ class _QaPage extends StatelessWidget {
     required this.controller,
     required this.item,
     required this.accent,
+    this.showSource = true,
   });
 
   final LessonQaController controller;
   final LessonQaItem item;
   final Color accent;
+
+  /// The "From Textbook" / "Teacher" tag only means something for NCERT rows.
+  final bool showSource;
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +274,7 @@ class _QaPage extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Question ${item.sequence}',
+                    'Question ${item.numberLabel}',
                     style: const TextStyle(
                       color: Color(0xFF6B7080),
                       fontSize: 13,
@@ -259,28 +282,29 @@ class _QaPage extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: item.isPdf
-                          ? const Color(0xFFEDEBFF)
-                          : const Color(0xFFE3F6EC),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      item.sourceLabel,
-                      style: TextStyle(
+                  if (showSource)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
                         color: item.isPdf
-                            ? const Color(0xFF5A3FE0)
-                            : const Color(0xFF17935F),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                            ? const Color(0xFFEDEBFF)
+                            : const Color(0xFFE3F6EC),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        item.sourceLabel,
+                        style: TextStyle(
+                          color: item.isPdf
+                              ? const Color(0xFF5A3FE0)
+                              : const Color(0xFF17935F),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

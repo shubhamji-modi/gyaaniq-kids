@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/service/app_features_service.dart';
 import '../../../core/service/notification_badge_service.dart';
 import '../../../core/theme/appcolors.dart';
+import '../../library/library_navigation.dart';
 import '../controller/notification_controller.dart';
 import '../notification_data.dart';
 
@@ -59,6 +61,12 @@ class _NotificationViewsState extends State<NotificationViews> {
   }
 
   void _openNotification(NotificationModel item) {
+    // A Library notification is about one lesson: open that lesson.
+    if (item.isLibraryLesson &&
+        AppFeaturesService.instance.isLibraryLessonsEnabled) {
+      LibraryNavigation.openLesson(item.linkId);
+      return;
+    }
     NotificationController.openDetail(item.id);
   }
 

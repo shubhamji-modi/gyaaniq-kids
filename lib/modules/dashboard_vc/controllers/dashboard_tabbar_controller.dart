@@ -26,6 +26,7 @@ import '../../fun_fact/controller/fun_fact_bg_sound_player.dart';
 import '../../fun_fact/controller/fun_fact_controller.dart';
 import '../../learn/homework/views/learn_homework_views.dart';
 import '../../learn/notes/views/learn_notes_views.dart';
+import '../../library/library_navigation.dart';
 import '../../menubar/xp_and_streak/xp_and_streak_show_views.dart';
 import '../../../core/values/constants.dart';
 import '../../../core/utils/text_sanitizer.dart';
@@ -156,6 +157,15 @@ class DashboardTabbarController extends GetxController {
         icon: Icons.note_alt_outlined,
         accent: Color(0xFFFFA615),
         iconBackground: Color(0xFFFFE6B7),
+      ),
+    // Student Library: lessons from other publications, admin-switchable.
+    if (AppFeaturesService.instance.isLibraryLessonsEnabled)
+      const StudyToolData(
+        title: 'Library',
+        subtitle: 'Lessons from other books',
+        icon: Icons.local_library_outlined,
+        accent: Color(0xFF17935F),
+        iconBackground: Color(0xFFDDF5E8),
       ),
     if (AppFeaturesService.instance.isHomeworkEnabled)
       const StudyToolData(
@@ -1068,6 +1078,11 @@ class DashboardTabbarController extends GetxController {
 
     if (tool.title == 'Homework') {
       Get.to(() => const LearnHomeworkViews());
+      return;
+    }
+
+    if (tool.title == 'Library') {
+      LibraryNavigation.openLibrary();
       return;
     }
 

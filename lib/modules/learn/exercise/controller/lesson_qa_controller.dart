@@ -9,10 +9,18 @@ import '../../../../core/service/api_service.dart';
 /// question appears in the textbook, using server-side pagination. New pages are
 /// appended so the list can grow as the student scrolls.
 class LessonQaController extends GetxController {
-  LessonQaController({required this.lessonId, this.lessonTitle = ''});
+  LessonQaController({
+    required this.lessonId,
+    this.lessonTitle = '',
+    this.endpoint,
+  });
 
   final String lessonId;
   final String lessonTitle;
+
+  /// Overrides the NCERT `by-lesson` endpoint for sources that send the same
+  /// row shape (e.g. Student Library lessons).
+  final String? endpoint;
 
   final RxBool isLoading = true.obs;
   final RxBool isLoadingMore = false.obs;
@@ -89,6 +97,7 @@ class LessonQaController extends GetxController {
         lessonId: lessonId,
         page: _page,
         limit: _limit,
+        endpoint: endpoint,
       );
 
       if (!response.success || response.data == null) {
@@ -141,18 +150,21 @@ class LessonQaController extends GetxController {
 
 /// Data-layer access for student lesson Q&A.
 class LessonQaRepository {
+  /// One lesson's rows, in textbook order.
+  ///
+  /// [endpoint] replaces the NCERT one for other sources with the same rows.
   static Future<ApiResponse<LessonQaPage>> fetchByLesson({
     required String lessonId,
     int page = 1,
     int limit = 20,
+    String? endpoint,
   }) async {
-    final endpoint = ApiService.LESSON_QA_BY_LESSON.replaceFirst(
-      ':lessonId',
-      lessonId,
-    );
+    final resolved =
+        endpoint ??
+        ApiService.LESSON_QA_BY_LESSON.replaceFirst(':lessonId', lessonId);
 
     final response = await ApiService.instance.get<dynamic>(
-      endpoint: endpoint,
+      endpoint: resolved,
       showLoader: false,
       fromJson: (json) => json,
       queryParameters: {'page': page, 'limit': limit},
@@ -203,8 +215,8 @@ class LessonQaRepository {
     // still scopes results).
     const allowedClasses = {'5th', '6th', '7th', '8th', '9th', '10th'};
     final normalizedClass = classLevel?.trim().toLowerCase();
-    final classFilter = normalizedClass != null &&
-            allowedClasses.contains(normalizedClass)
+    final classFilter =
+        normalizedClass != null && allowedClasses.contains(normalizedClass)
         ? normalizedClass
         : null;
 
@@ -311,10 +323,14 @@ class LessonQaItem {
     required this.classLevel,
     required this.lessonId,
     required this.lessonTitle,
+    this.subSequence = '',
   });
 
   final String id;
   final int sequence;
+
+  /// Part of a numbered question (e.g. `a` in 1(a)); empty when not split.
+  final String subSequence;
   final String question;
 
   /// Plain-text answer (HTML stripped) — used for search matching and the
@@ -366,8 +382,13 @@ class LessonQaItem {
         fallback: lessonRaw is String ? lessonRaw : '',
       ),
       lessonTitle: _safeText(lesson['title']),
+      subSequence: _safeText(json['subSequence']),
     );
   }
+
+  /// "1" or "1(a)".
+  String get numberLabel =>
+      subSequence.isEmpty ? '$sequence' : '$sequence($subSequence)';
 
   bool get isPdf => source == 'pdf';
 

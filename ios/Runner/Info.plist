@@ -29,7 +29,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera is used to capture your profile photo and join live classes.</string>
+	<string>Camera is used to capture your profile photo, scan lesson pages for the Library and join live classes.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone is used to speak during live classes.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -67,7 +67,10 @@ class NotificationService {
       );
       const initSettings = InitializationSettings(android: androidSettings);
 
-      await _plugin.initialize(initSettings);
+      await _plugin.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onLocalNotificationTap,
+      );
 
       const androidChannel = AndroidNotificationChannel(
         _channelId,
@@ -130,6 +133,7 @@ class NotificationService {
           title: title ?? '',
           body: body ?? '',
           number: NotificationBadgeService.instance.unreadCount.value,
+          payload: _libraryPayload(message.data),
         );
       });
 
@@ -185,9 +189,40 @@ class NotificationService {
     }
   }
 
+  /// Payload of a foreground notification that should open a Library lesson
+  /// when tapped (`data.linkType = "libraryLesson"`, `data.linkId`).
+  static String? _libraryPayload(Map<String, dynamic> data) {
+    final linkId = data['linkId']?.toString() ?? '';
+    if (data['linkType']?.toString() != _libraryLinkType || linkId.isEmpty) {
+      return null;
+    }
+    return '$_libraryLinkType:$linkId';
+  }
+
+  static const String _libraryLinkType = 'libraryLesson';
+
+  /// Tap on a notification we drew ourselves while the app was open.
+  void _onLocalNotificationTap(NotificationResponse response) {
+    final payload = response.payload ?? '';
+    if (!payload.startsWith('$_libraryLinkType:')) return;
+    unawaited(NotificationBadgeService.instance.clear());
+    NotificationController.handleLibraryLessonTap(
+      payload.substring(_libraryLinkType.length + 1),
+    );
+  }
+
   void _handleNotificationTap(RemoteMessage message) {
     // Tapping a push counts as reading it.
     unawaited(NotificationBadgeService.instance.clear());
+
+    // Library pushes are about one lesson: open it, not the notification.
+    final linkId = message.data['linkId']?.toString() ?? '';
+    if (message.data['linkType']?.toString() == _libraryLinkType &&
+        linkId.isNotEmpty) {
+      NotificationController.handleLibraryLessonTap(linkId);
+      return;
+    }
+
     final notificationId = message.data['notificationId']?.toString();
     if (notificationId == null || notificationId.isEmpty) return;
     // Never opens the detail straight away: when the app was killed this runs

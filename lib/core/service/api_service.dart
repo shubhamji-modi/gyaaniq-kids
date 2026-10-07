@@ -46,10 +46,10 @@ class ApiService extends GetxService {
 
   ///BASE URL
   //////https://e-learn-api.pixelnx.in/login
-  // static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
-  static String temp_baseUrl = 'https://gyaaniqkids.pixelnx.in/api/temp-auth/';
+  static String baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/v1/';
+  static String temp_baseUrl = 'https://clumpish-synchronistically-fatima.ngrok-free.dev/api/temp-auth/';
   //static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
-  static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
+  // static String baseUrl = 'https://gyaaniqkids.pixelnx.in/api/v1/';
   static const bool useTemporaryAuth = true;
 
   ///End points
@@ -144,6 +144,34 @@ class ApiService extends GetxService {
   static const String APP_FEATURES = 'user/app-features';
   static const String APP_SCREEN_LOGIN = 'app-screens/login';
   static const String APP_SCREEN_REGISTER = 'app-screens/register';
+
+  // Student Library — lessons from other publications (students only).
+  static const String LIBRARY_META = 'user/library/meta';
+  static const String LIBRARY_PUBLICATIONS = 'user/library/publications';
+  static const String LIBRARY_PUBLICATION_REQUESTS =
+      'user/library/publication-requests';
+  static const String LIBRARY_LESSONS = 'user/library/lessons';
+  static const String LIBRARY_LESSON = 'user/library/lessons/:id';
+  static const String LIBRARY_LESSON_REQUESTS = 'user/library/lessons/requests';
+  static const String LIBRARY_LESSON_FOLLOW = 'user/library/lessons/:id/follow';
+  static const String LIBRARY_MY_REQUESTS = 'user/library/my/requests';
+  static const String LIBRARY_MY_UPLOADS = 'user/library/my/uploads';
+  static const String LIBRARY_MY_FOLLOWING = 'user/library/my/following';
+  static const String LIBRARY_START_UPLOAD =
+      'user/library/lessons/:id/upload-session';
+  static const String LIBRARY_SESSION = 'user/library/upload-sessions/:sid';
+  static const String LIBRARY_SESSION_PAGES =
+      'user/library/upload-sessions/:sid/pages';
+  static const String LIBRARY_SESSION_PAGE =
+      'user/library/upload-sessions/:sid/pages/:pageId';
+  static const String LIBRARY_SESSION_ORDER =
+      'user/library/upload-sessions/:sid/order';
+  static const String LIBRARY_SESSION_SUBMIT =
+      'user/library/upload-sessions/:sid/submit';
+  static const String LIBRARY_LESSON_QA = 'user/library/lessons/:id/qa';
+  static const String LIBRARY_LESSON_QUIZ = 'user/library/lessons/:id/quiz';
+  static const String LIBRARY_QUIZ_ATTEMPTS =
+      'user/library/lessons/:id/quiz/attempts';
 
   @override
   void onInit() {
@@ -600,6 +628,81 @@ class ApiService extends GetxService {
       if (showLoader) {
         LoadingDialog.hide();
       }
+      return ApiResponse<T>(
+        success: false,
+        message: 'Unexpected error occurred: ${e.toString()}',
+        statusCode: 0,
+      );
+    }
+  }
+
+  /// Multipart POST with one file plus plain form [fields].
+  ///
+  /// Unlike [uploadFile], a refused upload still hands back the server's
+  /// error body (through [fromJson]) so callers can read `error` details, and
+  /// [onSendProgress] reports bytes sent for per-file progress bars.
+  Future<ApiResponse<T>> uploadMultipart<T>({
+    required String endpoint,
+    required String filePath,
+    String fieldName = 'file',
+    String? fileName,
+    String? contentType,
+    Map<String, dynamic> fields = const {},
+    Duration uploadTimeout = const Duration(minutes: 3),
+    ProgressCallback? onSendProgress,
+    T Function(dynamic)? fromJson,
+  }) async {
+    T? parse(dynamic body) {
+      if (body == null) return null;
+      if (fromJson != null) return fromJson(body);
+      try {
+        return body as T?;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    try {
+      final formData = FormData.fromMap({
+        ...fields,
+        fieldName: await MultipartFile.fromFile(
+          filePath,
+          filename: fileName,
+          contentType: contentType == null
+              ? null
+              : DioMediaType.parse(contentType),
+        ),
+      });
+      final response = await _dio.post(
+        endpoint,
+        data: formData,
+        onSendProgress: onSendProgress,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: uploadTimeout,
+          receiveTimeout: uploadTimeout,
+        ),
+      );
+
+      final responseBody = sanitizeApiText(response.data);
+      final ok = response.statusCode! >= 200 && response.statusCode! < 300;
+      return ApiResponse<T>(
+        success: ok,
+        data: parse(responseBody),
+        message: responseBody is Map
+            ? responseBody['message']?.toString() ??
+                  (ok ? 'Success' : 'Unknown error occurred')
+            : (ok ? 'Success' : 'Unknown error occurred'),
+        statusCode: response.statusCode!,
+      );
+    } on DioException catch (e) {
+      return ApiResponse<T>(
+        success: false,
+        data: parse(sanitizeApiText(e.response?.data)),
+        message: _handleDioError(e),
+        statusCode: e.response?.statusCode ?? 0,
+      );
+    } catch (e) {
       return ApiResponse<T>(
         success: false,
         message: 'Unexpected error occurred: ${e.toString()}',
