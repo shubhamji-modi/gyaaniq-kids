@@ -88,10 +88,10 @@ class _LibraryViewsState extends State<LibraryViews>
     showLibrarySnack(
       result.ok
           ? (result.message.isNotEmpty && result.message != 'Success'
-                ? result.message
-                : (lesson.isFollowing
-                      ? 'You will no longer get updates for this lesson.'
-                      : "We'll notify you when it's ready."))
+          ? result.message
+          : (lesson.isFollowing
+          ? 'You will no longer get updates for this lesson.'
+          : "We'll notify you when it's ready."))
           : result.displayMessage,
       isError: !result.ok,
     );
@@ -103,7 +103,7 @@ class _LibraryViewsState extends State<LibraryViews>
     final search = controller.search.value.trim();
     final chapter = int.tryParse(search);
     final outcome = await Get.to<LibraryRequestOutcome>(
-      () => LibraryRequestViews(
+          () => LibraryRequestViews(
         meta: meta,
         initialPublication: controller.publicationFilter.value,
         initialSubject: controller.subjectFilter.value,
@@ -140,15 +140,15 @@ class _LibraryViewsState extends State<LibraryViews>
             LibraryTopBar(
               title: 'Library',
               trailing: Obx(
-                () => controller.hasClass
+                    () => controller.hasClass
                     ? IconButton(
-                        tooltip: 'Request a lesson',
-                        onPressed: _openRequest,
-                        icon: const Icon(
-                          Icons.add_circle_outline_rounded,
-                          color: AppColors.primary,
-                        ),
-                      )
+                  tooltip: 'Request a lesson',
+                  onPressed: _openRequest,
+                  icon: const Icon(
+                    Icons.add_circle_outline_rounded,
+                    color: AppColors.primary,
+                  ),
+                )
                     : const SizedBox.shrink(),
               ),
             ),
@@ -177,7 +177,7 @@ class _LibraryViewsState extends State<LibraryViews>
                     icon: Icons.school_outlined,
                     title: 'Choose your class first',
                     message:
-                        'The Library shows lessons for your class. '
+                    'The Library shows lessons for your class. '
                         'Pick your class to see them.',
                     actionLabel: 'Choose class',
                     onAction: _pickClass,
@@ -222,7 +222,7 @@ class _LibraryViewsState extends State<LibraryViews>
                             emptyIcon: Icons.post_add_rounded,
                             emptyTitle: 'No requests yet',
                             emptyMessage:
-                                "Can't find a lesson from your book? "
+                            "Can't find a lesson from your book? "
                                 'Request it and we will tell you when it is ready.',
                             emptyActionLabel: 'Request a lesson',
                             onEmptyAction: _openRequest,
@@ -233,7 +233,7 @@ class _LibraryViewsState extends State<LibraryViews>
                             emptyIcon: Icons.photo_library_outlined,
                             emptyTitle: 'No uploads yet',
                             emptyMessage:
-                                'Lessons you photograph for other students '
+                            'Lessons you photograph for other students '
                                 'show up here.',
                           ),
                           _LessonListTab(
@@ -242,7 +242,7 @@ class _LibraryViewsState extends State<LibraryViews>
                             emptyIcon: Icons.notifications_none_rounded,
                             emptyTitle: 'Not following anything',
                             emptyMessage:
-                                'Follow a lesson that is not ready yet and we '
+                            'Follow a lesson that is not ready yet and we '
                                 'will notify you when you can read it.',
                           ),
                         ],
@@ -260,7 +260,7 @@ class _LibraryViewsState extends State<LibraryViews>
 
   Widget _row(LibraryLesson lesson) {
     return Obx(
-      () => LibraryLessonCard(
+          () => LibraryLessonCard(
         lesson: lesson,
         uploadsAvailable: controller.meta.value?.uploadsAvailable ?? true,
         followBusy: controller.busyIds.contains(lesson.id),
@@ -404,15 +404,15 @@ class _BrowseTabState extends State<_BrowseTab>
                   ),
                   prefixIcon: const Icon(Icons.search_rounded, size: 21),
                   suffixIcon: Obx(
-                    () => c.search.value.isEmpty
+                        () => c.search.value.isEmpty
                         ? const SizedBox.shrink()
                         : IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 19),
-                            onPressed: () {
-                              _search.clear();
-                              c.onSearchChanged('');
-                            },
-                          ),
+                      icon: const Icon(Icons.close_rounded, size: 19),
+                      onPressed: () {
+                        _search.clear();
+                        c.onSearchChanged('');
+                      },
+                    ),
                   ),
                   isDense: true,
                   filled: true,
@@ -428,7 +428,7 @@ class _BrowseTabState extends State<_BrowseTab>
               SizedBox(
                 height: 36,
                 child: Obx(
-                  () => ListView(
+                      () => ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
                       _FilterChipButton(
@@ -512,7 +512,7 @@ class _BrowseTabState extends State<_BrowseTab>
                       return widget.rowBuilder(list.items[index]);
                     }
                     return Obx(
-                      () => _BrowseFooter(
+                          () => _BrowseFooter(
                         loadingMore: list.isLoadingMore.value,
                         isEmpty: list.items.isEmpty,
                         filtered: c.hasActiveFilters,
@@ -765,12 +765,12 @@ class _FilterChipButton extends StatelessWidget {
 /// Bottom-sheet picker for a publication or subject. Returns
 /// [LibraryRef.empty] for "All", `null` when dismissed.
 Future<LibraryRef?> _showRefPicker(
-  BuildContext context, {
-  required String title,
-  required List<LibraryRef> options,
-  required LibraryRef? selected,
-  bool searchable = false,
-}) {
+    BuildContext context, {
+      required String title,
+      required List<LibraryRef> options,
+      required LibraryRef? selected,
+      bool searchable = false,
+    }) {
   return showModalBottomSheet<LibraryRef>(
     context: context,
     isScrollControlled: true,

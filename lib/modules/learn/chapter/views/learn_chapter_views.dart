@@ -5,6 +5,7 @@ import '../../../../core/data/subscription_access.dart';
 import '../../../../core/service/app_features_service.dart';
 import '../../../../core/service/learn_progress_refresh_service.dart';
 import '../../../subscription/subscription_views.dart';
+import '../../../library/library_navigation.dart';
 import '../../exercise/views/lesson_qa_search_views.dart';
 import '../controller/learn_chapter_controller.dart';
 import 'learn_subject_views.dart';
@@ -94,22 +95,24 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
           children: [
             LearnTopBar(
               title: 'Chapters',
-              trailing: IconButton(
-                padding: EdgeInsets.zero,
-                onPressed: () => Get.to(
-                  () => LessonQaSearchViews(
-                    subjectId: widget.subject.id,
-                    classLevel: widget.subject.classLevel,
-                    scopeTitle: widget.subject.title,
-                    accent: widget.subject.accent,
-                  ),
-                ),
-                icon: Icon(
-                  Icons.search_rounded,
-                  color: widget.subject.accent,
-                  size: 24,
-                ),
-              ),
+              trailing: widget.subject.isLibrarySubject
+                  ? null
+                  : IconButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Get.to(
+                        () => LessonQaSearchViews(
+                          subjectId: widget.subject.id,
+                          classLevel: widget.subject.classLevel,
+                          scopeTitle: widget.subject.title,
+                          accent: widget.subject.accent,
+                        ),
+                      ),
+                      icon: Icon(
+                        Icons.search_rounded,
+                        color: widget.subject.accent,
+                        size: 24,
+                      ),
+                    ),
             ),
             Expanded(
               child: RefreshIndicator(
@@ -136,32 +139,33 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Author ',
-                            style: TextStyle(
-                              color: widget.subject.accent,
-                              fontSize: 13,
-                              height: 1.6,
-                              fontWeight: FontWeight.w800,
+                    if (description.isNotEmpty)
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: widget.subject.isLibrarySubject
+                                  ? 'Publication '
+                                  : 'Author ',
+                              style: TextStyle(
+                                color: widget.subject.accent,
+                                fontSize: 13,
+                                height: 1.6,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          ),
-                          TextSpan(
-                            text: description.isEmpty
-                                ? ''
-                                : description,
-                            style: const TextStyle(
-                              color: Color(0xFF373B4B),
-                              fontSize: 13,
-                              height: 1.6,
-                              fontWeight: FontWeight.w500,
+                            TextSpan(
+                              text: description,
+                              style: const TextStyle(
+                                color: Color(0xFF373B4B),
+                                fontSize: 13,
+                                height: 1.6,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 24),
                     if (_isLoading)
                       const Padding(
@@ -190,6 +194,7 @@ class _LearnChapterViewsState extends State<LearnChapterViews> {
                         // prompt is not shown either — access stays enforced
                         // server-side regardless.
                         final paywallLocked =
+                            !widget.subject.isLibrarySubject &&
                             AppFeaturesService.instance.isSubscriptionEnabled &&
                             !_isSubscribed &&
                             index >= SubscriptionAccess.freeLessonLimit;
@@ -256,6 +261,11 @@ class _ChapterCard extends StatelessWidget {
           : isServerLocked
           ? null
           : () async {
+              if (subject.isLibrarySubject) {
+                await LibraryNavigation.openLesson(chapter.id);
+                await onReload();
+                return;
+              }
               final shouldReload = await Get.to<bool>(
                 () => LearnTopicViews(subject: subject, chapter: chapter),
               );

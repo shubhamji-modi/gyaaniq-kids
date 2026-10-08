@@ -54,6 +54,8 @@ class DashboardTabbarController extends GetxController {
   final RxBool isLoadingAttendanceSummary = true.obs;
   final RxString attendanceSummaryError = ''.obs;
   final RxList<SubjectCardData> learnSubjects = <SubjectCardData>[].obs;
+  final RxList<DashboardPublicationSubjectGroup> libraryPublicationSubjects =
+      <DashboardPublicationSubjectGroup>[].obs;
   final RxList<MockTestCardData> mockTests = <MockTestCardData>[].obs;
   final RxList<DailyQuizAnalyticsDayData> dailyQuizAnalytics =
       <DailyQuizAnalyticsDayData>[].obs;
@@ -291,7 +293,7 @@ class DashboardTabbarController extends GetxController {
       return;
     }
     if (index == 3) {
-     // loadLiveClasses();
+      // loadLiveClasses();
     }
   }
 
@@ -317,8 +319,7 @@ class DashboardTabbarController extends GetxController {
 
   @override
   void onClose() {
-    AppFeaturesService.instance.revision
-        .removeListener(_onAppFeaturesChanged);
+    AppFeaturesService.instance.revision.removeListener(_onAppFeaturesChanged);
     _liveClassClockTimer?.cancel();
     _dailyClaimCountdownTimer?.cancel();
     super.onClose();
@@ -358,7 +359,7 @@ class DashboardTabbarController extends GetxController {
       await _loadLearnSubjects(force: force);
       await loadUserXp(force: force);
       await loadDailyClaimXp(force: force);
-     // await loadLiveClasses(force: force);
+      // await loadLiveClasses(force: force);
       await loadAttendanceSummary(force: force);
     } finally {
       _isReloadingHomeTabData = false;
@@ -378,6 +379,7 @@ class DashboardTabbarController extends GetxController {
 
     lessonSummary.value = const DashboardLessonSummary();
     learnSubjects.clear();
+    libraryPublicationSubjects.clear();
     mockTests.clear();
     dailyQuizAnalytics.clear();
     liveClassSchedules.clear();
@@ -417,7 +419,7 @@ class DashboardTabbarController extends GetxController {
     await _loadLearnSubjects(force: true);
     await loadUserXp(force: true);
     await loadDailyClaimXp(force: true);
-   // await loadLiveClasses(force: true);
+    // await loadLiveClasses(force: true);
     await loadAttendanceSummary(force: true);
     await loadWeakAreas(force: true);
     await loadLeaderboardSummary(force: true);
@@ -592,7 +594,8 @@ class DashboardTabbarController extends GetxController {
           ? _safeText((body['error'] as Map?)?['code'])
           : '';
 
-      if (errorCode == 'ALREADY_CLAIMED' || errorCode == 'DAILY_CLAIM_DISABLED') {
+      if (errorCode == 'ALREADY_CLAIMED' ||
+          errorCode == 'DAILY_CLAIM_DISABLED') {
         await loadDailyClaimXp(force: true);
         return;
       }
@@ -956,16 +959,46 @@ class DashboardTabbarController extends GetxController {
     isLoadingLearnSubjects.value = true;
     learnSubjectsError.value = '';
 
+    final publicationFuture =
+        AppFeaturesService.instance.isLibraryLessonsEnabled
+        ? LearnCatalogData.getLibraryPublicationSubjects()
+        : Future<ApiResponse<List<LearnPublicationSubjectGroup>>>.value(
+            ApiResponse<List<LearnPublicationSubjectGroup>>(
+              success: true,
+              data: const [],
+              message: '',
+              statusCode: 200,
+            ),
+          );
     final response = await LearnCatalogData.getUserSubjects();
+    final publicationResponse = await publicationFuture;
 
     if (!response.success) {
       isLoadingLearnSubjects.value = false;
       learnSubjects.clear();
+      libraryPublicationSubjects.clear();
       learnSubjectsError.value = response.message;
       return;
     }
 
     final subjects = response.data ?? const <LearnSubjectModel>[];
+    final publicationGroups =
+        publicationResponse.data ?? const <LearnPublicationSubjectGroup>[];
+
+    libraryPublicationSubjects.assignAll(
+      publicationGroups.map((group) {
+        return DashboardPublicationSubjectGroup(
+          publicationId: group.publicationId,
+          publicationName: group.publicationName,
+          subjects: group.subjects.asMap().entries.map((entry) {
+            return SubjectCardData.fromLearnSubject(
+              entry.value,
+              index: learnSubjects.length + entry.key + 2,
+            );
+          }).toList(),
+        );
+      }),
+    );
     learnSubjects.assignAll(
       subjects.asMap().entries.map((entry) {
         final subject = entry.value;
@@ -1289,6 +1322,18 @@ class DashboardNavItemData {
   const DashboardNavItemData({required this.label, required this.icon});
 }
 
+class DashboardPublicationSubjectGroup {
+  const DashboardPublicationSubjectGroup({
+    required this.publicationId,
+    required this.publicationName,
+    required this.subjects,
+  });
+
+  final String publicationId;
+  final String publicationName;
+  final List<SubjectCardData> subjects;
+}
+
 class SubjectCardData {
   final LearnSubjectModel learnSubject;
   final String title;
@@ -1318,8 +1363,9 @@ class SubjectCardData {
     SubjectProgressSummary? summary,
   }) {
     final palette = _subjectPalette(index);
-    final lessonsTotal = summary?.lessonsTotal ?? 0;
-    final lessonsCompleted = summary?.lessonsCompleted ?? 0;
+    final lessonsTotal = summary?.lessonsTotal ?? subject.totalLessons;
+    final lessonsCompleted =
+        summary?.lessonsCompleted ?? subject.completedLessons;
     final progressValue = lessonsTotal == 0
         ? 0.0
         : (lessonsCompleted / lessonsTotal).clamp(0.0, 1.0).toDouble();

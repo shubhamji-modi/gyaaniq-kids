@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/data/user_profile_provider.dart';
 import '../../../../core/service/api_service.dart';
+import '../../../library/data/library_models.dart';
+import '../../../library/data/library_repository.dart';
 
 /// The `classLevel` filter to send with progress requests.
 ///
@@ -61,8 +63,9 @@ class LearnCatalogData {
     final classSubjectsJson = subjectsJson
         .whereType<Map<String, dynamic>>()
         .where(
-          (subject) =>
-              UserProfileProvider.isCurrentClass(_safeText(subject['classLevel'])),
+          (subject) => UserProfileProvider.isCurrentClass(
+            _safeText(subject['classLevel']),
+          ),
         )
         .toList();
 
@@ -89,6 +92,10 @@ class LearnCatalogData {
   static Future<ApiResponse<List<LearnChapterModel>>> getUserLessons({
     required LearnSubjectModel subject,
   }) async {
+    if (subject.isLibrarySubject) {
+      return _getLibraryLessons(subject: subject);
+    }
+
     final response = await ApiService.instance.post<dynamic>(
       endpoint: ApiService.GET_USER_LESSON,
       showLoader: false,
@@ -162,6 +169,134 @@ class LearnCatalogData {
       data: chapters,
       message: body['message']?.toString() ?? response.message,
       statusCode: response.statusCode,
+    );
+  }
+
+  static Future<ApiResponse<List<LearnPublicationSubjectGroup>>>
+  getLibraryPublicationSubjects() async {
+    final firstPage = await LibraryRepository.fetchLessons(limit: 100);
+    if (!firstPage.ok) {
+      return ApiResponse<List<LearnPublicationSubjectGroup>>(
+        success: true,
+        data: const [],
+        message: firstPage.message,
+        statusCode: firstPage.statusCode,
+      );
+    }
+
+    final lessons = <LibraryLesson>[...?firstPage.data?.lessons];
+    final totalPages = firstPage.data?.pagination.totalPages ?? 1;
+    for (var page = 2; page <= totalPages; page++) {
+      final result = await LibraryRepository.fetchLessons(
+        page: page,
+        limit: 100,
+      );
+      if (result.ok) {
+        lessons.addAll(result.data?.lessons ?? const []);
+      }
+    }
+
+    final grouped = <String, _LibrarySubjectBucket>{};
+    for (final lesson in lessons) {
+      if (lesson.publication.id.isEmpty || lesson.subject.id.isEmpty) {
+        continue;
+      }
+      final key = '${lesson.publication.id}|${lesson.subject.id}';
+      grouped
+          .putIfAbsent(
+            key,
+            () => _LibrarySubjectBucket(
+              publication: lesson.publication,
+              subject: lesson.subject,
+              classLevel: lesson.classLevel,
+            ),
+          )
+          .lessons
+          .add(lesson);
+    }
+
+    final byPublication = <String, LearnPublicationSubjectGroup>{};
+    final buckets = grouped.values.toList()
+      ..sort((a, b) {
+        final publication = a.publication.name.compareTo(b.publication.name);
+        if (publication != 0) return publication;
+        return a.subject.name.compareTo(b.subject.name);
+      });
+
+    for (final bucket in buckets) {
+      final publicationId = bucket.publication.id;
+      final existing = byPublication[publicationId];
+      final subjects = [
+        ...?existing?.subjects,
+        LearnSubjectModel.fromLibraryBucket(
+          publication: bucket.publication,
+          subject: bucket.subject,
+          lessons: bucket.lessons,
+          classLevel: bucket.classLevel,
+          index: byPublication.length,
+        ),
+      ];
+      byPublication[publicationId] = LearnPublicationSubjectGroup(
+        publicationId: publicationId,
+        publicationName: bucket.publication.name.isEmpty
+            ? 'Other Publication'
+            : bucket.publication.name,
+        subjects: subjects,
+      );
+    }
+
+    return ApiResponse<List<LearnPublicationSubjectGroup>>(
+      success: true,
+      data: byPublication.values.toList(),
+      message: firstPage.message,
+      statusCode: firstPage.statusCode,
+    );
+  }
+
+  static Future<ApiResponse<List<LearnChapterModel>>> _getLibraryLessons({
+    required LearnSubjectModel subject,
+  }) async {
+    final firstPage = await LibraryRepository.fetchLessons(
+      publicationId: subject.libraryPublicationId,
+      subjectId: subject.id,
+      limit: 100,
+    );
+
+    if (!firstPage.ok) {
+      return ApiResponse<List<LearnChapterModel>>(
+        success: false,
+        message: firstPage.displayMessage,
+        statusCode: firstPage.statusCode,
+      );
+    }
+
+    final lessons = <LibraryLesson>[...?firstPage.data?.lessons];
+    final totalPages = firstPage.data?.pagination.totalPages ?? 1;
+    for (var page = 2; page <= totalPages; page++) {
+      final result = await LibraryRepository.fetchLessons(
+        publicationId: subject.libraryPublicationId,
+        subjectId: subject.id,
+        page: page,
+        limit: 100,
+      );
+      if (result.ok) {
+        lessons.addAll(result.data?.lessons ?? const []);
+      }
+    }
+
+    final chapters =
+        lessons
+            .map(
+              (lesson) => LearnChapterModel.fromLibraryLesson(lesson, subject),
+            )
+            .toList()
+          ..sort((a, b) => a.chapterNumber.compareTo(b.chapterNumber));
+
+    return ApiResponse<List<LearnChapterModel>>(
+      success: true,
+      data: chapters,
+      message: firstPage.message,
+      statusCode: firstPage.statusCode,
     );
   }
 
@@ -299,6 +434,31 @@ class LearnCatalogData {
   static LearnSubjectModel? subjectById(String id) => null;
 }
 
+class LearnPublicationSubjectGroup {
+  const LearnPublicationSubjectGroup({
+    required this.publicationId,
+    required this.publicationName,
+    required this.subjects,
+  });
+
+  final String publicationId;
+  final String publicationName;
+  final List<LearnSubjectModel> subjects;
+}
+
+class _LibrarySubjectBucket {
+  _LibrarySubjectBucket({
+    required this.publication,
+    required this.subject,
+    required this.classLevel,
+  });
+
+  final LibraryRef publication;
+  final LibraryRef subject;
+  final String classLevel;
+  final List<LibraryLesson> lessons = [];
+}
+
 class LearnSubjectModel {
   final String id;
   final String title;
@@ -312,6 +472,9 @@ class LearnSubjectModel {
   final String description;
   final int completedLessons;
   final int totalLessons;
+  final bool isLibrarySubject;
+  final String libraryPublicationId;
+  final String libraryPublicationName;
 
   LearnSubjectModel({
     required this.id,
@@ -326,6 +489,9 @@ class LearnSubjectModel {
     required this.description,
     required this.completedLessons,
     required this.totalLessons,
+    this.isLibrarySubject = false,
+    this.libraryPublicationId = '',
+    this.libraryPublicationName = '',
   });
 
   factory LearnSubjectModel.fromApi(
@@ -339,9 +505,7 @@ class LearnSubjectModel {
     return LearnSubjectModel(
       id: _safeText(json['_id']),
       title: _safeText(json['name'], fallback: 'Untitled Subject'),
-      subtitle: description.isEmpty
-          ? ''
-          : description,
+      subtitle: description.isEmpty ? '' : description,
       statusLabel: _statusLabelForIndex(index),
       icon: palette.icon,
       accent: palette.accent,
@@ -351,6 +515,39 @@ class LearnSubjectModel {
       description: description,
       completedLessons: summary?.lessonsCompleted ?? 0,
       totalLessons: summary?.lessonsTotal ?? 0,
+    );
+  }
+
+  factory LearnSubjectModel.fromLibraryBucket({
+    required LibraryRef publication,
+    required LibraryRef subject,
+    required List<LibraryLesson> lessons,
+    required String classLevel,
+    required int index,
+  }) {
+    final palette = _subjectPalette(index + 2);
+    final ready = lessons.where((lesson) => lesson.canRead).length;
+    final publicationName = publication.name.isEmpty
+        ? 'Other Publication'
+        : publication.name;
+
+    return LearnSubjectModel(
+      id: subject.id,
+      title: subject.name.isEmpty ? 'Untitled Subject' : subject.name,
+      subtitle:
+          '$publicationName • ${lessons.length} chapter${lessons.length == 1 ? '' : 's'}',
+      statusLabel: 'Publication',
+      icon: palette.icon,
+      accent: palette.accent,
+      iconBackground: palette.iconBackground,
+      chapters: const [],
+      classLevel: classLevel.isEmpty ? '-' : classLevel,
+      description: publicationName,
+      completedLessons: ready,
+      totalLessons: lessons.length,
+      isLibrarySubject: true,
+      libraryPublicationId: publication.id,
+      libraryPublicationName: publicationName,
     );
   }
 
@@ -472,6 +669,49 @@ class LearnChapterModel {
           hasNotes: lesson.notes.isNotEmpty,
           hasWorksheet: lesson.pdfUrl.isNotEmpty,
           lesson: lesson,
+        ),
+      ],
+    );
+  }
+
+  factory LearnChapterModel.fromLibraryLesson(
+    LibraryLesson lesson,
+    LearnSubjectModel subject,
+  ) {
+    final progress = lesson.progress?.fraction ?? 0;
+    final status = progress >= 1
+        ? LearnChapterStatus.completed
+        : progress > 0
+        ? LearnChapterStatus.inProgress
+        : LearnChapterStatus.notStarted;
+    final summary = lesson.message.isNotEmpty
+        ? lesson.message
+        : lesson.sourceLine;
+
+    return LearnChapterModel(
+      id: lesson.id,
+      chapterNumber: lesson.chapterNumber,
+      title: lesson.title.isEmpty ? 'Untitled Lesson' : lesson.title,
+      status: status,
+      completedLessons: status == LearnChapterStatus.completed ? 1 : 0,
+      totalLessons: 1,
+      progressValue: progress,
+      quizCount: lesson.quizQuestionCount,
+      accent: subject.accent,
+      summary: summary,
+      topics: [
+        LearnTopicModel(
+          id: lesson.id,
+          title: lesson.title.isEmpty ? 'Untitled Lesson' : lesson.title,
+          status: LearnTopicStatus.notStarted,
+          progress: progress,
+          hasVideo: false,
+          hasNotes: lesson.hasNotes,
+          hasWorksheet: lesson.hasOverview,
+          lesson: LearnLessonModel.libraryPlaceholder(
+            lesson: lesson,
+            subject: subject,
+          ),
         ),
       ],
     );
@@ -654,6 +894,29 @@ class LearnLessonModel {
       pdfUrl: pdfUrl,
       content: content,
       resources: resources,
+    );
+  }
+
+  factory LearnLessonModel.libraryPlaceholder({
+    required LibraryLesson lesson,
+    required LearnSubjectModel subject,
+  }) {
+    return LearnLessonModel(
+      id: lesson.id,
+      title: lesson.title.isEmpty ? 'Untitled Lesson' : lesson.title,
+      chapterLabel: 'LESSON ${lesson.chapterNumber}',
+      subjectLabel: subject.title.toUpperCase(),
+      description: lesson.message.isNotEmpty
+          ? lesson.message
+          : lesson.sourceLine,
+      progress: lesson.progress?.fraction ?? 0,
+      currentTime: '00:00',
+      totalTime: '00:00',
+      notes: lesson.message,
+      videoUrl: '',
+      pdfUrl: '',
+      content: '',
+      resources: const [],
     );
   }
 }

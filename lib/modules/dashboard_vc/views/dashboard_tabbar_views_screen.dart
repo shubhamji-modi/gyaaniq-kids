@@ -711,8 +711,7 @@ class _NotificationBell extends StatelessWidget {
               top: -2,
               right: -2,
               child: ValueListenableBuilder<int>(
-                valueListenable:
-                    NotificationBadgeService.instance.unreadCount,
+                valueListenable: NotificationBadgeService.instance.unreadCount,
                 builder: (context, count, _) {
                   if (count <= 0) return const SizedBox.shrink();
                   return _UnreadDot(count: count);
@@ -893,15 +892,6 @@ class _LearnTab extends GetView<DashboardTabbarController> {
           children: [
             const _ChallengeBanner(),
             const SizedBox(height: 24),
-            const Text(
-              'My Subjects',
-              style: TextStyle(
-                color: AppColors.textHeadingAlt,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 16),
             if (controller.isLoadingLearnSubjects.value)
               const _LearnSubjectsSkeleton()
             else if (controller.learnSubjectsError.value.isNotEmpty)
@@ -909,35 +899,32 @@ class _LearnTab extends GetView<DashboardTabbarController> {
                 message: controller.learnSubjectsError.value,
                 onRetry: () => controller.loadDashboardData(force: true),
               )
-            else if (controller.learnSubjects.isEmpty)
+            else if (controller.learnSubjects.isEmpty &&
+                controller.libraryPublicationSubjects.isEmpty)
               const _DashboardInlineState(
                 message: 'No subjects available right now.',
               )
-            else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: controller.learnSubjects.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.90,
-                ),
-                itemBuilder: (context, index) {
-                  final subject = controller.learnSubjects[index];
-                  return _SubjectCard(subject: subject);
-                },
-              ),
+            else ...[
+              if (controller.learnSubjects.isNotEmpty) ...[
+                const _DashboardSectionTitle(title: 'My Subjects'),
+                const SizedBox(height: 16),
+                _SubjectCardGrid(subjects: controller.learnSubjects),
+              ],
+              if (controller.libraryPublicationSubjects.isNotEmpty) ...[
+                if (controller.learnSubjects.isNotEmpty)
+                  const SizedBox(height: 24),
+                const _DashboardSectionTitle(title: 'Other Publications'),
+                const SizedBox(height: 14),
+                for (final group in controller.libraryPublicationSubjects) ...[
+                  _PublicationSubjectLabel(title: group.publicationName),
+                  const SizedBox(height: 10),
+                  _SubjectCardGrid(subjects: group.subjects, compact: true),
+                  const SizedBox(height: 18),
+                ],
+              ],
+            ],
             const SizedBox(height: 28),
-            const Text(
-              'Study Tools',
-              style: TextStyle(
-                color: AppColors.textHeadingAlt,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            const _DashboardSectionTitle(title: 'Study Tools'),
             const SizedBox(height: 14),
             // Study Tools drops entries (today: Notes) the admin switched off.
             AppFeaturesBuilder(
@@ -2509,9 +2496,7 @@ class _WeakAreasEmptyState extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            hasAttempts
-                ? Icons.verified_rounded
-                : Icons.insights_rounded,
+            hasAttempts ? Icons.verified_rounded : Icons.insights_rounded,
             color: const Color(0xFF4B3FD8),
             size: 26,
           ),
@@ -2650,11 +2635,7 @@ class _WeakAreaTile extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: accent,
-                      size: 16,
-                    ),
+                    Icon(Icons.chevron_right_rounded, color: accent, size: 16),
                   ],
                 ),
               ],
@@ -2954,10 +2935,71 @@ class _ChallengeBanner extends StatelessWidget {
   }
 }
 
+class _DashboardSectionTitle extends StatelessWidget {
+  const _DashboardSectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: AppColors.textHeadingAlt,
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _PublicationSubjectLabel extends StatelessWidget {
+  const _PublicationSubjectLabel({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _SubjectCardGrid extends StatelessWidget {
+  const _SubjectCardGrid({required this.subjects, this.compact = false});
+
+  final List<SubjectCardData> subjects;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: subjects.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: compact ? 1.08 : 0.90,
+      ),
+      itemBuilder: (context, index) =>
+          _SubjectCard(subject: subjects[index], compact: compact),
+    );
+  }
+}
+
 class _SubjectCard extends StatelessWidget {
-  const _SubjectCard({required this.subject});
+  const _SubjectCard({required this.subject, this.compact = false});
 
   final SubjectCardData subject;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -2972,7 +3014,7 @@ class _SubjectCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(26),
       child: Container(
         clipBehavior: Clip.antiAlias,
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(compact ? 12 : 18),
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(26),
@@ -2982,8 +3024,8 @@ class _SubjectCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: compact ? 32 : 40,
+              height: compact ? 32 : 40,
               decoration: BoxDecoration(
                 color: accent,
                 borderRadius: BorderRadius.circular(12),
@@ -2995,18 +3037,21 @@ class _SubjectCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(icon, color: Colors.white, size: 22),
+              child: Icon(icon, color: Colors.white, size: compact ? 18 : 22),
             ),
-            const Spacer(),
+            SizedBox(height: compact ? 10 : 0),
+            if (!compact) const Spacer(),
             Text(
               subject.title,
-              style: const TextStyle(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 15,
+                fontSize: compact ? 14 : 15,
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 5),
+            SizedBox(height: compact ? 6 : 5),
             Row(
               children: [
                 Expanded(
@@ -3014,7 +3059,7 @@ class _SubjectCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(99),
                     child: LinearProgressIndicator(
                       value: subject.progressValue,
-                      minHeight: 8,
+                      minHeight: compact ? 6 : 8,
                       backgroundColor: accent.withValues(alpha: 0.18),
                       valueColor: AlwaysStoppedAnimation<Color>(accent),
                     ),
@@ -3031,12 +3076,14 @@ class _SubjectCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: compact ? 8 : 16),
             Text(
               subject.progressText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: accent,
-                fontSize: 14,
+                fontSize: compact ? 12.5 : 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -5287,10 +5334,7 @@ Future<void> _openWhatsApp() async {
   final digits = _supportPhone.replaceAll(RegExp(r'\D'), '');
   final uri = Uri.parse('https://wa.me/$digits');
   try {
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (launched) return;
   } catch (_) {
     // Falls through to the message below.
@@ -6125,10 +6169,7 @@ class _MyQueriesScreenState extends State<_MyQueriesScreen> {
             const _QueryTopBar(title: 'My Queries'),
             _MyQueriesFilterBar(selected: _filter, onChanged: _changeFilter),
             Expanded(
-              child: RefreshIndicator(
-                onRefresh: _load,
-                child: _buildBody(),
-              ),
+              child: RefreshIndicator(onRefresh: _load, child: _buildBody()),
             ),
           ],
         ),

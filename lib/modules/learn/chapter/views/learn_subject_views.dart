@@ -19,6 +19,7 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
   bool _isLoading = true;
   String _errorMessage = '';
   List<LearnSubjectModel> _subjects = const [];
+  List<LearnPublicationSubjectGroup> _publicationGroups = const [];
   late final Worker _refreshWorker;
 
   @override
@@ -47,7 +48,10 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
       _errorMessage = '';
     });
 
-    final response = await LearnCatalogData.getUserSubjects();
+    final publicationFuture = LearnCatalogData.getLibraryPublicationSubjects();
+    final subjectFuture = LearnCatalogData.getUserSubjects();
+    final publicationResponse = await publicationFuture;
+    final subjectResponse = await subjectFuture;
 
     if (!mounted) {
       return;
@@ -55,8 +59,9 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
 
     setState(() {
       _isLoading = false;
-      _subjects = response.data ?? const [];
-      _errorMessage = response.success ? '' : response.message;
+      _publicationGroups = publicationResponse.data ?? const [];
+      _subjects = subjectResponse.data ?? const [];
+      _errorMessage = subjectResponse.success ? '' : subjectResponse.message;
     });
   }
 
@@ -74,6 +79,22 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
       return subject.title.toLowerCase().contains(query) ||
           subject.subtitle.toLowerCase().contains(query);
     }).toList();
+    final publicationGroups = _publicationGroups
+        .map((group) {
+          final filteredSubjects = group.subjects.where((subject) {
+            if (query.isEmpty) return true;
+            return group.publicationName.toLowerCase().contains(query) ||
+                subject.title.toLowerCase().contains(query) ||
+                subject.subtitle.toLowerCase().contains(query);
+          }).toList();
+          return LearnPublicationSubjectGroup(
+            publicationId: group.publicationId,
+            publicationName: group.publicationName,
+            subjects: filteredSubjects,
+          );
+        })
+        .where((group) => group.subjects.isNotEmpty)
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FD),
@@ -87,14 +108,7 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
                   children: [
-                    const Text(
-                      'Select a Subject',
-                      style: TextStyle(
-                        color: Color(0xFF1D2231),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    const _SubjectSectionTitle(title: 'Select a Subject'),
                     const SizedBox(height: 6),
                     Text(
                       'Grade $gradeLabel',
@@ -160,27 +174,88 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
                         message: _errorMessage,
                         onRetry: _loadSubjects,
                       )
-                    else if (subjects.isEmpty)
+                    else if (subjects.isEmpty && publicationGroups.isEmpty)
                       const _EmptyStateCard(
                         title: 'No subjects found',
                         message: 'Try a different search or pull to refresh.',
                       )
-                    else
-                      ...subjects.map(
-                        (subject) => Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
-                          child: _SubjectDetailsCard(
-                            subject: subject,
-                            onReload: _loadSubjects,
+                    else ...[
+                      if (publicationGroups.isNotEmpty) ...[
+                        const _SubjectSectionTitle(title: 'Other Publications'),
+                        const SizedBox(height: 14),
+                        for (final group in publicationGroups) ...[
+                          _PublicationSectionLabel(
+                            title: group.publicationName,
+                          ),
+                          const SizedBox(height: 12),
+                          ...group.subjects.map(
+                            (subject) => Padding(
+                              padding: const EdgeInsets.only(bottom: 18),
+                              child: _SubjectDetailsCard(
+                                subject: subject,
+                                onReload: _loadSubjects,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                      ],
+                      if (subjects.isNotEmpty) ...[
+                        const _SubjectSectionTitle(title: 'My Subjects'),
+                        const SizedBox(height: 14),
+                        ...subjects.map(
+                          (subject) => Padding(
+                            padding: const EdgeInsets.only(bottom: 18),
+                            child: _SubjectDetailsCard(
+                              subject: subject,
+                              onReload: _loadSubjects,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                    ],
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SubjectSectionTitle extends StatelessWidget {
+  const _SubjectSectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Color(0xFF1D2231),
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _PublicationSectionLabel extends StatelessWidget {
+  const _PublicationSectionLabel({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Color(0xFF4F5367),
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
       ),
     );
   }
@@ -236,10 +311,7 @@ class LearnTopBar extends StatelessWidget {
 }
 
 class _SubjectDetailsCard extends StatelessWidget {
-  const _SubjectDetailsCard({
-    required this.subject,
-    required this.onReload,
-  });
+  const _SubjectDetailsCard({required this.subject, required this.onReload});
 
   final LearnSubjectModel subject;
   final Future<void> Function() onReload;
