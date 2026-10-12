@@ -9,8 +9,11 @@ import '../data/library_models.dart';
 import '../library_navigation.dart';
 import 'library_widgets.dart';
 
-/// Photographing a lesson's pages, submitting them, and following the AI
-/// until the lesson is created (or some pages need a retake).
+/// Photographing a chapter's pages, sending them, and following the AI until
+/// the lesson is created (or some pages need a new photo).
+///
+/// The screen reads as three steps — take the photos, send them, wait — and
+/// never shows a student more than the one they are on.
 class LibraryUploadViews extends StatefulWidget {
   const LibraryUploadViews({
     super.key,
@@ -61,7 +64,7 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
 
   Future<void> _retake(LibrarySessionPage page) async {
     final fromGallery = await _askSource(
-      title: 'Retake page ${_numberOf(page)}',
+      title: 'New photo for page ${_numberOf(page)}',
     );
     if (fromGallery == null) return;
     final message = await c.retakePage(page, fromGallery: fromGallery);
@@ -101,10 +104,10 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
                 color: AppColors.primary,
               ),
               title: const Text(
-                'Scan with camera',
+                'Use the camera',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle: const Text('Best quality — recommended'),
+              subtitle: const Text('Best for reading the page'),
               onTap: () => Navigator.of(context).pop(false),
             ),
             ListTile(
@@ -113,7 +116,7 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
                 color: AppColors.primary,
               ),
               title: const Text(
-                'Choose from photos',
+                'Pick a photo I already took',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               onTap: () => Navigator.of(context).pop(true),
@@ -128,7 +131,7 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
   Future<void> _deletePage(LibrarySessionPage page) async {
     final ok = await _confirm(
       title: 'Remove page ${_numberOf(page)}?',
-      message: 'You can add it again later.',
+      message: 'You can take it again later.',
       confirm: 'Remove',
       destructive: true,
     );
@@ -145,11 +148,11 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
   Future<void> _submit() async {
     if (c.hasFailedUploads) {
       final ok = await _confirm(
-        title: 'Some photos were not added',
+        title: 'Some photos did not go through',
         message:
-            'Photos marked "Not added" will be left out. Submit the pages '
-            'that were added?',
-        confirm: 'Submit',
+            'The ones marked "Did not go through" will be left out. '
+            'Send the rest?',
+        confirm: 'Send them',
       );
       if (ok != true) return;
     }
@@ -159,12 +162,12 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
 
   Future<void> _cancel() async {
     final ok = await _confirm(
-      title: 'Cancel this upload?',
+      title: 'Stop and delete your photos?',
       message:
-          'The photos will be removed and other students will be able to '
-          'upload this lesson.',
-      confirm: 'Cancel upload',
-      cancel: 'Keep it',
+          'Your photos will be deleted and someone else in your class can '
+          'do this chapter.',
+      confirm: 'Yes, stop',
+      cancel: 'Keep going',
       destructive: true,
     );
     if (ok != true) return;
@@ -174,7 +177,7 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
       return;
     }
     Get.back();
-    showLibrarySnack('Upload cancelled.');
+    showLibrarySnack('Stopped. Your photos were deleted.');
   }
 
   Future<bool?> _confirm({
@@ -272,8 +275,8 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
             Obx(() {
               final lesson = c.session.value?.lesson;
               final title = lesson == null || lesson.title.isEmpty
-                  ? 'Upload pages'
-                  : 'Upload · Ch ${lesson.chapterNumber} ${lesson.title}';
+                  ? 'Photograph the pages'
+                  : 'Ch ${lesson.chapterNumber} · ${lesson.title}';
               return LibraryTopBar(title: title);
             }),
             Expanded(
@@ -285,11 +288,11 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
                 if (session == null) {
                   return LibraryMessageView(
                     icon: Icons.cloud_off_rounded,
-                    title: 'Unable to open this upload',
+                    title: "We couldn't open this",
                     message: c.loadError.value,
                     actionLabel: c.loadErrorStatus.value == 404
-                        ? 'Back'
-                        : 'Retry',
+                        ? 'Go back'
+                        : 'Try again',
                     onAction: c.loadErrorStatus.value == 404
                         ? Get.back
                         : c.load,
@@ -305,36 +308,37 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
                     return _EndView(
                       icon: Icons.celebration_rounded,
                       color: LibraryPalette.green,
-                      title: 'Your lesson is ready!',
+                      title: 'Done — your lesson is ready!',
                       message:
-                          'You can read it now. Other students will see it '
-                          'after a quick review.',
-                      primaryLabel: 'Open lesson',
+                          'You can read it right now. Your class will see it '
+                          'once a teacher checks it.',
+                      primaryLabel: 'Read it',
                       onPrimary: _openLesson,
                     );
                   case LibrarySessionStatus.failed:
                     return _EndView(
                       icon: Icons.error_outline_rounded,
                       color: LibraryPalette.red,
-                      title: "We couldn't create this lesson",
+                      title: "We couldn't make the lesson",
                       message:
-                          '${session.endReason ?? 'Something went wrong while reading the pages.'}'
-                          '\n\nThis upload was not counted — you can try again.',
+                          '${session.endReason ?? 'Something went wrong while reading your photos.'}'
+                          '\n\nDon\'t worry — this did not use up a turn. You '
+                          'can try again.',
                       primaryLabel: 'Try again',
                       onPrimary: _uploadAgain,
-                      secondaryLabel: 'Back to lesson',
+                      secondaryLabel: 'Go back',
                       onSecondary: _openLesson,
                     );
                   case LibrarySessionStatus.expired:
                     return _EndView(
                       icon: Icons.timer_off_outlined,
                       color: LibraryPalette.grey,
-                      title: 'This upload expired',
+                      title: 'Time ran out',
                       message:
                           session.endReason ??
-                          'The pages were not submitted in time. If the '
-                              'lesson still needs pages you can start again.',
-                      primaryLabel: 'Back to lesson',
+                          'The photos were not sent in time. If the chapter '
+                              'still needs photos, you can start again.',
+                      primaryLabel: 'Go back',
                       onPrimary: _openLesson,
                     );
                   case LibrarySessionStatus.cancelled:
@@ -344,13 +348,13 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
                       icon: Icons.do_not_disturb_on_outlined,
                       color: LibraryPalette.grey,
                       title: session.status == LibrarySessionStatus.rejected
-                          ? 'This upload was not accepted'
-                          : 'This upload has ended',
+                          ? 'These photos were not accepted'
+                          : 'This has ended',
                       message:
                           session.endReason ??
-                          'If the lesson still needs pages you can start a '
-                              'new upload from the lesson.',
-                      primaryLabel: 'Back to lesson',
+                          'If the chapter still needs photos, you can start '
+                              'again from the chapter.',
+                      primaryLabel: 'Go back',
                       onPrimary: _openLesson,
                     );
                 }
@@ -362,8 +366,21 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
     );
   }
 
+  // -- Step 1 / 2: taking photos and sending them ------------------------------
+
   Widget _editor(LibraryUploadSession session) {
     final retake = session.status == LibrarySessionStatus.needsRetake;
+    // Nothing photographed yet: show how it works instead of an empty list.
+    if (!retake && session.pages.isEmpty && c.localPages.isEmpty) {
+      return _StartView(
+        maxPages: c.rules.value.maxPages,
+        busy: c.isCapturing.value,
+        onScan: () => _addPages(fromGallery: false),
+        onGallery: () => _addPages(fromGallery: true),
+        onCancel: c.isCancelling.value ? null : _cancel,
+      );
+    }
+
     final canReorder =
         session.status == LibrarySessionStatus.open && session.pages.length > 1;
     final retakePages = session.retakePages;
@@ -376,6 +393,11 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
 
     return Column(
       children: [
+        _StepHeader(
+          step: retake ? 3 : 1,
+          total: 3,
+          label: retake ? 'Take the photos again' : 'Take a photo of each page',
+        ),
         Expanded(
           child: CustomScrollView(
             slivers: [
@@ -392,19 +414,15 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
                           timeLeft: c.timeLeft,
                         )
                       else
-                        _GuideCard(
-                          maxPages: c.rules.value.maxPages,
-                          timeLeft: c.timeLeft,
-                          hasPages: session.pages.isNotEmpty,
-                        ),
+                        _TimeLeftNote(timeLeft: c.timeLeft),
                       _UploadProgressStrip(controller: c),
                       if (session.pages.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 14, bottom: 6),
                           child: Text(
                             canReorder
-                                ? 'Pages (${session.pages.length}) · long-press and drag to reorder'
-                                : 'Pages (${session.pages.length})',
+                                ? 'Your pages (${session.pages.length}) · hold and drag to put them in order'
+                                : 'Your pages (${session.pages.length})',
                             style: const TextStyle(
                               color: AppColors.textMuted,
                               fontSize: 12.5,
@@ -463,6 +481,8 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
                         onScan: () => _addPages(fromGallery: false),
                         onGallery: () => _addPages(fromGallery: true),
                       ),
+                      const SizedBox(height: 14),
+                      const _PhotoTipsCard(),
                     ],
                   ],
                 ),
@@ -472,13 +492,16 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
         ),
         _BottomBar(
           left: LibrarySecondaryButton(
-            label: 'Cancel',
+            label: 'Stop',
             color: LibraryPalette.red,
             busy: c.isCancelling.value,
             onPressed: c.isSubmitting.value ? null : _cancel,
           ),
           right: LibraryPrimaryButton(
-            label: retake ? 'Submit again' : 'Submit (${session.pages.length})',
+            label: retake
+                ? 'Send again'
+                : 'Send ${session.pages.length} photo'
+                      '${session.pages.length == 1 ? '' : 's'}',
             icon: Icons.auto_awesome_rounded,
             busy: c.isSubmitting.value,
             onPressed: c.canSubmit ? _submit : null,
@@ -489,16 +512,183 @@ class _LibraryUploadViewsState extends State<LibraryUploadViews> {
   }
 }
 
-class _GuideCard extends StatelessWidget {
-  const _GuideCard({
+/// "Step 1 of 3 — Take a photo of each page". One line, always visible, so a
+/// student always knows where they are in the job.
+class _StepHeader extends StatelessWidget {
+  const _StepHeader({
+    required this.step,
+    required this.total,
+    required this.label,
+  });
+
+  final int step;
+  final int total;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Step $step of $total',
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              for (var i = 1; i <= total; i++) ...[
+                Expanded(
+                  child: Container(
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: i <= step
+                          ? AppColors.primary
+                          : LibraryPalette.greySoft,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                if (i != total) const SizedBox(width: 6),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// What a student sees before the first photo: what the job is, in three
+/// numbered lines, and one big button to begin.
+/// Before the first photo. The student has just been told how this works on
+/// the way in, so this screen does not explain it again — it opens the camera.
+class _StartView extends StatelessWidget {
+  const _StartView({
     required this.maxPages,
-    required this.timeLeft,
-    required this.hasPages,
+    required this.busy,
+    required this.onScan,
+    required this.onGallery,
+    required this.onCancel,
   });
 
   final int maxPages;
-  final Duration? timeLeft;
-  final bool hasPages;
+  final bool busy;
+  final VoidCallback onScan;
+  final VoidCallback onGallery;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const _StepHeader(
+          step: 1,
+          total: 3,
+          label: 'Take a photo of each page',
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 30, 20, 24),
+            children: [
+              Center(
+                child: Container(
+                  width: 92,
+                  height: 92,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: LibraryPalette.green.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.photo_camera_rounded,
+                    color: LibraryPalette.green,
+                    size: 44,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Photograph every page',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'One photo per page, in order. Up to $maxPages pages.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14.5,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 28),
+              LibraryPrimaryButton(
+                label: 'Open the camera',
+                icon: Icons.photo_camera_rounded,
+                color: LibraryPalette.green,
+                expand: true,
+                busy: busy,
+                onPressed: onScan,
+              ),
+              const SizedBox(height: 10),
+              LibrarySecondaryButton(
+                label: 'Pick photos I already took',
+                icon: Icons.photo_library_outlined,
+                expand: true,
+                onPressed: busy ? null : onGallery,
+              ),
+              const SizedBox(height: 22),
+              const _PhotoTipsCard(),
+              if (onCancel != null) ...[
+                const SizedBox(height: 14),
+                Center(
+                  child: TextButton(
+                    onPressed: onCancel,
+                    child: const Text(
+                      'Not now',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// How to take a photo that we can actually read.
+class _PhotoTipsCard extends StatelessWidget {
+  const _PhotoTipsCard();
 
   @override
   Widget build(BuildContext context) {
@@ -512,43 +702,19 @@ class _GuideCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Pages 1–$maxPages, in order',
-            style: const TextStyle(
+          const Text(
+            'For a good photo',
+            style: TextStyle(
               color: AppColors.textPrimary,
-              fontSize: 15,
+              fontSize: 14.5,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 8),
-          const _Tip('One page per photo — keep the whole page in the frame.'),
-          const _Tip('Good light, no shadow, hold the phone steady.'),
-          const _Tip('Tap a page to check it; retake any blurry one.'),
-          if (hasPages && timeLeft != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.timer_outlined,
-                  size: 15,
-                  color: LibraryPalette.amber,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    timeLeft!.isNegative
-                        ? 'This upload is about to expire — submit now.'
-                        : 'Expires in ${libraryDurationLabel(timeLeft!)} if not submitted',
-                    style: const TextStyle(
-                      color: LibraryPalette.amber,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          const _Tip('Fit the whole page in the picture.'),
+          const _Tip('Find bright light and keep your shadow off the page.'),
+          const _Tip('Hold the phone still so the words are sharp.'),
+          const _Tip('Tap a photo to check it — you can take it again.'),
         ],
       ),
     );
@@ -563,7 +729,7 @@ class _Tip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 3),
+      padding: const EdgeInsets.only(top: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -582,6 +748,51 @@ class _Tip extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12.5,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Only shown once there is something to lose — a countdown on an empty
+/// screen just worries people.
+class _TimeLeftNote extends StatelessWidget {
+  const _TimeLeftNote({required this.timeLeft});
+
+  final Duration? timeLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = timeLeft;
+    if (left == null) return const SizedBox.shrink();
+    final urgent = left.isNegative;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: LibraryPalette.amberSoft,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.timer_outlined,
+            size: 17,
+            color: LibraryPalette.amber,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              urgent
+                  ? 'Your time is almost up — send your photos now.'
+                  : 'Send your photos within ${libraryDurationLabel(left)}.',
+              style: const TextStyle(
+                color: LibraryPalette.amber,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
                 height: 1.35,
               ),
             ),
@@ -624,7 +835,9 @@ class _RetakeBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  done ? 'All set — submit again' : 'Some pages need a retake',
+                  done
+                      ? 'All fixed — send them again'
+                      : "Some photos aren't clear enough",
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
@@ -634,10 +847,21 @@ class _RetakeBanner extends StatelessWidget {
               ),
             ],
           ),
+          if (pages.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Take these pages again:',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           for (final p in pages) ...[
             const SizedBox(height: 6),
             Text(
-              'Page ${numberOf(p)}: ${p.reason ?? 'Please take this page again.'}',
+              'Page ${numberOf(p)}: ${p.reason ?? 'Please take this one again.'}',
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
@@ -648,9 +872,9 @@ class _RetakeBanner extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             timeLeft == null || timeLeft!.isNegative
-                ? 'Re-submitting is free — it does not use an upload.'
-                : 'Retake within ${libraryDurationLabel(timeLeft!)}. '
-                      'Re-submitting is free.',
+                ? "Sending again is free — it doesn't use up a turn."
+                : 'Do it within ${libraryDurationLabel(timeLeft!)}. '
+                      "Sending again is free.",
             style: const TextStyle(
               color: AppColors.textMuted,
               fontSize: 12,
@@ -678,8 +902,8 @@ class _UploadProgressStrip extends StatelessWidget {
       final total = c.batchTotal.value;
       final current = (c.batchDone.value + 1).clamp(1, total < 1 ? 1 : total);
       final label = c.isCapturing.value && !c.hasPendingUploads
-          ? 'Preparing photos…'
-          : 'Uploading $current of $total';
+          ? 'Getting your photos ready…'
+          : 'Saving photo $current of $total';
       return Container(
         margin: const EdgeInsets.only(top: 12),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -788,7 +1012,7 @@ class _PageTile extends StatelessWidget {
                       const SizedBox(height: 3),
                       if (replacing)
                         const Text(
-                          'Replacing…',
+                          'Changing this one…',
                           style: TextStyle(
                             color: AppColors.primary,
                             fontSize: 12,
@@ -797,7 +1021,7 @@ class _PageTile extends StatelessWidget {
                         )
                       else if (retake)
                         Text(
-                          page.reason ?? 'Please retake this page.',
+                          page.reason ?? 'Please take this one again.',
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -816,7 +1040,7 @@ class _PageTile extends StatelessWidget {
                             ),
                             SizedBox(width: 4),
                             Text(
-                              'Added',
+                              'Saved',
                               style: TextStyle(
                                 color: LibraryPalette.green,
                                 fontSize: 12,
@@ -840,14 +1064,14 @@ class _PageTile extends StatelessWidget {
                 else ...[
                   if (retake)
                     LibraryPrimaryButton(
-                      label: 'Retake',
+                      label: 'Take again',
                       icon: Icons.camera_alt_outlined,
                       color: LibraryPalette.amber,
                       onPressed: onRetake,
                     )
                   else
                     IconButton(
-                      tooltip: 'Retake',
+                      tooltip: 'Take this page again',
                       onPressed: replacing ? null : onRetake,
                       icon: const Icon(
                         Icons.camera_alt_outlined,
@@ -856,7 +1080,7 @@ class _PageTile extends StatelessWidget {
                     ),
                   if (canDelete)
                     IconButton(
-                      tooltip: 'Remove',
+                      tooltip: 'Remove this page',
                       onPressed: replacing ? null : onDelete,
                       icon: const Icon(
                         Icons.delete_outline_rounded,
@@ -949,10 +1173,10 @@ class _LocalPageTile extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     failed
-                        ? 'Not added: ${item.error}'
+                        ? 'Did not go through: ${item.error}'
                         : uploading
-                        ? 'Uploading… ${(item.progress * 100).round()}%'
-                        : 'Waiting…',
+                        ? 'Saving… ${(item.progress * 100).round()}%'
+                        : 'Waiting its turn…',
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -966,7 +1190,7 @@ class _LocalPageTile extends StatelessWidget {
             ),
             if (failed) ...[
               IconButton(
-                tooltip: 'Try again',
+                tooltip: 'Try this one again',
                 onPressed: onRetry,
                 icon: const Icon(
                   Icons.refresh_rounded,
@@ -1029,7 +1253,8 @@ class _AddPagesCard extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          'You have added the maximum of $maxPages pages.',
+          "That's the most we can take ($maxPages pages). "
+          'Send them when you are ready.',
           textAlign: TextAlign.center,
           style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5),
         ),
@@ -1048,22 +1273,22 @@ class _AddPagesCard extends StatelessWidget {
       child: Column(
         children: [
           LibraryPrimaryButton(
-            label: 'Scan pages',
-            icon: Icons.document_scanner_outlined,
+            label: 'Add the next page',
+            icon: Icons.photo_camera_rounded,
             expand: true,
             busy: busy,
             onPressed: onScan,
           ),
           const SizedBox(height: 8),
           LibrarySecondaryButton(
-            label: 'Choose from photos',
+            label: 'Pick photos I already took',
             icon: Icons.photo_library_outlined,
             expand: true,
             onPressed: busy ? null : onGallery,
           ),
           const SizedBox(height: 8),
           Text(
-            '$remaining more page${remaining == 1 ? '' : 's'} allowed',
+            'You can add $remaining more page${remaining == 1 ? '' : 's'}',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],
@@ -1097,6 +1322,7 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
+/// Step 3: the AI is reading the pages. Nothing for the student to do.
 class _ProcessingView extends StatelessWidget {
   const _ProcessingView({required this.session});
 
@@ -1109,97 +1335,110 @@ class _ProcessingView extends StatelessWidget {
     final total = progress?.pagesTotal ?? session.pageCount;
     final read = progress?.pagesRead ?? 0;
     final label = writing
-        ? 'Writing overview, notes, Q&A and quiz…'
+        ? 'Writing the notes, questions and quiz…'
         : total > 0
         ? 'Reading page ${(read + 1).clamp(1, total)} of $total'
-        : 'Reading the pages…';
+        : 'Reading your pages…';
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
+    return Column(
       children: [
-        Container(
-          width: 84,
-          height: 84,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: AppColors.primaryPale,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.auto_awesome_rounded,
-            color: AppColors.primary,
-            size: 40,
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Creating your lesson…',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 19,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 18),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            minHeight: 8,
-            value: writing || total <= 0 ? null : progress?.fraction ?? 0,
-            backgroundColor: LibraryPalette.greySoft,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        if (!writing)
-          const Text(
-            'Then: overview · notes · Q&A · quiz',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
-          ),
-        const SizedBox(height: 28),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: LibraryPalette.border),
-          ),
-          child: const Row(
+        const _StepHeader(step: 3, total: 3, label: 'We are making the lesson'),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 36, 24, 30),
             children: [
-              Icon(
-                Icons.notifications_active_outlined,
-                color: AppColors.primary,
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "You can leave — we'll notify you when it's done or if a "
-                  'page needs a retake.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.4,
+              Center(
+                child: Container(
+                  width: 84,
+                  height: 84,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryPale,
+                    shape: BoxShape.circle,
                   ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.primary,
+                    size: 40,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Thanks! We are reading your pages…',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 18),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  minHeight: 8,
+                  value: writing || total <= 0 ? null : progress?.fraction ?? 0,
+                  backgroundColor: LibraryPalette.greySoft,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              if (!writing)
+                const Text(
+                  'Next we write the notes, questions and quiz.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+                ),
+              const SizedBox(height: 28),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: LibraryPalette.border),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_active_outlined,
+                      color: AppColors.primary,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "You don't have to wait here. We'll tell you when it "
+                        'is ready, or if a page needs a new photo.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Center(
+                child: LibrarySecondaryButton(
+                  label: 'Do something else',
+                  onPressed: Get.back,
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 18),
-        Center(
-          child: LibrarySecondaryButton(label: 'Leave', onPressed: Get.back),
         ),
       ],
     );
@@ -1350,7 +1589,7 @@ class _PagePreview extends StatelessWidget {
                     ],
                     Expanded(
                       child: LibraryPrimaryButton(
-                        label: 'Retake',
+                        label: 'Take again',
                         icon: Icons.camera_alt_outlined,
                         onPressed: onRetake,
                       ),

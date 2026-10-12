@@ -82,7 +82,7 @@ class LibraryLessonList {
 
 /// Filter on publication status in Browse.
 enum LibraryStatusFilter {
-  all(null, 'All'),
+  all(null, 'Everything'),
   available('available', 'Ready to read'),
   pending('pending', 'Coming soon');
 
@@ -240,6 +240,12 @@ class LibraryController extends GetxController {
     if (statusFilter.value == value) return;
     statusFilter.value = value;
     browse.reload();
+  }
+
+  /// Sets the status filter without refetching — for a screen that is about
+  /// to load the list anyway.
+  void setStatusSilently(LibraryStatusFilter value) {
+    statusFilter.value = value;
   }
 
   void onSearchChanged(String value) {

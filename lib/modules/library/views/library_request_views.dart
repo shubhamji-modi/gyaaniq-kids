@@ -1,514 +1,60 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:get/get.dart';
 
 import '../../../core/theme/appcolors.dart';
 import '../data/library_models.dart';
 import '../data/library_repository.dart';
 import 'library_widgets.dart';
 
-/// What the request form hands back to the Library.
-class LibraryRequestOutcome {
-  const LibraryRequestOutcome({
-    required this.message,
-    required this.lesson,
-    required this.alreadyExists,
-  });
-
-  final String message;
-  final LibraryLesson? lesson;
-
-  /// The chapter was there already: the student now follows it and the
-  /// Library should simply open it — this is never an error.
-  final bool alreadyExists;
-}
-
-/// "Request a lesson": book + subject + chapter + name (+ note).
-class LibraryRequestViews extends StatefulWidget {
-  const LibraryRequestViews({
-    super.key,
-    required this.meta,
-    this.initialPublication,
-    this.initialSubject,
-    this.initialChapter,
-    this.initialTitle = '',
-    this.onPublicationListed,
-  });
-
-  final LibraryMeta meta;
-  final LibraryRef? initialPublication;
-  final LibraryRef? initialSubject;
-  final int? initialChapter;
-  final String initialTitle;
-
-  /// A publication the student can now pick (e.g. after a `409` telling them
-  /// it is already listed) — lets the Library add it to its filter.
-  final ValueChanged<LibraryRef>? onPublicationListed;
-
-  @override
-  State<LibraryRequestViews> createState() => _LibraryRequestViewsState();
-}
-
-class _LibraryRequestViewsState extends State<LibraryRequestViews> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _chapter = TextEditingController(
-    text: widget.initialChapter?.toString() ?? '',
+/// Choosing which book a chapter comes from.
+///
+/// This is the one picker shared by every Library flow. It searches the
+/// server's publication list, and folds "my book isn't here" into the same
+/// sheet so the student never has to know those are two different things:
+/// asking for a book hands back the book itself once an admin lists it.
+///
+/// Returns the chosen publication, or `null` if the student backed out.
+/// [onListed] fires when a book the student asked for turns out to be listed
+/// already, so callers can remember it.
+Future<LibraryRef?> showLibraryPublicationPicker(
+  BuildContext context, {
+  required List<LibraryRef> known,
+  required LibraryRef? selected,
+  required int noteMax,
+  ValueChanged<LibraryRef>? onListed,
+}) async {
+  final picked = await showModalBottomSheet<LibraryRef>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => _PublicationPickerSheet(initial: known, selected: selected),
   );
-  late final TextEditingController _title = TextEditingController(
-    text: widget.initialTitle,
+  if (picked == null) return null;
+  if (picked.id.isNotEmpty) return picked;
+
+  // "My book isn't here" — ask for it, and take it straight back if the
+  // server says it was listed all along.
+  if (!context.mounted) return null;
+  final listed = await showModalBottomSheet<LibraryRef>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => LibraryPublicationRequestSheet(noteMax: noteMax),
   );
-  final TextEditingController _note = TextEditingController();
-
-  late final List<LibraryRef> _publications = [...widget.meta.publications];
-  LibraryRef? _publication;
-  LibraryRef? _subject;
-  bool _sending = false;
-  Map<String, String> _serverErrors = const {};
-  String _formError = '';
-
-  LibraryRules get rules => widget.meta.rules;
-
-  @override
-  void initState() {
-    super.initState();
-    _publication = widget.initialPublication;
-    _subject =
-        widget.initialSubject ??
-        (widget.meta.subjects.length == 1 ? widget.meta.subjects.first : null);
-  }
-
-  @override
-  void dispose() {
-    _chapter.dispose();
-    _title.dispose();
-    _note.dispose();
-    super.dispose();
-  }
-
-  void _clearServerError(String field) {
-    if (_serverErrors.containsKey(field) || _formError.isNotEmpty) {
-      setState(() {
-        _serverErrors = Map.of(_serverErrors)..remove(field);
-        _formError = '';
-      });
-    }
-  }
-
-  Future<void> _pickPublication() async {
-    final picked = await showModalBottomSheet<LibraryRef>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _PublicationPickerSheet(
-        initial: _publications,
-        selected: _publication,
-      ),
-    );
-    if (picked == null) return;
-    if (picked.id.isEmpty) {
-      // "Not listed?" from inside the picker.
-      await _requestPublication();
-      return;
-    }
-    setState(() {
-      _publication = picked;
-      if (!_publications.contains(picked)) _publications.add(picked);
-    });
-    _clearServerError('publicationId');
-  }
-
-  Future<void> _pickSubject() async {
-    final picked = await showModalBottomSheet<LibraryRef>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: Text(
-                'Subject',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-              ),
-            ),
-            for (final s in widget.meta.subjects)
-              ListTile(
-                title: Text(
-                  s.name,
-                  style: TextStyle(
-                    fontWeight: s == _subject
-                        ? FontWeight.w800
-                        : FontWeight.w600,
-                    color: s == _subject
-                        ? AppColors.primary
-                        : AppColors.textPrimary,
-                  ),
-                ),
-                trailing: s == _subject
-                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                    : null,
-                onTap: () => Navigator.of(context).pop(s),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (picked == null) return;
-    setState(() => _subject = picked);
-    _clearServerError('subjectId');
-  }
-
-  Future<void> _requestPublication() async {
-    final listed = await showModalBottomSheet<LibraryRef>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => LibraryPublicationRequestSheet(noteMax: rules.noteMax),
-    );
-    // A 409 "already in the list" hands the publication back: select it.
-    if (listed != null && listed.id.isNotEmpty) {
-      setState(() {
-        if (!_publications.contains(listed)) _publications.add(listed);
-        _publication = listed;
-      });
-      widget.onPublicationListed?.call(listed);
-    }
-  }
-
-  Future<void> _send() async {
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _serverErrors = const {};
-      _formError = '';
-    });
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_publication == null || _subject == null) {
-      setState(() {
-        _formError = _publication == null
-            ? 'Choose the publication (book).'
-            : 'Choose the subject.';
-      });
-      return;
-    }
-
-    setState(() => _sending = true);
-    final result = await LibraryRepository.requestLesson(
-      publicationId: _publication!.id,
-      subjectId: _subject!.id,
-      chapterNumber: int.parse(_chapter.text.trim()),
-      title: _title.text,
-      note: _note.text,
-    );
-    if (!mounted) return;
-    setState(() => _sending = false);
-
-    if (result.ok) {
-      Get.back(
-        result: LibraryRequestOutcome(
-          message: result.message,
-          lesson: result.data,
-          alreadyExists: result.statusCode == 200,
-        ),
-      );
-      return;
-    }
-
-    final fieldErrors = result.fieldErrors;
-    setState(() {
-      _serverErrors = fieldErrors;
-      // Field errors sit next to their field; anything else goes on top.
-      final unplaced = fieldErrors.keys.where(
-        (k) => !const {
-          'publicationId',
-          'subjectId',
-          'chapterNumber',
-          'title',
-          'note',
-        }.contains(k),
-      );
-      _formError = fieldErrors.isEmpty || unplaced.isNotEmpty
-          ? result.displayMessage
-          : '';
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final quota = widget.meta.requests;
-    return Scaffold(
-      backgroundColor: LibraryPalette.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const LibraryTopBar(title: 'Request a lesson'),
-            Expanded(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryPale,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Text(
-                        'Tell us which lesson from your book you need. '
-                        'Once an admin approves it, you can photograph its '
-                        'pages and we will turn them into notes, Q&A and a quiz '
-                        'for everyone in your class.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12.5,
-                          height: 1.45,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _FieldLabel('Publication'),
-                    _PickerField(
-                      value: _publication?.name,
-                      hint: 'Choose the book publisher',
-                      error: _serverErrors['publicationId'],
-                      onTap: _pickPublication,
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: _requestPublication,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text(
-                          'Not listed? Request it',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _FieldLabel('Subject'),
-                    _PickerField(
-                      value: _subject?.name,
-                      hint: 'Choose the subject',
-                      error: _serverErrors['subjectId'],
-                      onTap: _pickSubject,
-                    ),
-                    const SizedBox(height: 16),
-                    _FieldLabel('Chapter no.'),
-                    TextFormField(
-                      controller: _chapter,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(3),
-                      ],
-                      onChanged: (_) => _clearServerError('chapterNumber'),
-                      decoration: _inputDecoration(
-                        hint: 'e.g. 4',
-                        error: _serverErrors['chapterNumber'],
-                      ),
-                      validator: (v) {
-                        final n = int.tryParse(v?.trim() ?? '');
-                        if (n == null) return 'Enter the chapter number.';
-                        if (n < 1 || n > rules.chapterMax) {
-                          return 'Chapter number must be 1–${rules.chapterMax}.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _FieldLabel('Lesson name'),
-                    TextFormField(
-                      controller: _title,
-                      maxLength: rules.titleMax,
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: (_) => _clearServerError('title'),
-                      decoration: _inputDecoration(
-                        hint: 'e.g. Fractions',
-                        error: _serverErrors['title'],
-                      ),
-                      validator: (v) {
-                        final t = v?.trim() ?? '';
-                        if (t.isEmpty) return 'Enter the lesson name.';
-                        if (t.length > rules.titleMax) {
-                          return 'Keep it under ${rules.titleMax} characters.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 6),
-                    _FieldLabel('Note (optional)'),
-                    TextFormField(
-                      controller: _note,
-                      maxLength: rules.noteMax,
-                      maxLines: 3,
-                      minLines: 2,
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: (_) => _clearServerError('note'),
-                      decoration: _inputDecoration(
-                        hint: 'Anything that helps find the right lesson',
-                        error: _serverErrors['note'],
-                      ),
-                    ),
-                    if (_formError.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: LibraryPalette.redSoft,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _formError,
-                          style: const TextStyle(
-                            color: LibraryPalette.red,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Text(
-                      'Requests left today: ${quota.remaining} of ${quota.limit}',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: quota.remaining > 0
-                            ? AppColors.textMuted
-                            : LibraryPalette.red,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (quota.remaining <= 0)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'If the lesson already exists you can still follow '
-                          'it — that does not use a request.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    LibraryPrimaryButton(
-                      label: 'Send request',
-                      icon: Icons.send_rounded,
-                      busy: _sending,
-                      expand: true,
-                      onPressed: _send,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-InputDecoration _inputDecoration({required String hint, String? error}) {
-  OutlineInputBorder border(Color c) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: BorderSide(color: c),
-  );
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: AppColors.textMuted6, fontSize: 14),
-    errorText: error,
-    errorMaxLines: 3,
-    filled: true,
-    fillColor: Colors.white,
-    isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    enabledBorder: border(LibraryPalette.border),
-    focusedBorder: border(AppColors.primary),
-    errorBorder: border(LibraryPalette.red),
-    focusedErrorBorder: border(LibraryPalette.red),
-  );
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6, left: 2),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 13.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _PickerField extends StatelessWidget {
-  const _PickerField({
-    required this.value,
-    required this.hint,
-    required this.onTap,
-    this.error,
-  });
-
-  final String? value;
-  final String hint;
-  final String? error;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: InputDecorator(
-        decoration: _inputDecoration(
-          hint: hint,
-          error: error,
-        ).copyWith(suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded)),
-        isEmpty: value == null,
-        child: Text(
-          value ?? '',
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 14.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
+  if (listed == null || listed.id.isEmpty) return null;
+  onListed?.call(listed);
+  return listed;
 }
 
 /// Publication picker with a live search (`GET /publications?q=`). Returns
-/// [LibraryRef.empty] when the student taps "Not listed?".
+/// [LibraryRef.empty] when the student taps "My book isn't here".
 class _PublicationPickerSheet extends StatefulWidget {
   const _PublicationPickerSheet({required this.initial, this.selected});
 
@@ -579,7 +125,7 @@ class _PublicationPickerSheetState extends State<_PublicationPickerSheet> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Publication',
+                    'Which book?',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -590,7 +136,7 @@ class _PublicationPickerSheetState extends State<_PublicationPickerSheet> {
                   autofocus: widget.initial.length > 8,
                   onChanged: _onChanged,
                   decoration: InputDecoration(
-                    hintText: 'Search publications',
+                    hintText: 'Type your book name',
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
                     suffixIcon: _loading
                         ? const Padding(
@@ -627,7 +173,7 @@ class _PublicationPickerSheetState extends State<_PublicationPickerSheet> {
                       const Padding(
                         padding: EdgeInsets.fromLTRB(20, 18, 20, 4),
                         child: Text(
-                          'No publication found.',
+                          "We couldn't find that book.",
                           style: TextStyle(color: AppColors.textMuted),
                         ),
                       ),
@@ -637,11 +183,15 @@ class _PublicationPickerSheetState extends State<_PublicationPickerSheet> {
                         color: AppColors.primary,
                       ),
                       title: const Text(
-                        'Not listed? Request it',
+                        "My book isn't here",
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w800,
                         ),
+                      ),
+                      subtitle: const Text(
+                        'Tell us its name and we will add it',
+                        style: TextStyle(fontSize: 12),
                       ),
                       onTap: () => Navigator.of(context).pop(LibraryRef.empty),
                     ),
@@ -657,7 +207,7 @@ class _PublicationPickerSheetState extends State<_PublicationPickerSheet> {
 }
 
 /// One listed publication, drawn as a tinted card so the available ones stand
-/// out from the "Not listed?" action below them.
+/// out from the "My book isn't here" action below them.
 class _PublicationTile extends StatelessWidget {
   const _PublicationTile({
     required this.publication,
@@ -731,7 +281,7 @@ class _PublicationTile extends StatelessWidget {
   }
 }
 
-/// "Request a publication" + the student's earlier publication requests.
+/// "Add my book" + the student's earlier book requests.
 ///
 /// Pops with the listed publication when the server answers `409` with
 /// `error.publication` (it is already in the list — select it).
@@ -776,7 +326,7 @@ class _LibraryPublicationRequestSheetState
   Future<void> _send() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Enter the publication name.');
+      setState(() => _error = 'Type your book name first.');
       return;
     }
     FocusScope.of(context).unfocus();
@@ -797,7 +347,7 @@ class _LibraryPublicationRequestSheetState
       setState(() {
         _success = result.message.isNotEmpty && result.message != 'Success'
             ? result.message
-            : "Request sent! We'll tell you when it is added.";
+            : "Sent! We'll tell you when your book is added.";
         _name.clear();
         _note.clear();
       });
@@ -838,7 +388,7 @@ class _LibraryPublicationRequestSheetState
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
             children: [
               const Text(
-                'Request a publication',
+                'Add my book',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 17,
@@ -847,8 +397,8 @@ class _LibraryPublicationRequestSheetState
               ),
               const SizedBox(height: 6),
               const Text(
-                'Is your book missing from the list? Tell us its name and an '
-                'admin will add it.',
+                "Can't see your book in the list? Type its name and a teacher "
+                'will add it.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 16),
@@ -856,14 +406,16 @@ class _LibraryPublicationRequestSheetState
                 controller: _name,
                 maxLength: 80,
                 textCapitalization: TextCapitalization.words,
-                decoration: _inputDecoration(hint: 'e.g. Oxford Maths'),
+                decoration: libraryInputDecoration(hint: 'e.g. Oxford Maths'),
               ),
               const SizedBox(height: 4),
               TextField(
                 controller: _note,
                 maxLength: widget.noteMax,
                 maxLines: 2,
-                decoration: _inputDecoration(hint: 'Note (optional)'),
+                decoration: libraryInputDecoration(
+                  hint: 'Anything else? (you can skip this)',
+                ),
               ),
               if (_error.isNotEmpty)
                 Padding(
@@ -890,7 +442,7 @@ class _LibraryPublicationRequestSheetState
                   ),
                 ),
               LibraryPrimaryButton(
-                label: 'Send request',
+                label: 'Send',
                 busy: _sending,
                 expand: true,
                 onPressed: _send,
@@ -898,7 +450,7 @@ class _LibraryPublicationRequestSheetState
               if (_requests.isNotEmpty) ...[
                 const SizedBox(height: 22),
                 const Text(
-                  'Publication requests',
+                  'Books you asked for',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
@@ -926,7 +478,7 @@ class _PublicationRequestTile extends StatelessWidget {
     final (label, color, bg) = switch (request.status) {
       'added' => ('Added', LibraryPalette.green, LibraryPalette.greenSoft),
       'rejected' => ('Not added', LibraryPalette.red, LibraryPalette.redSoft),
-      _ => ('Pending', LibraryPalette.amber, LibraryPalette.amberSoft),
+      _ => ('Waiting', LibraryPalette.amber, LibraryPalette.amberSoft),
     };
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

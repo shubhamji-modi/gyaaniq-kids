@@ -97,7 +97,7 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FD),
+      backgroundColor: const Color(0xFFEFF1FA),
       body: SafeArea(
         child: Column(
           children: [
@@ -106,7 +106,7 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
               child: RefreshIndicator(
                 onRefresh: _loadSubjects,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
                   children: [
                     const _SubjectSectionTitle(title: 'Select a Subject'),
                     const SizedBox(height: 6),
@@ -118,52 +118,39 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      onChanged: (value) {
-                        setState(() {
-                          _query = value;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Search your subjects...',
-                        hintStyle: const TextStyle(
-                          color: Color(0xFF72788D),
+                    const SizedBox(height: 16),
+                    _ClaySurface(
+                      radius: 18,
+                      child: TextField(
+                        onChanged: (value) {
+                          setState(() {
+                            _query = value;
+                          });
+                        },
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: Color(0xFF7D8092),
-                          size: 22,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFC7C3F0),
+                        decoration: const InputDecoration(
+                          hintText: 'Search your subjects...',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF8A8FA6),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFC7C3F0),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: Color(0xFF7D8092),
+                            size: 22,
                           ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF4A4FD9),
-                            width: 1.5,
-                          ),
+                          contentPadding: EdgeInsets.symmetric(vertical: 14),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     if (_isLoading)
                       const Padding(
                         padding: EdgeInsets.only(top: 80),
@@ -182,35 +169,28 @@ class _LearnSubjectViewsState extends State<LearnSubjectViews> {
                     else ...[
                       if (publicationGroups.isNotEmpty) ...[
                         const _SubjectSectionTitle(title: 'Other Publications'),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
                         for (final group in publicationGroups) ...[
-                          _PublicationSectionLabel(
-                            title: group.publicationName,
-                          ),
-                          const SizedBox(height: 12),
-                          ...group.subjects.map(
-                            (subject) => Padding(
-                              padding: const EdgeInsets.only(bottom: 18),
-                              child: _SubjectDetailsCard(
-                                subject: subject,
-                                onReload: _loadSubjects,
-                              ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: _PublicationSectionLabel(
+                              title: group.publicationName,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 10),
+                          _SubjectGrid(
+                            subjects: group.subjects,
+                            onReload: _loadSubjects,
+                          ),
+                          const SizedBox(height: 18),
                         ],
                       ],
                       if (subjects.isNotEmpty) ...[
                         const _SubjectSectionTitle(title: 'My Subjects'),
-                        const SizedBox(height: 14),
-                        ...subjects.map(
-                          (subject) => Padding(
-                            padding: const EdgeInsets.only(bottom: 18),
-                            child: _SubjectDetailsCard(
-                              subject: subject,
-                              onReload: _loadSubjects,
-                            ),
-                          ),
+                        const SizedBox(height: 12),
+                        _SubjectGrid(
+                          subjects: subjects,
+                          onReload: _loadSubjects,
                         ),
                       ],
                     ],
@@ -250,12 +230,19 @@ class _PublicationSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Color(0xFF4F5367),
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
+    return _ClaySurface(
+      radius: 14,
+      color: const Color(0xFFF4F5FC),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF4F5367),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }
@@ -310,6 +297,81 @@ class LearnTopBar extends StatelessWidget {
   }
 }
 
+/// Soft claymorphic surface: a puffy, rounded shape with a dark outer shadow
+/// for lift plus a white inner highlight so it reads as moulded clay.
+class _ClaySurface extends StatelessWidget {
+  const _ClaySurface({
+    required this.child,
+    this.color = const Color(0xFFFFFFFF),
+    this.radius = 24,
+    this.shadowColor = const Color(0xFFB9BEDB),
+  });
+
+  final Widget child;
+  final Color color;
+  final double radius;
+  final Color shadowColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          // Outer lift.
+          BoxShadow(
+            color: shadowColor.withValues(alpha: 0.45),
+            blurRadius: 18,
+            offset: const Offset(6, 8),
+          ),
+          // Top-left light source.
+          const BoxShadow(
+            color: Color(0xFFFFFFFF),
+            blurRadius: 14,
+            offset: Offset(-5, -5),
+          ),
+          // Inner highlight rim.
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.9),
+            blurRadius: 4,
+            offset: const Offset(-2, -2),
+            spreadRadius: -2,
+            blurStyle: BlurStyle.inner,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Two-column grid of compact subject tiles.
+class _SubjectGrid extends StatelessWidget {
+  const _SubjectGrid({required this.subjects, required this.onReload});
+
+  final List<LearnSubjectModel> subjects;
+  final Future<void> Function() onReload;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: subjects.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 16,
+        mainAxisExtent: 168,
+      ),
+      itemBuilder: (context, index) =>
+          _SubjectDetailsCard(subject: subjects[index], onReload: onReload),
+    );
+  }
+}
+
 class _SubjectDetailsCard extends StatelessWidget {
   const _SubjectDetailsCard({required this.subject, required this.onReload});
 
@@ -327,109 +389,118 @@ class _SubjectDetailsCard extends StatelessWidget {
           await onReload();
         }
       },
-      borderRadius: BorderRadius.circular(28),
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFFC8C7F1)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFD6DCEF).withValues(alpha: 0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 45,
-                  height: 45,
-                  decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(24),
+      child: _ClaySurface(
+        shadowColor: subject.accent,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ClaySurface(
                     color: subject.iconBackground,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(subject.icon, color: subject.accent, size: 30),
-                ),
-                const Spacer(),
-                if (subject.statusLabel != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: subject.accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Text(
-                      subject.statusLabel!,
-                      style: TextStyle(
+                    radius: 16,
+                    shadowColor: subject.accent,
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Icon(
+                        subject.icon,
                         color: subject.accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                        size: 22,
                       ),
                     ),
                   ),
+                  const Spacer(),
+                  if (subject.statusLabel != null)
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: subject.accent.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          subject.statusLabel!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: subject.accent,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                subject.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF1D2231),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (subject.subtitle.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  subject.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF6B7089),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              subject.title,
-              style: const TextStyle(
-                color: Color(0xFF1D2231),
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subject.subtitle,
-              style: const TextStyle(
-                color: Color(0xFF4F5367),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 22),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    subject.progressText,
-                    style: const TextStyle(
-                      color: Color(0xFF3F4358),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      subject.progressText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF3F4358),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                Text(
-                  subject.progressPercentage,
-                  style: TextStyle(
-                    color: subject.accent,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                  Text(
+                    subject.progressPercentage,
+                    style: TextStyle(
+                      color: subject.accent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: subject.progress,
-                minHeight: 8,
-                backgroundColor: const Color(0xFFE4E7EE),
-                valueColor: AlwaysStoppedAnimation<Color>(subject.accent),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  value: subject.progress,
+                  minHeight: 6,
+                  backgroundColor: const Color(0xFFE4E7EE),
+                  valueColor: AlwaysStoppedAnimation<Color>(subject.accent),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -444,44 +515,41 @@ class _ErrorStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFC8C7F1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Unable to load subjects',
-            style: TextStyle(
-              color: Color(0xFF1D2231),
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+    return _ClaySurface(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Unable to load subjects',
+              style: TextStyle(
+                color: Color(0xFF1D2231),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            style: const TextStyle(
-              color: Color(0xFF4F5367),
-              fontSize: 14,
-              height: 1.5,
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 10),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF4F5367),
+                fontSize: 14,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: onRetry,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A4FD9),
-              foregroundColor: Colors.white,
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A4FD9),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
             ),
-            child: const Text('Retry'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -495,35 +563,32 @@ class _EmptyStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFC8C7F1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Color(0xFF1D2231),
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+    return _ClaySurface(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF1D2231),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            style: const TextStyle(
-              color: Color(0xFF4F5367),
-              fontSize: 14,
-              height: 1.5,
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 10),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF4F5367),
+                fontSize: 14,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

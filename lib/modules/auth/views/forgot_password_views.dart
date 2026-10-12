@@ -22,7 +22,6 @@ class _ForgotPasswordViewsState extends State<ForgotPasswordViews> {
   final _resetFormKey = GlobalKey<FormState>();
   final _otpControllers = List.generate(6, (_) => TextEditingController());
   final _otpFocusNodes = List.generate(6, (_) => FocusNode());
-
   int _step = 0;
   int _resendSeconds = 25;
   int? _attemptsRemaining;
@@ -110,7 +109,7 @@ class _ForgotPasswordViewsState extends State<ForgotPasswordViews> {
       includeAuth: false,
       fromJson: (json) => json,
     );
-
+    
     if (!mounted) {
       return;
     }

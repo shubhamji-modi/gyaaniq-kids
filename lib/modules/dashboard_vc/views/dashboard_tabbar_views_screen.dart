@@ -2960,13 +2960,61 @@ class _PublicationSubjectLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.textSecondary,
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: _ClaySurface(
+        radius: 14,
+        color: const Color(0xFFF4F5FC),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
       ),
+    );
+  }
+}
+
+/// Soft claymorphic surface: a tinted outer lift plus a white top-left
+/// highlight and inner rim, so the shape reads as moulded clay.
+class _ClaySurface extends StatelessWidget {
+  const _ClaySurface({
+    required this.child,
+    this.color = Colors.white,
+    this.radius = 20,
+    this.shadowColor = const Color(0xFFB9BEDB),
+  });
+
+  final Widget child;
+  final Color color;
+  final double radius;
+  final Color shadowColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          // Inner highlight rim only: keeps the soft moulded clay feel
+          // without casting a drop shadow onto the page.
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.9),
+            blurRadius: 6,
+            offset: const Offset(-2, -2),
+            spreadRadius: -2,
+            blurStyle: BlurStyle.inner,
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -2980,14 +3028,15 @@ class _SubjectCardGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
+      padding: EdgeInsets.zero,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: subjects.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: compact ? 1.08 : 0.90,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        mainAxisExtent: 80,
       ),
       itemBuilder: (context, index) =>
           _SubjectCard(subject: subjects[index], compact: compact),
@@ -3011,83 +3060,90 @@ class _SubjectCard extends StatelessWidget {
 
     return InkWell(
       onTap: () => controller.openLearnSubjectFromCard(subject),
-      borderRadius: BorderRadius.circular(26),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        padding: EdgeInsets.all(compact ? 12 : 18),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: accent.withValues(alpha: 0.25)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: compact ? 32 : 40,
-              height: compact ? 32 : 40,
-              decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(18),
+      child: _ClaySurface(
+        radius: 18,
+        color: Color.alphaBlend(accent.withValues(alpha: 0.07), Colors.white),
+        shadowColor: accent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _ClaySurface(
+                radius: 12,
                 color: accent,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                shadowColor: accent,
+                child: SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: Icon(icon, color: Colors.white, size: 20),
+                ),
               ),
-              child: Icon(icon, color: Colors.white, size: compact ? 18 : 22),
-            ),
-            SizedBox(height: compact ? 10 : 0),
-            if (!compact) const Spacer(),
-            Text(
-              subject.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: compact ? 14 : 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            SizedBox(height: compact ? 6 : 5),
-            Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(99),
-                    child: LinearProgressIndicator(
-                      value: subject.progressValue,
-                      minHeight: compact ? 6 : 8,
-                      backgroundColor: accent.withValues(alpha: 0.18),
-                      valueColor: AlwaysStoppedAnimation<Color>(accent),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            subject.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          subject.progressLabel,
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(99),
+                            child: LinearProgressIndicator(
+                              value: subject.progressValue,
+                              minHeight: 6,
+                              backgroundColor: accent.withValues(alpha: 0.18),
+                              valueColor: AlwaysStoppedAnimation<Color>(accent),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          subject.progressText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.9,
+                            ),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  subject.progressLabel,
-                  style: TextStyle(
-                    color: AppColors.textSecondary.withValues(alpha: 0.92),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: compact ? 8 : 16),
-            Text(
-              subject.progressText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: accent,
-                fontSize: compact ? 12.5 : 14,
-                fontWeight: FontWeight.w700,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

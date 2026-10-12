@@ -7,7 +7,7 @@ import 'data/library_models.dart';
 import 'data/library_repository.dart';
 import 'views/library_lesson_views.dart';
 import 'views/library_upload_views.dart';
-import 'views/library_views.dart';
+import 'views/library_home_views.dart';
 import 'views/library_widgets.dart';
 
 /// Every way into a Library screen goes through here, so the screens never
@@ -17,7 +17,7 @@ class LibraryNavigation {
 
   static Future<void> openLibrary() async {
     if (!AppFeaturesService.instance.isLibraryLessonsEnabled) return;
-    await Get.to(() => const LibraryViews());
+    await Get.to(() => const LibraryHomeViews());
   }
 
   static Widget lessonPage(String lessonId) =>

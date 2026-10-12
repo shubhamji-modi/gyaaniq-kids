@@ -110,10 +110,10 @@ class _LibraryLessonViewsState extends State<LibraryLessonViews>
                         ? Icons.menu_book_outlined
                         : Icons.cloud_off_rounded,
                     title: gone
-                        ? 'This lesson is no longer available.'
-                        : 'Unable to open this lesson',
+                        ? 'This lesson is not there any more.'
+                        : "We couldn't open this lesson",
                     message: gone ? '' : c.error.value,
-                    actionLabel: gone ? 'Back' : 'Retry',
+                    actionLabel: gone ? 'Go back' : 'Try again',
                     onAction: gone ? Get.back : c.load,
                   ),
                 ),
@@ -276,7 +276,7 @@ class _LessonStatusView extends StatelessWidget {
                   lesson.uploadOpensAt!.isAfter(DateTime.now())) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Uploads open for everyone on '
+                  'Anyone in your class can take the photos from '
                   '${libraryDateLabel(lesson.uploadOpensAt!)}',
                   style: const TextStyle(
                     color: AppColors.textMuted,
@@ -301,7 +301,7 @@ class _LessonStatusView extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   progress.isWriting
-                      ? 'Writing overview, notes, Q&A and quiz…'
+                      ? 'Writing the notes, questions and quiz…'
                       : 'Reading page ${(progress.pagesRead + 1).clamp(1, progress.pagesTotal < 1 ? 1 : progress.pagesTotal)} of ${progress.pagesTotal}',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
@@ -322,8 +322,8 @@ class _LessonStatusView extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       lesson.followerCount == 1
-                          ? '1 student wants this'
-                          : '${lesson.followerCount} students want this',
+                          ? '1 student is waiting for this'
+                          : '${lesson.followerCount} students are waiting for this',
                       style: const TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 12.5,
@@ -348,14 +348,14 @@ class _LessonStatusView extends StatelessWidget {
       out.add(
         uploadsAvailable
             ? LibraryPrimaryButton(
-                label: 'Upload pages',
+                label: 'Take photos of the pages',
                 icon: Icons.photo_camera_outlined,
                 color: LibraryPalette.green,
                 expand: true,
                 onPressed: onUpload,
               )
             : const Text(
-                'Uploads are paused right now. Please try again later.',
+                'Photos are paused right now. Please try again later.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 13),
               ),
       );
@@ -363,7 +363,7 @@ class _LessonStatusView extends StatelessWidget {
         lesson.progress == null) {
       out.add(
         LibraryPrimaryButton(
-          label: 'Continue upload',
+          label: 'Carry on with your photos',
           icon: Icons.arrow_forward_rounded,
           expand: true,
           onPressed: onContinue,
@@ -372,7 +372,7 @@ class _LessonStatusView extends StatelessWidget {
     } else if (state == LibraryLessonState.yourUploadInProgress) {
       out.add(
         LibrarySecondaryButton(
-          label: 'View upload',
+          label: 'See your photos',
           expand: true,
           onPressed: onContinue,
         ),
@@ -383,8 +383,8 @@ class _LessonStatusView extends StatelessWidget {
         lesson.isFollowing
             ? LibrarySecondaryButton(
                 label: lesson.isRequester
-                    ? "Following — you'll be notified"
-                    : 'Following · tap to stop',
+                    ? 'Pending from admin'
+                    : 'Pending from admin · tap to stop',
                 icon: Icons.notifications_active_rounded,
                 color: LibraryPalette.green,
                 expand: true,
@@ -392,7 +392,7 @@ class _LessonStatusView extends StatelessWidget {
                 onPressed: lesson.isRequester ? null : onToggleFollow,
               )
             : LibraryPrimaryButton(
-                label: 'Follow — notify me when ready',
+                label: "Tell me when it's ready",
                 icon: Icons.notifications_none_rounded,
                 expand: true,
                 busy: followBusy,
@@ -672,7 +672,7 @@ class _QuizTabState extends State<_QuizTab> with AutomaticKeepAliveClientMixin {
           subtitle: [
             if (description.isNotEmpty) description,
             if (count > 0) '$count questions',
-            'Practice only — no XP, not counted in Weak Areas or leaderboards.',
+            'Just for practice — no XP, and it does not count anywhere.',
           ].join('\n'),
           buttonLabel: _attempts.isEmpty ? 'Start quiz' : 'Try again',
           onPressed: _start,

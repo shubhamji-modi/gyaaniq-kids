@@ -72,10 +72,19 @@ String libraryDateLabel(DateTime date) {
 }
 
 class LibraryTopBar extends StatelessWidget {
-  const LibraryTopBar({super.key, required this.title, this.trailing});
+  const LibraryTopBar({
+    super.key,
+    required this.title,
+    this.trailing,
+    this.onBack,
+  });
 
   final String title;
   final Widget? trailing;
+
+  /// Defaults to leaving the screen. A stepped flow passes its own handler so
+  /// the arrow goes back one step first.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +98,7 @@ class LibraryTopBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: Get.back,
+            onPressed: onBack ?? Get.back,
             icon: const Icon(
               Icons.arrow_back_ios_new_rounded,
               color: Color(0xFF103383),
@@ -128,35 +137,35 @@ class LibraryStateStyle {
     switch (state) {
       case LibraryLessonState.requested:
         return const LibraryStateStyle(
-          'Requested',
+          'Waiting for OK',
           Icons.schedule_rounded,
           LibraryPalette.amber,
           LibraryPalette.amberSoft,
         );
       case LibraryLessonState.waitingForUpload:
         return const LibraryStateStyle(
-          'Approved',
+          'Ready for photos',
           Icons.check_circle_outline_rounded,
           LibraryPalette.blue,
           LibraryPalette.blueSoft,
         );
       case LibraryLessonState.youCanUpload:
         return const LibraryStateStyle(
-          'Needs pages',
+          'Needs photos',
           Icons.photo_camera_outlined,
           LibraryPalette.green,
           LibraryPalette.greenSoft,
         );
       case LibraryLessonState.yourUploadInProgress:
         return const LibraryStateStyle(
-          'Your upload',
+          'You are doing this',
           Icons.cloud_upload_outlined,
           AppColors.primary,
           AppColors.primaryLight,
         );
       case LibraryLessonState.beingUploaded:
         return const LibraryStateStyle(
-          'Uploading',
+          'Someone is doing this',
           Icons.cloud_upload_outlined,
           LibraryPalette.blue,
           LibraryPalette.blueSoft,
@@ -164,35 +173,35 @@ class LibraryStateStyle {
       case LibraryLessonState.yourUploadInReview:
       case LibraryLessonState.inReview:
         return const LibraryStateStyle(
-          'In review',
+          'Being checked',
           Icons.hourglass_top_rounded,
           LibraryPalette.purple,
           LibraryPalette.purpleSoft,
         );
       case LibraryLessonState.available:
         return const LibraryStateStyle(
-          'Ready',
+          'Ready to read',
           Icons.menu_book_rounded,
           LibraryPalette.green,
           LibraryPalette.greenSoft,
         );
       case LibraryLessonState.unavailable:
         return const LibraryStateStyle(
-          'Unavailable',
+          'Not open',
           Icons.block_rounded,
           LibraryPalette.grey,
           LibraryPalette.greySoft,
         );
       case LibraryLessonState.rejected:
         return const LibraryStateStyle(
-          'Not approved',
+          'Not allowed',
           Icons.cancel_outlined,
           LibraryPalette.red,
           LibraryPalette.redSoft,
         );
       case LibraryLessonState.unknown:
         return const LibraryStateStyle(
-          'Pending',
+          'Waiting',
           Icons.more_horiz_rounded,
           LibraryPalette.grey,
           LibraryPalette.greySoft,
@@ -546,7 +555,7 @@ class LibraryLessonCard extends StatelessWidget {
                     const _InfoLine(
                       icon: Icons.info_outline_rounded,
                       text:
-                          'Other students will see this after a quick review.',
+                          'Your class will see this once a teacher checks it.',
                     ),
                   ],
                   if (state == LibraryLessonState.youCanUpload &&
@@ -554,7 +563,7 @@ class LibraryLessonCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     const _InfoLine(
                       icon: Icons.cloud_off_rounded,
-                      text: 'Uploads are paused right now. Please try later.',
+                      text: 'Photos are paused right now. Please try later.',
                     ),
                   ],
                   if (lesson.followerCount > 0 &&
@@ -563,8 +572,8 @@ class LibraryLessonCard extends StatelessWidget {
                     _InfoLine(
                       icon: Icons.groups_2_outlined,
                       text: lesson.followerCount == 1
-                          ? '1 student wants this'
-                          : '${lesson.followerCount} students want this',
+                          ? '1 student is waiting for this'
+                          : '${lesson.followerCount} students are waiting for this',
                     ),
                   ],
                   if (actions.isNotEmpty) ...[
@@ -594,7 +603,7 @@ class LibraryLessonCard extends StatelessWidget {
       case LibraryLessonState.yourUploadInReview:
         out.add(
           LibraryPrimaryButton(
-            label: 'Read',
+            label: 'Read it',
             icon: Icons.chrome_reader_mode_outlined,
             onPressed: onRead,
           ),
@@ -603,7 +612,7 @@ class LibraryLessonCard extends StatelessWidget {
         if (uploadsAvailable) {
           out.add(
             LibraryPrimaryButton(
-              label: 'Upload pages',
+              label: 'Take photos',
               icon: Icons.photo_camera_outlined,
               onPressed: onUpload,
               color: LibraryPalette.green,
@@ -613,7 +622,7 @@ class LibraryLessonCard extends StatelessWidget {
       case LibraryLessonState.yourUploadInProgress:
         out.add(
           LibraryPrimaryButton(
-            label: 'Continue',
+            label: 'Carry on',
             icon: Icons.arrow_forward_rounded,
             onPressed: onContinue,
           ),
@@ -626,7 +635,7 @@ class LibraryLessonCard extends StatelessWidget {
       if (!lesson.isFollowing) {
         out.add(
           LibrarySecondaryButton(
-            label: 'Follow',
+            label: "Tell me when it's ready",
             icon: Icons.notifications_none_rounded,
             busy: followBusy,
             onPressed: onToggleFollow,
@@ -635,7 +644,7 @@ class LibraryLessonCard extends StatelessWidget {
       } else {
         out.add(
           LibrarySecondaryButton(
-            label: 'Following',
+            label: 'Pending from admin',
             icon: Icons.notifications_active_rounded,
             busy: followBusy,
             color: LibraryPalette.green,
@@ -712,6 +721,94 @@ class LibraryQuotaPill extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shared field decoration for every Library form.
+InputDecoration libraryInputDecoration({required String hint, String? error}) {
+  OutlineInputBorder border(Color c) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(16),
+    borderSide: BorderSide(color: c),
+  );
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: AppColors.textMuted6),
+    errorText: error,
+    errorMaxLines: 3,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    enabledBorder: border(LibraryPalette.border),
+    focusedBorder: border(AppColors.primary),
+    errorBorder: border(LibraryPalette.red),
+    focusedErrorBorder: border(LibraryPalette.red),
+  );
+}
+
+/// "Step 2 of 3" plus the question being asked, over a bar that fills up.
+/// Shared by every stepped Library flow so they all feel like one thing.
+class LibraryStepBar extends StatelessWidget {
+  const LibraryStepBar({
+    super.key,
+    required this.step,
+    required this.total,
+    this.label,
+  });
+
+  final int step;
+  final int total;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Step $step of $total',
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (label != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              label!,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = 1; i <= total; i++) ...[
+                Expanded(
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i <= step
+                          ? AppColors.primary
+                          : LibraryPalette.greySoft,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                if (i != total) const SizedBox(width: 6),
+              ],
+            ],
           ),
         ],
       ),
