@@ -56,7 +56,7 @@ class ApiService extends GetxService {
   static const String ACTIVE_CLASSES = 'classes/active';
   static String get REGISTER =>
       useTemporaryAuth ? '${temp_baseUrl}register' : 'auth/register';
-  static String get registerVerifyOtp => useTemporaryAuth
+  static String get registerVerifyOtp => useTemporaryAuth    
       ? '${temp_baseUrl}verify-otp'
       : 'auth/register/verify-otp';
   static const String registerResendOtp = 'auth/register/resend-otp';
