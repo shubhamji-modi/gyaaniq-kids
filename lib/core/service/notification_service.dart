@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../modules/coins/coin_service.dart';
 import '../../modules/notifications/controller/notification_controller.dart';
 import 'device_token_service.dart';
 import 'notification_badge_service.dart';
@@ -22,7 +23,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await NotificationBadgeService.incrementInBackground();
 }
 
-/// Push notifications — Android only for now.
+/// Push notifications — Android and iOS.
 ///
 /// Combines Firebase Cloud Messaging (remote push + device token) with
 /// `flutter_local_notifications` (used to display notifications while the
@@ -57,33 +58,47 @@ class NotificationService {
   /// login) that need to (re)send it without waiting for a fresh fetch.
   String? currentToken;
 
-  /// Entry point — call once during app startup (Android only).
+  static bool get _isSupportedPlatform => Platform.isAndroid || Platform.isIOS;
+
+  /// Entry point — call once during app startup.
   Future<void> init() async {
-    if (_isInitialized || !Platform.isAndroid) return;
+    if (_isInitialized || !_isSupportedPlatform) return;
 
     try {
       const androidSettings = AndroidInitializationSettings(
         '@drawable/$_smallIcon',
       );
-      const initSettings = InitializationSettings(android: androidSettings);
+      // The permission is asked through FCM in [requestPermission], not here,
+      // so the prompt does not appear before the app has started.
+      const darwinSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: darwinSettings,
+      );
 
       await _plugin.initialize(
         initSettings,
         onDidReceiveNotificationResponse: _onLocalNotificationTap,
       );
 
-      const androidChannel = AndroidNotificationChannel(
-        _channelId,
-        _channelName,
-        description: _channelDescription,
-        importance: Importance.high,
-        // Lets the launcher put a dot/count on the app icon for this channel.
-        showBadge: true,
-      );
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(androidChannel);
+      if (Platform.isAndroid) {
+        const androidChannel = AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          description: _channelDescription,
+          importance: Importance.high,
+          // Lets the launcher put a dot/count on the app icon for this channel.
+          showBadge: true,
+        );
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(androidChannel);
+      }
 
       _isInitialized = true;
 
@@ -103,17 +118,34 @@ class NotificationService {
 
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-      final token = await messaging.getToken();
-      debugPrint('NotificationService: FCM token -> $token');
-      // Sent to the server by DeviceTokenService.sync() once the permission
-      // prompt is answered — see main().
-      currentToken = token;
+      if (Platform.isIOS) {
+        // iOS draws a push that arrives in the foreground itself once this is
+        // set, so onMessage below must not draw it a second time.
+        await messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
 
+      // Listen before asking for the token: on iOS a token that only shows up
+      // once APNs answers arrives here, and is sent from here.
       messaging.onTokenRefresh.listen((newToken) {
         debugPrint('NotificationService: FCM token refreshed -> $newToken');
         currentToken = newToken;
         unawaited(DeviceTokenService.instance.sendToken(newToken));
       });
+
+      // Not awaited: on iOS fetchToken() can wait seconds for APNs, and init()
+      // runs before runApp(). Sent to the server by DeviceTokenService.sync()
+      // once the permission prompt is answered — see main().
+      unawaited(
+        fetchToken().then((token) {
+          if (token == null) return;
+          currentToken ??= token;
+          debugPrint('NotificationService: FCM token -> $token');
+        }),
+      );
 
       // Foreground: FCM does not show anything by itself, so display it
       // ourselves via flutter_local_notifications.
@@ -122,6 +154,14 @@ class NotificationService {
         // bell too instead of being counted only while the app is closed.
         if (message.notification == null && message.data.isEmpty) return;
         await NotificationBadgeService.instance.increment();
+
+        // Coins were just credited: re-read the balance once (never polled).
+        if (message.data['linkType']?.toString() == _coinsLinkType) {
+          unawaited(CoinService.instance.refresh());
+        }
+
+        // Already shown by iOS — see setForegroundNotificationPresentationOptions.
+        if (Platform.isIOS && message.notification != null) return;
 
         final title =
             message.notification?.title ?? message.data['title']?.toString();
@@ -133,7 +173,7 @@ class NotificationService {
           title: title ?? '',
           body: body ?? '',
           number: NotificationBadgeService.instance.unreadCount.value,
-          payload: _libraryPayload(message.data),
+          payload: _linkPayload(message.data),
         );
       });
 
@@ -153,6 +193,33 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('NotificationService: FCM init failed -> $e');
+    }
+  }
+
+  /// This device's FCM token, or null when it cannot be had yet.
+  ///
+  /// On iOS FCM only hands out a token once Apple has issued the APNs token,
+  /// which can take a moment after launch or after the permission prompt —
+  /// asking earlier throws. [onTokenRefresh] covers it arriving later still.
+  Future<String?> fetchToken() async {
+    if (Firebase.apps.isEmpty) return null;
+    try {
+      final messaging = FirebaseMessaging.instance;
+      if (Platform.isIOS) {
+        var apnsToken = await messaging.getAPNSToken();
+        for (var attempt = 0; apnsToken == null && attempt < 5; attempt++) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          apnsToken = await messaging.getAPNSToken();
+        }
+        if (apnsToken == null) {
+          debugPrint('NotificationService: APNs token not available yet');
+          return null;
+        }
+      }
+      return await messaging.getToken();
+    } catch (e) {
+      debugPrint('NotificationService: getToken failed -> $e');
+      return null;
     }
   }
 
@@ -189,21 +256,28 @@ class NotificationService {
     }
   }
 
-  /// Payload of a foreground notification that should open a Library lesson
-  /// when tapped (`data.linkType = "libraryLesson"`, `data.linkId`).
-  static String? _libraryPayload(Map<String, dynamic> data) {
+  /// Payload of a foreground notification that should open a screen when
+  /// tapped: a Library lesson (`linkType = "libraryLesson"`, `linkId`) or the
+  /// coin wallet (`linkType = "studentCoins"`).
+  static String? _linkPayload(Map<String, dynamic> data) {
+    final linkType = data['linkType']?.toString();
     final linkId = data['linkId']?.toString() ?? '';
-    if (data['linkType']?.toString() != _libraryLinkType || linkId.isEmpty) {
-      return null;
-    }
+    if (linkType == _coinsLinkType) return '$_coinsLinkType:$linkId';
+    if (linkType != _libraryLinkType || linkId.isEmpty) return null;
     return '$_libraryLinkType:$linkId';
   }
 
   static const String _libraryLinkType = 'libraryLesson';
+  static const String _coinsLinkType = 'studentCoins';
 
   /// Tap on a notification we drew ourselves while the app was open.
   void _onLocalNotificationTap(NotificationResponse response) {
     final payload = response.payload ?? '';
+    if (payload.startsWith('$_coinsLinkType:')) {
+      unawaited(NotificationBadgeService.instance.clear());
+      NotificationController.handleStudentCoinsTap();
+      return;
+    }
     if (!payload.startsWith('$_libraryLinkType:')) return;
     unawaited(NotificationBadgeService.instance.clear());
     NotificationController.handleLibraryLessonTap(
@@ -215,10 +289,17 @@ class NotificationService {
     // Tapping a push counts as reading it.
     unawaited(NotificationBadgeService.instance.clear());
 
+    final linkType = message.data['linkType']?.toString();
+
+    // Coins credited: open the wallet, which fetches the real balance.
+    if (linkType == _coinsLinkType) {
+      NotificationController.handleStudentCoinsTap();
+      return;
+    }
+
     // Library pushes are about one lesson: open it, not the notification.
     final linkId = message.data['linkId']?.toString() ?? '';
-    if (message.data['linkType']?.toString() == _libraryLinkType &&
-        linkId.isNotEmpty) {
+    if (linkType == _libraryLinkType && linkId.isNotEmpty) {
       NotificationController.handleLibraryLessonTap(linkId);
       return;
     }
@@ -231,9 +312,25 @@ class NotificationService {
     NotificationController.handlePushTap(notificationId);
   }
 
-  /// Requests the runtime POST_NOTIFICATIONS permission (Android 13+).
-  /// No-op / returns true on older Android versions.
+  /// Requests the runtime POST_NOTIFICATIONS permission (Android 13+), or the
+  /// alert/badge/sound permission on iOS. Returns true on older Android
+  /// versions, where no prompt exists.
   Future<bool> requestPermission() async {
+    if (Platform.isIOS) {
+      if (Firebase.apps.isEmpty) return false;
+      try {
+        final settings = await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        return settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional;
+      } catch (e) {
+        debugPrint('NotificationService: permission request failed -> $e');
+        return false;
+      }
+    }
     if (!Platform.isAndroid) return false;
     try {
       final granted = await _plugin
@@ -255,7 +352,7 @@ class NotificationService {
     String? payload,
     int? number,
   }) async {
-    if (!Platform.isAndroid || !_isInitialized) return;
+    if (!_isSupportedPlatform || !_isInitialized) return;
     try {
       final androidDetails = AndroidNotificationDetails(
         _channelId,
@@ -270,7 +367,16 @@ class NotificationService {
         // Badge count launchers that support numbers read off the notification.
         number: number,
       );
-      final details = NotificationDetails(android: androidDetails);
+      final darwinDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        badgeNumber: number,
+      );
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: darwinDetails,
+      );
       await _plugin.show(id, title, body, details, payload: payload);
     } catch (e) {
       debugPrint('NotificationService: showNotification failed -> $e');
@@ -279,13 +385,13 @@ class NotificationService {
 
   /// Cancels a previously scheduled/shown notification by [id].
   Future<void> cancel(int id) async {
-    if (!Platform.isAndroid) return;
+    if (!_isSupportedPlatform) return;
     await _plugin.cancel(id);
   }
 
   /// Cancels all notifications.
   Future<void> cancelAll() async {
-    if (!Platform.isAndroid) return;
+    if (!_isSupportedPlatform) return;
     await _plugin.cancelAll();
   }
 }

@@ -18,6 +18,7 @@ import 'core/service/device_token_service.dart';
 import 'core/service/notification_badge_service.dart';
 import 'core/service/notification_service.dart';
 import 'core/service/session_manager.dart';
+import 'core/service/white_label_service.dart';
 import 'firebase_options.dart';
 import 'modules/fun_fact/controller/fun_fact_controller.dart';
 import 'modules/auth/views/create_account_screen.dart';
@@ -86,6 +87,11 @@ Future<void> main() async {
       // fetch the current one in the background.
       await AuthScreenContentService.instance.init();
       unawaited(AuthScreenContentService.instance.refreshAll());
+
+      // Institute branding: the splash draws from the cached copy at once,
+      // the current one is fetched in the background (no login needed).
+      await WhiteLabelService.instance.init();
+      unawaited(WhiteLabelService.instance.refresh());
 
       await NotificationBadgeService.instance.init();
       await NotificationService.instance.init();

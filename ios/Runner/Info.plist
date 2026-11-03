@@ -9,7 +9,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Name of your app</string>
+	<string>GyaanIQ Kids</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -36,6 +36,12 @@
 	<string>Photo library access is used to save and choose your profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo library is used to choose your profile photo.</string>
+	<!-- Lets FCM wake the app for pushes while it is in the background, so the
+	     unread count keeps up. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -95,17 +95,15 @@ class LibraryTopBar extends StatelessWidget {
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE7EAF4))),
       ),
-      child: Row(
+      // The title stays centred on the screen whatever the width of
+      // [trailing] (e.g. the coin pill), so it is laid out on its own layer.
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          IconButton(
-            onPressed: onBack ?? Get.back,
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: Color(0xFF103383),
-              size: 22,
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: trailing == null ? 48 : 84,
             ),
-          ),
-          Expanded(
             child: Text(
               title,
               textAlign: TextAlign.center,
@@ -118,7 +116,20 @@ class LibraryTopBar extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(width: 48, child: trailing),
+          Row(
+            children: [
+              IconButton(
+                onPressed: onBack ?? Get.back,
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Color(0xFF103383),
+                  size: 22,
+                ),
+              ),
+              const Spacer(),
+              ?trailing,
+            ],
+          ),
         ],
       ),
     );

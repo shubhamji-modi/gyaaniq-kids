@@ -85,6 +85,10 @@ class NotificationModel {
   /// (`libraryLesson` → the Library lesson [linkId]).
   static const String libraryLessonLink = 'libraryLesson';
 
+  /// Coins credited for an approved Library request → the coin wallet. Its
+  /// [linkId] is the request id, not the balance.
+  static const String studentCoinsLink = 'studentCoins';
+
   final String id;
 
   /// Raw grouping key from the API (the tag's `key`, or the notification's
@@ -105,16 +109,23 @@ class NotificationModel {
   bool get isLibraryLesson =>
       linkType == libraryLessonLink && linkId.isNotEmpty;
 
+  bool get isStudentCoins => linkType == studentCoinsLink;
+
   factory NotificationModel.fromApi(Map<String, dynamic> json) {
     final type = json['type']?.toString() ?? '';
     final tagKey = type.isNotEmpty ? type : 'general';
     final sentAt = DateTime.tryParse(
       json['sentAt']?.toString() ?? '',
     )?.toLocal();
-    // The link may sit at the top level or under `data`, like the push.
+    // The link may be a `link: { type, id }` object, or flat at the top level
+    // or under `data`, like the push.
+    final link = json['link'] is Map ? json['link'] as Map : const {};
     final data = json['data'] is Map ? json['data'] as Map : const {};
-    final linkType = (json['linkType'] ?? data['linkType'])?.toString() ?? '';
-    final linkId = (json['linkId'] ?? data['linkId'])?.toString() ?? '';
+    final linkType =
+        (link['type'] ?? json['linkType'] ?? data['linkType'])?.toString() ??
+        '';
+    final linkId =
+        (link['id'] ?? json['linkId'] ?? data['linkId'])?.toString() ?? '';
 
     return NotificationModel(
       id: json['_id']?.toString() ?? '',

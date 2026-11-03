@@ -54,8 +54,8 @@ class DeviceTokenService with WidgetsBindingObserver {
     if (Firebase.apps.isEmpty) return;
     try {
       final messaging = FirebaseMessaging.instance;
-      final token =
-          NotificationService.instance.currentToken ?? await messaging.getToken();
+      final token = NotificationService.instance.currentToken ??
+          await NotificationService.instance.fetchToken();
       if (token == null || token.isEmpty) return;
       NotificationService.instance.currentToken = token;
 

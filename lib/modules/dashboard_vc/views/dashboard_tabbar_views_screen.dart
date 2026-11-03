@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,9 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/data/user_profile_provider.dart';
+import '../../../../core/models/white_label_data.dart';
+import '../../../../core/service/white_label_service.dart';
+import '../../../../core/widgets/white_label_image.dart';
 import '../../../../core/service/api_service.dart';
 import '../../../../routes/app_routes.dart';
 import '../../../../core/service/app_features_service.dart';
@@ -201,6 +205,8 @@ class _DashboardTabbarViewsScreenState extends State<DashboardTabbarViewsScreen>
     }
 
     _isFetchingProfile = true;
+    // Institute name / logo on the Profile tab; a 304 when nothing changed.
+    unawaited(WhiteLabelService.instance.refresh());
     final response = await ApiService.instance.get<dynamic>(
       endpoint: ApiService.GET_PROFILE,
       showLoader: false,
@@ -1042,6 +1048,7 @@ class _ProfileTab extends GetView<DashboardTabbarController> {
           const SizedBox(height: 18),
           const _ProfileInfoCard(),
           const SizedBox(height: 14),
+          const _InstituteBrandCard(),
           const _ProfileStatsCard(),
           const SizedBox(height: 14),
           const AppFeatureGate(
@@ -1488,9 +1495,9 @@ class _FunFactCardState extends State<_FunFactCard> {
 
       // Optional strip: nothing to show without subjects, so drop the whole
       // card rather than leaving an empty box on the Home tab.
+      final subjects = controller.funFactSubjects;
       if (controller.learnSubjectsError.value.isNotEmpty ||
-          (!controller.isLoadingLearnSubjects.value &&
-              controller.learnSubjects.isEmpty)) {
+          (!controller.isLoadingLearnSubjects.value && subjects.isEmpty)) {
         return const SizedBox.shrink();
       }
 
@@ -1520,15 +1527,13 @@ class _FunFactCardState extends State<_FunFactCard> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(right: 18),
-                itemCount: isLoading ? 4 : controller.learnSubjects.length,
+                itemCount: isLoading ? 4 : subjects.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 16),
                 itemBuilder: (context, index) {
                   if (isLoading) {
                     return const _FunFactSkeletonItem();
                   }
-                  return _FunFactSubjectItem(
-                    subject: controller.learnSubjects[index],
-                  );
+                  return _FunFactSubjectItem(subject: subjects[index]);
                 },
               ),
             ),
@@ -4907,6 +4912,98 @@ class _ProfileInfoCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The institute the app is branded for (White Label page): logo + name.
+/// Hidden until the admin sets a name or logo, so a plain install shows the
+/// Profile tab exactly as before.
+class _InstituteBrandCard extends StatelessWidget {
+  const _InstituteBrandCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<WhiteLabelData>(
+      valueListenable: WhiteLabelService.instance.data,
+      builder: (context, brand, _) {
+        if (!brand.hasInstituteBranding) return const SizedBox.shrink();
+
+        final isCompact = MediaQuery.of(context).size.width < 360;
+        final logoSize = isCompact ? 46.0 : 52.0;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 14 : 16,
+              vertical: isCompact ? 12 : 14,
+            ),
+            decoration: _cardDecoration(borderRadius: 24),
+            child: Row(
+              children: [
+                Container(
+                  width: logoSize,
+                  height: logoSize,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: WhiteLabelImageView(
+                      image: brand.instituteLogo,
+                      fallback: Image.asset(
+                        'assets/icon/app_icon.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'YOUR INSTITUTE',
+                        style: TextStyle(
+                          color: AppColors.textMuted5,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        brand.displayName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: isCompact ? 14.5 : 15.5,
+                          fontWeight: FontWeight.w800,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.verified_rounded,
+                  color: AppColors.primaryBright,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

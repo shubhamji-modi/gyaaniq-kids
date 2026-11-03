@@ -39,29 +39,4 @@ void main() {
       expect(batch.isCompleted, isFalse);
     });
   });
-
-  group('FunFactController.subjectCategoryFor', () {
-    test('maps syllabus titles onto the server enum', () {
-      expect(FunFactController.subjectCategoryFor('Mathematics'), 'Mathematics');
-      expect(FunFactController.subjectCategoryFor('Maths'), 'Mathematics');
-      expect(FunFactController.subjectCategoryFor('Science'), 'Science');
-      expect(FunFactController.subjectCategoryFor('EVS'), 'Science');
-      expect(FunFactController.subjectCategoryFor('English'), 'English');
-      expect(FunFactController.subjectCategoryFor('Hindi'), 'Hindi');
-      expect(
-        FunFactController.subjectCategoryFor('Social Science'),
-        'Social Studies',
-      );
-      expect(FunFactController.subjectCategoryFor('History'), 'Social Studies');
-      expect(
-        FunFactController.subjectCategoryFor('Computer'),
-        'Computer Science',
-      );
-    });
-
-    test('an unknown subject sends no filter rather than a bad enum', () {
-      expect(FunFactController.subjectCategoryFor('Sanskrit'), isNull);
-      expect(FunFactController.subjectCategoryFor(''), isNull);
-    });
-  });
 }

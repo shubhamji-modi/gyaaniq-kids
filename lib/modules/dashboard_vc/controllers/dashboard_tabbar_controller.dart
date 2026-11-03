@@ -1023,7 +1023,7 @@ class DashboardTabbarController extends GetxController {
     if (AppFeaturesService.instance.isFunFactEnabled) {
       unawaited(
         FunFactController.instance.preloadForSubjects([
-          for (final subject in learnSubjects)
+          for (final subject in funFactSubjects)
             (id: subject.subjectId, title: subject.title),
         ]),
       );
@@ -1032,6 +1032,28 @@ class DashboardTabbarController extends GetxController {
       // the audio bed is ready the instant a Fun Fact story opens.
       unawaited(FunFactBgSoundPlayer.instance.ensureFetched());
     }
+  }
+
+  /// The subjects the Fun Fact strip shows.
+  ///
+  /// Class 11 and 12 study Science and Social Science as separate branches
+  /// (Physics, History, ...), so the combined subjects are dropped for them.
+  /// They can still arrive for those classes because a subject without a
+  /// class label passes the class filter.
+  List<SubjectCardData> get funFactSubjects {
+    final classDigits = UserProfileProvider.currentClassLevel.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+    if (classDigits != '11' && classDigits != '12') {
+      return learnSubjects;
+    }
+    return learnSubjects.where((subject) {
+      final title = subject.title.trim().toLowerCase();
+      return title != 'science' &&
+          title != 'social science' &&
+          title != 'social studies';
+    }).toList();
   }
 
   /// Rebuilds the Learning Progress card from the subjects the student is

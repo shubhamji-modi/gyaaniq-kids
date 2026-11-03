@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/appcolors.dart';
+import '../../coins/views/coin_wallet_views.dart';
 import '../../dashboard_vc/views/class_change_sheet.dart';
 import '../controller/library_controller.dart';
 import '../data/library_models.dart';
@@ -67,7 +68,13 @@ class _LibraryHomeViewsState extends State<LibraryHomeViews> {
       body: SafeArea(
         child: Column(
           children: [
-            const LibraryTopBar(title: 'Library'),
+            const LibraryTopBar(
+              title: 'Library',
+              trailing: Padding(
+                padding: EdgeInsets.only(right: 10),
+                child: CoinBalancePill(),
+              ),
+            ),
             Expanded(
               child: Obx(() {
                 final meta = controller.meta.value;

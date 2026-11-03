@@ -286,6 +286,40 @@ class LibraryProgress {
   }
 }
 
+/// `feedback` on the lesson detail: whether to ask "Was this helpful?" and the
+/// student's saved vote (`up`, `down` or `null`). A vote is permanent.
+class LibraryFeedback {
+  const LibraryFeedback({required this.shouldPrompt, required this.vote});
+
+  static const String up = 'up';
+  static const String down = 'down';
+
+  static const LibraryFeedback none = LibraryFeedback(
+    shouldPrompt: false,
+    vote: null,
+  );
+
+  final bool shouldPrompt;
+  final String? vote;
+
+  bool get hasVoted => vote != null;
+
+  static String? parseVote(dynamic value) {
+    final v = value?.toString();
+    return v == up || v == down ? v : null;
+  }
+
+  static LibraryFeedback? fromApi(dynamic json) {
+    if (json is! Map<String, dynamic>) return null;
+    final vote = parseVote(json['vote']);
+    return LibraryFeedback(
+      // Never ask again once a vote is on record.
+      shouldPrompt: vote == null && _bool(json['shouldPrompt']),
+      vote: vote,
+    );
+  }
+}
+
 class LibraryHtmlBlock {
   const LibraryHtmlBlock({required this.title, required this.content});
 
@@ -336,6 +370,7 @@ class LibraryLesson {
     this.notes,
     this.quizDescription = '',
     this.progress,
+    this.feedback,
   });
 
   final String id;
@@ -373,6 +408,7 @@ class LibraryLesson {
   final LibraryHtmlBlock? notes;
   final String quizDescription;
   final LibraryProgress? progress;
+  final LibraryFeedback? feedback;
 
   /// "S. Chand · Maths · Ch 4"
   String get sourceLine {
@@ -428,6 +464,7 @@ class LibraryLesson {
       notes: LibraryHtmlBlock.fromApi(json['notes']),
       quizDescription: _text(quiz['description']),
       progress: LibraryProgress.fromApi(json['progress']),
+      feedback: LibraryFeedback.fromApi(json['feedback']),
     );
   }
 
@@ -435,6 +472,18 @@ class LibraryLesson {
   LibraryLesson withFollowing(bool following) {
     if (following == isFollowing) return this;
     final count = followerCount + (following ? 1 : -1);
+    return _copy(isFollowing: following, followerCount: count < 0 ? 0 : count);
+  }
+
+  /// The student's vote is saved: stop asking.
+  LibraryLesson withVote(String vote) =>
+      _copy(feedback: LibraryFeedback(shouldPrompt: false, vote: vote));
+
+  LibraryLesson _copy({
+    bool? isFollowing,
+    int? followerCount,
+    LibraryFeedback? feedback,
+  }) {
     return LibraryLesson(
       id: id,
       classLevel: classLevel,
@@ -448,12 +497,12 @@ class LibraryLesson {
       message: message,
       canRead: canRead,
       canUpload: canUpload,
-      isFollowing: following,
+      isFollowing: isFollowing ?? this.isFollowing,
       isRequester: isRequester,
       isUploader: isUploader,
       uploadOpensAt: uploadOpensAt,
       mySessionId: mySessionId,
-      followerCount: count < 0 ? 0 : count,
+      followerCount: followerCount ?? this.followerCount,
       pageCount: pageCount,
       qaCount: qaCount,
       hasOverview: hasOverview,
@@ -465,6 +514,7 @@ class LibraryLesson {
       notes: notes,
       quizDescription: quizDescription,
       progress: progress,
+      feedback: feedback ?? this.feedback,
     );
   }
 }

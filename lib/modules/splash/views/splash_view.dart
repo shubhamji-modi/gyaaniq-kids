@@ -4,7 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dart:async';
 
+import '../../../core/models/white_label_data.dart';
 import '../../../core/service/api_service.dart';
+import '../../../core/service/white_label_service.dart';
+import '../../../core/widgets/white_label_image.dart';
 import '../../../core/service/app_features_service.dart';
 import '../../../core/service/device_token_service.dart';
 import '../../../core/service/notification_service.dart';
@@ -157,31 +160,74 @@ class _SplashViewState extends State<SplashView> {
                       child: Column(
                         children: [
                           SizedBox(height: height * 0.18),
-                          _BrandMark(
-                            size: brandSize.clamp(92.0, 132.0),
-                            borderRadius: brandRadius.clamp(28.0, 40.0),
-                          ),
-                          SizedBox(height: height * 0.04),
-                          Text(
-                            'GyaanIQ',
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: titleSize.clamp(34.0, 52.0),
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.6,
-                                ),
-                          ),
-                          SizedBox(height: height * 0.01),
-                          Text(
-                            'Unlock your potential',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.82),
-                                  fontSize: subtitleSize.clamp(15.0, 22.0),
-                                  letterSpacing: 0.2,
-                                ),
+                          // Institute branding when the admin set it,
+                          // otherwise the built-in GyaanIQ one.
+                          ValueListenableBuilder<WhiteLabelData>(
+                            valueListenable: WhiteLabelService.instance.data,
+                            builder: (context, brand, _) {
+                              final bundledMark = _BrandMark(
+                                size: brandSize.clamp(92.0, 132.0),
+                                borderRadius: brandRadius.clamp(28.0, 40.0),
+                              );
+                              // Institute branding: only the logo, no name
+                              // or tagline underneath.
+                              if (brand.splashLogo != null) {
+                                return _InstituteSplashLogo(
+                                  image: brand.splashLogo!,
+                                  maxWidth: width * 0.60,
+                                  maxHeight: height * 0.26,
+                                  fallback: bundledMark,
+                                );
+                              }
+                              return Column(
+                                children: [
+                                  bundledMark,
+                                  SizedBox(height: height * 0.04),
+                                  Text(
+                                    brand.displayName,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineMedium
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          // Long institute names get a
+                                          // smaller size so they fit 2 lines.
+                                          fontSize:
+                                              (brand.displayName.length > 18
+                                                      ? titleSize * 0.72
+                                                      : titleSize)
+                                                  .clamp(26.0, 52.0),
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: -0.6,
+                                          height: 1.15,
+                                        ),
+                                  ),
+                                  SizedBox(height: height * 0.01),
+                                  Text(
+                                    brand.instituteName == null
+                                        ? 'Unlock your potential'
+                                        : 'Powered by ${WhiteLabelData.bundledName}',
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.82,
+                                          ),
+                                          fontSize: subtitleSize.clamp(
+                                            15.0,
+                                            22.0,
+                                          ),
+                                          letterSpacing: 0.2,
+                                        ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                           const Spacer(),
                           SizedBox(
@@ -256,6 +302,49 @@ class _BrandMark extends StatelessWidget {
           height: 110,
           child: Image(
             image: AssetImage('assets/icon/app_icon.png'),
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The admin's splash logo shown directly on the gradient, without a card
+/// behind it. Sized from the image's own aspect ratio (a wide 800×300 logo
+/// or a square one both fit).
+class _InstituteSplashLogo extends StatelessWidget {
+  const _InstituteSplashLogo({
+    required this.image,
+    required this.maxWidth,
+    required this.maxHeight,
+    required this.fallback,
+  });
+
+  final WhiteLabelImage image;
+  final double maxWidth;
+  final double maxHeight;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = (image.aspectRatio ?? 1).clamp(0.5, 4.0);
+    var logoWidth = maxWidth;
+    var logoHeight = logoWidth / ratio;
+    if (logoHeight > maxHeight) {
+      logoHeight = maxHeight;
+      logoWidth = logoHeight * ratio;
+    }
+
+    return SizedBox(
+      width: logoWidth,
+      height: logoHeight,
+      child: WhiteLabelImageView(
+        image: image,
+        fallback: Center(
+          child: Image.asset(
+            'assets/icon/app_icon.png',
+            height: logoHeight,
             fit: BoxFit.contain,
           ),
         ),

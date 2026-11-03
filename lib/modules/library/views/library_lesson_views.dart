@@ -79,6 +79,21 @@ class _LibraryLessonViewsState extends State<LibraryLessonViews>
     );
   }
 
+  Future<void> _rate(String vote) async {
+    final result = await c.rate(vote);
+    if (result == null) return;
+    if (result.ok || (result.statusCode == 409 && !c.showFeedbackPrompt)) {
+      showLibrarySnack(
+        result.ok && result.message.isNotEmpty && result.message != 'Success'
+            ? result.message
+            : 'Thank you for rating this lesson.',
+      );
+    } else if (c.showFeedbackPrompt) {
+      // Still open (network, rate limit) — the student can tap again.
+      showLibrarySnack(result.displayMessage, isError: true);
+    }
+  }
+
   bool get _uploadsAvailable {
     if (!Get.isRegistered<LibraryController>()) return true;
     return Get.find<LibraryController>().meta.value?.uploadsAvailable ?? true;
@@ -120,7 +135,17 @@ class _LibraryLessonViewsState extends State<LibraryLessonViews>
               ],
             );
           }
-          if (lesson.canRead) return _ReadableLesson(lesson: lesson);
+          if (lesson.canRead) {
+            return _ReadableLesson(
+              lesson: lesson,
+              feedbackPrompt: c.showFeedbackPrompt
+                  ? _FeedbackPrompt(
+                      pendingVote: c.pendingVote.value,
+                      onVote: _rate,
+                    )
+                  : null,
+            );
+          }
           return Column(
             children: [
               LibraryTopBar(
@@ -413,9 +438,12 @@ class _LessonStatusView extends StatelessWidget {
 
 /// Readable lesson: tabs for each part that exists.
 class _ReadableLesson extends StatelessWidget {
-  const _ReadableLesson({required this.lesson});
+  const _ReadableLesson({required this.lesson, this.feedbackPrompt});
 
   final LibraryLesson lesson;
+
+  /// "Was this helpful?" — pinned under the tabs until the student answers.
+  final Widget? feedbackPrompt;
 
   @override
   Widget build(BuildContext context) {
@@ -511,6 +539,78 @@ class _ReadableLesson extends StatelessWidget {
             ),
           ),
           Expanded(child: TabBarView(children: [for (final t in tabs) t.view])),
+          ?feedbackPrompt,
+        ],
+      ),
+    );
+  }
+}
+
+/// Asks once whether the lesson matches the chapter and helps. Stays on
+/// screen until a choice is made; the choice is sent straight away and is
+/// final.
+class _FeedbackPrompt extends StatelessWidget {
+  const _FeedbackPrompt({required this.pendingVote, required this.onVote});
+
+  /// The choice being sent, or `null`.
+  final String? pendingVote;
+  final ValueChanged<String> onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = pendingVote != null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: LibraryPalette.border)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 12,
+            offset: Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Does this match your lesson and help you?',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: LibraryPrimaryButton(
+                  label: 'Helpful',
+                  icon: Icons.thumb_up_alt_rounded,
+                  color: LibraryPalette.green,
+                  expand: true,
+                  busy: pendingVote == LibraryFeedback.up,
+                  onPressed: busy ? null : () => onVote(LibraryFeedback.up),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: LibraryPrimaryButton(
+                  label: 'Not helpful',
+                  icon: Icons.thumb_down_alt_rounded,
+                  color: LibraryPalette.red,
+                  expand: true,
+                  busy: pendingVote == LibraryFeedback.down,
+                  onPressed: busy ? null : () => onVote(LibraryFeedback.down),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

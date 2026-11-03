@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../modules/coins/coin_service.dart';
 import '../../modules/notifications/controller/notification_controller.dart';
 import '../../routes/app_routes.dart';
 import 'api_service.dart';
@@ -143,6 +144,7 @@ class SessionManager extends GetxService {
     await AppFeaturesService.instance.clear();
     // A push tapped but not yet opened belongs to the student signing out.
     NotificationController.reset();
+    CoinService.instance.reset();
     if (Get.isRegistered<ApiService>()) {
       ApiService.instance.clearCache();
     }

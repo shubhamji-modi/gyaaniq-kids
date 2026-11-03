@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/appcolors.dart';
 import '../../../routes/app_routes.dart';
+import '../../coins/coin_service.dart';
 import '../../library/library_navigation.dart';
 import '../notification_data.dart';
 
@@ -88,6 +89,9 @@ class NotificationController extends GetxController {
   /// parked the same way as [_pendingNotificationId].
   static String? _pendingLibraryLessonId;
 
+  /// A tapped coin push (`linkType: studentCoins`), parked the same way.
+  static bool _pendingCoinWallet = false;
+
   /// True once the app is past splash/auth and safe to navigate from.
   static bool _isAppReady = false;
 
@@ -106,6 +110,18 @@ class NotificationController extends GetxController {
     if (lessonId.trim().isEmpty) return;
     _pendingLibraryLessonId = lessonId.trim();
     _pendingNotificationId = null;
+    _pendingCoinWallet = false;
+    if (_isAppReady) {
+      unawaited(_consumePending());
+    }
+  }
+
+  /// Entry point for a tapped coin push: opens the wallet, which fetches the
+  /// student's balance (the push's `linkId` is the request, not the balance).
+  static void handleStudentCoinsTap() {
+    _pendingCoinWallet = true;
+    _pendingLibraryLessonId = null;
+    _pendingNotificationId = null;
     if (_isAppReady) {
       unawaited(_consumePending());
     }
@@ -123,9 +139,16 @@ class NotificationController extends GetxController {
     _isAppReady = false;
     _pendingNotificationId = null;
     _pendingLibraryLessonId = null;
+    _pendingCoinWallet = false;
   }
 
   static Future<void> _consumePending() async {
+    if (_pendingCoinWallet) {
+      _pendingCoinWallet = false;
+      unawaited(CoinService.openWallet());
+      return;
+    }
+
     final lessonId = _pendingLibraryLessonId;
     if (lessonId != null) {
       _pendingLibraryLessonId = null;

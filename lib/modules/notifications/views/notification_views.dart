@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/service/app_features_service.dart';
 import '../../../core/service/notification_badge_service.dart';
 import '../../../core/theme/appcolors.dart';
+import '../../coins/coin_service.dart';
 import '../../library/library_navigation.dart';
 import '../controller/notification_controller.dart';
 import '../notification_data.dart';
@@ -65,6 +66,11 @@ class _NotificationViewsState extends State<NotificationViews> {
     if (item.isLibraryLesson &&
         AppFeaturesService.instance.isLibraryLessonsEnabled) {
       LibraryNavigation.openLesson(item.linkId);
+      return;
+    }
+    // Coins credited: show the wallet, which fetches the real balance.
+    if (item.isStudentCoins) {
+      CoinService.openWallet();
       return;
     }
     NotificationController.openDetail(item.id);

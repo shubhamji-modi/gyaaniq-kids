@@ -68,6 +68,11 @@ class FunFactController extends GetxController {
 
   static const int _factsPerSubject = 3;
 
+  /// Bumped when the way a batch is requested changes, so batches fetched the
+  /// old way are not replayed for the rest of the day. Version 2 sends the
+  /// real subject title instead of a shared category like "Science".
+  static const int _cacheVersion = 2;
+
   /// subjectId -> today's batch. Observable so the rings recolour themselves.
   final RxMap<String, FunFactBatch> _batchBySubjectId =
       <String, FunFactBatch>{}.obs;
@@ -193,6 +198,7 @@ class FunFactController extends GetxController {
 
     final cached = _batchBySubjectId[subjectId];
     if (cached != null) {
+      debugPrint('[FunFact] "$title": served from today\'s cache, no API call');
       return cached;
     }
     // Await the preload's own call rather than firing a duplicate.
@@ -211,9 +217,16 @@ class FunFactController extends GetxController {
   }
 
   Future<FunFactBatch?> _fetchAndCache(String subjectId, String title) async {
+    // No subject means the server would hand back a mixed batch from other
+    // subjects, so a story must stay empty rather than show unrelated facts.
+    final subject = title.trim();
+    if (subject.isEmpty) {
+      debugPrint('[FunFact] Empty subject title, skipped');
+      return null;
+    }
     final startedAt = DateTime.now();
     final urls = await _fetchFunFacts(
-      subject: subjectCategoryFor(title),
+      subject: subject,
       count: _factsPerSubject,
     );
     debugPrint(
@@ -243,15 +256,28 @@ class FunFactController extends GetxController {
     await _persist();
   }
 
-  Future<List<String>> _fetchFunFacts({String? subject, int count = 3}) async {
+  Future<List<String>> _fetchFunFacts({
+    required String subject,
+    int count = 3,
+  }) async {
+    final payload = <String, dynamic>{
+      'subject': subject,
+      'count': count.clamp(1, 20),
+    };
+    debugPrint('[FunFact] Request subject: "$subject", payload: $payload');
+
     final response = await ApiService.instance.get<dynamic>(
       endpoint: ApiService.FUN_FACTS,
       showLoader: false,
-      queryParameters: {'subject': ?subject, 'count': count.clamp(1, 20)},
+      queryParameters: payload,
       fromJson: (json) => json,
     );
 
     if (!response.success || response.data is! Map<String, dynamic>) {
+      debugPrint(
+        '[FunFact] Request "$subject" failed: '
+        '${response.statusCode} ${response.message}',
+      );
       return const [];
     }
 
@@ -273,31 +299,6 @@ class FunFactController extends GetxController {
       }
     }
     return urls;
-  }
-
-  /// Maps a subject title from the child's syllabus onto the server's fixed
-  /// category enum. Returns null when there is no confident match, which makes
-  /// the request omit `subject` (server then returns a mixed batch) instead of
-  /// sending an out-of-enum value and getting a 400.
-  static String? subjectCategoryFor(String subjectTitle) {
-    final s = subjectTitle.trim().toLowerCase();
-    if (s.isEmpty) {
-      return null;
-    }
-    if (s.contains('math')) return 'Mathematics';
-    if (s.contains('comput')) return 'Computer Science';
-    if (s.contains('science') && s.contains('social')) return 'Social Studies';
-    if (s.contains('social') || s.contains('sst') || s.contains('civics')) {
-      return 'Social Studies';
-    }
-    if (s.contains('history') || s.contains('geograph')) {
-      return 'Social Studies';
-    }
-    if (s.contains('science') || s.contains('evs')) return 'Science';
-    if (s.contains('english')) return 'English';
-    if (s.contains('hindi')) return 'Hindi';
-    if (s.contains('gk') || s.contains('general')) return 'General Knowledge';
-    return null;
   }
 
   Future<void> _ensureRestored() async {
@@ -330,6 +331,10 @@ class FunFactController extends GetxController {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map || decoded['date'] != _todayKey()) {
+        return;
+      }
+      if (decoded['version'] != _cacheVersion) {
+        debugPrint('[FunFact] Cache dropped: old request format.');
         return;
       }
       // Batches fetched under a different _factsPerSubject are the wrong size,
@@ -365,6 +370,7 @@ class FunFactController extends GetxController {
       _prefsKey,
       jsonEncode({
         'date': _cacheDate,
+        'version': _cacheVersion,
         // Stamped so a change to _factsPerSubject invalidates the cache
         // instead of being masked by it until midnight.
         'count': _factsPerSubject,

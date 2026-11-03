@@ -8,14 +8,21 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
+    // Lets flutter_local_notifications / firebase_messaging receive and show
+    // notifications while the app is in the foreground.
+    UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
 
-    // Only configure Firebase natively when GoogleService-Info.plist is present.
-    // Without this guard, `FirebaseApp.configure()` throws an uncaught exception
-    // and crashes the app on launch when the plist hasn't been added yet.
-    if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+    // Configure before the plugins register, and only once: the FlutterFire
+    // plugins configure the default app themselves too, and a second
+    // `FirebaseApp.configure()` throws "Default app has already been
+    // configured" and crashes on launch. Also skipped when the plist is
+    // missing, where configure() would throw as well.
+    if FirebaseApp.app() == nil,
+       Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
       FirebaseApp.configure()
     }
+
+    GeneratedPluginRegistrant.register(with: self)
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

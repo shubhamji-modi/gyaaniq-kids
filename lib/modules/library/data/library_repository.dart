@@ -310,6 +310,18 @@ class LibraryRepository {
     parse: _lessonFrom,
   );
 
+  /// `201` saved (`data.vote`) · `409` already voted (saved vote in the error
+  /// details) or the lesson was never opened · `403` / `404` not eligible ·
+  /// `400` bad vote · `429` rate limited.
+  static Future<LibraryResult<String?>> rateLesson({
+    required String lessonId,
+    required String vote,
+  }) => _post(
+    _withId(ApiService.LIBRARY_LESSON_FEEDBACK, lessonId),
+    body: {'vote': vote},
+    parse: (data) => LibraryFeedback.parseVote(data['vote']),
+  );
+
   // ---------------------------------------------------------------------------
   // Uploads
   // ---------------------------------------------------------------------------

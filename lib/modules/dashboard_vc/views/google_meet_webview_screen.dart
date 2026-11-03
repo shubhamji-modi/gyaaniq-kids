@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/theme/appcolors.dart';
-
 class GoogleMeetWebViewScreen extends StatefulWidget {
   const GoogleMeetWebViewScreen({
     super.key,
